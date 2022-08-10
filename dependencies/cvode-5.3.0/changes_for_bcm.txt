@@ -1,0 +1,2 @@
+- Removed unneeded parts
+- Modified the root CMakeLists.txt to work within the BCM CMakeLists

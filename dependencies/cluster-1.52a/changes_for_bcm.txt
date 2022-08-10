@@ -1,0 +1,1 @@
+Included only the parts of clusterc relevant for BCM, and added a CMakeLists.txt file for inclusion in the CMake project.
