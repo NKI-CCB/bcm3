@@ -9,28 +9,12 @@ if(CMAKE_HOST_WIN32)
 endif(CMAKE_HOST_WIN32)
 find_package(Boost REQUIRED COMPONENTS program_options filesystem system date_time chrono)
 
-# NetCDF settings
-if(CMAKE_HOST_WIN32)
-    set(NETCDF_LIBRARIES "C:/Program Files/netCDF 4.7.0/lib/netcdf.lib")
-    set(NETCDF_INCLUDE_DIR "C:/Program Files/netCDF 4.7.0/include")
-endif(CMAKE_HOST_WIN32)
-if(CMAKE_HOST_UNIX)
-    set(NETCDF_LIBRARIES "libnetcdf.so")
-    set(NETCDF_INCLUDE_DIR "/usr/include")
-endif(CMAKE_HOST_UNIX)
+# bthijssen: I tried to make these work with find_package, but didn't manage to find a way that works
+# on Windows with either prebuilt netCDF/libsbml or custom ones. So for now it is required to manually
+# specify the location of these libraries
+include("external_dependency_locations.txt")
 
-# libSBML settings
-if(CMAKE_HOST_WIN32)
-    set(SBML_LIBRARIES "D:/Programming/Libraries/libSBML-5.18.0-install/lib/libsbml.lib")
-    set(SBML_LIBRARIES_DEBUG "D:/Programming/Libraries/libSBML-5.18.0-install/lib/libsbmld.lib")
-    set(SBML_INCLUDE_DIR "D:/Programming/Libraries/libSBML-5.18.0-install/include")
-endif(CMAKE_HOST_WIN32)
-if(CMAKE_HOST_UNIX)
-    set(SBML_LIBRARIES "libsbml.so")
-    set(SBML_LIBRARIES_DEBUG "libsbml.so")
-    set(SBML_INCLUDE_DIR "/usr/include")
-endif(CMAKE_HOST_UNIX)
-
+# Some required global sections
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -49,14 +33,11 @@ add_subdirectory(dependencies/cvode-5.3.0)
 add_subdirectory(dependencies/eigen-3.4-rc1)
 add_subdirectory(dependencies/HungarianAlgorithm-master)
 add_subdirectory(src/bcminf)
-add_subdirectory(src/bcmopt)
 add_subdirectory(src/bcmrbridge)
 add_subdirectory(src/cellpop)
-add_subdirectory(src/dynamicISA)
 add_subdirectory(src/fISA)
 add_subdirectory(src/likelihoods)
 add_subdirectory(src/odecommon)
 add_subdirectory(src/sampler)
 add_subdirectory(src/sbml)
-add_subdirectory(src/stats)
 add_subdirectory(src/utils)

@@ -14,19 +14,13 @@ target_sources(likelihoods
 	TestLikelihoodCircular.cpp
 )
 
-target_include_directories(likelihoods
-  PUBLIC
-    ../dynamicISA
-    ../fISA
-    ../cellpop
-)
-
 target_link_libraries(likelihoods
   PUBLIC
-    dynamicISA
+    utils
+    sampler
+    odecommon
     fISA
     cellpop
-    utils
 )
 
 set_target_properties(likelihoods PROPERTIES DEBUG_POSTFIX d)

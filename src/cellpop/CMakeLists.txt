@@ -22,22 +22,18 @@ target_sources(cellpop
 
 target_include_directories(cellpop
   PUBLIC
-    ../utils
-    ../odecommon
-    ../sampler
-    ../sbml
-  SYSTEM PUBLIC
-    ${SBML_INCLUDE_DIR}
+    .
 )
 
 target_link_libraries(cellpop
   PUBLIC
+    utils
+    sbml
+  PRIVATE
     hungarian_matching
     odecommon
     sampler
-    sbml
-    utils
-    ${CMAKE_DL_LIBS}
+    #${CMAKE_DL_LIBS}
 )
 
 target_precompile_headers(cellpop PRIVATE ../utils/Utils.h)

@@ -18,16 +18,11 @@ target_sources(fISA
 
 target_include_directories(fISA
   PUBLIC
-    ../utils
-    ../sampler
-    ../sbml
-  SYSTEM PUBLIC
-    ${SBML_INCLUDE_DIR}
+    .
 )
 
 target_link_libraries(fISA
-  PUBLIC
-    utils
+  PRIVATE
     sampler
     sbml
 )

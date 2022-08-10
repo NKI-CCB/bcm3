@@ -25,7 +25,7 @@ target_sources(odecommon
 
 target_include_directories(odecommon
   PUBLIC
-    ../utils
+    .
      ../../dependencies/cvode-5.3.0/include
 )
 

@@ -34,13 +34,11 @@ target_sources(sampler
 
 target_include_directories(sampler
   PUBLIC
-    ../stats
-    ../utils
+    .
 )
 
 target_link_libraries(sampler
   PUBLIC
-    stats
     utils
 )
 

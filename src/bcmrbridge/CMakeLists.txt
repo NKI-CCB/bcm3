@@ -5,7 +5,6 @@ target_sources(bcmrbridge
     interface.h
     interface.cpp
     interface_cellpop.cpp
-    interface_dynamicISA.cpp
     interface_fISA.cpp
     interface_popPK.cpp
     definitions.def

@@ -2,6 +2,10 @@ add_library(utils)
 
 target_sources(utils
   PRIVATE
+    Clustering.h
+    Clustering.cpp
+    Correlation.h
+    Correlation.cpp
     CSVParser.h
     CSVParser.cpp
     EigenPartialPivLUSomewhatSparse.h
@@ -19,6 +23,8 @@ target_sources(utils
     RNG.h
     RNG.cpp
     Spinlock.h
+    SummaryStats.h
+    SummaryStats.cpp
     TaskManager.h
     TaskManager.cpp
     Timer.h
@@ -31,8 +37,9 @@ target_sources(utils
 )
 
 target_include_directories(utils
-  SYSTEM PUBLIC
-    ${Boost_INCLUDE_DIR}
+  PUBLIC
+    .
+  PRIVATE
     ${NETCDF_INCLUDE_DIR}
 )
 
@@ -41,8 +48,9 @@ target_link_libraries(utils
     Eigen
     Boost::headers
     ${Boost_LIBRARIES}
-    ${NETCDF_LIBRARIES}
     Threads::Threads
+  PRIVATE
+    ${NETCDF_LIBRARIES}
     clusterc
 )
 

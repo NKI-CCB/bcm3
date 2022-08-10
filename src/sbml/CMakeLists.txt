@@ -16,16 +16,22 @@ target_sources(sbml
     SBMLSpecies.cpp
 )
 
+target_include_directories(sbml
+  PUBLIC
+    .
+    ${SBML_INCLUDE_DIR}
+  PRIVATE
+)
 
 target_link_libraries(sbml
   PUBLIC
-    Eigen
-    Boost::headers
+    utils
+  PRIVATE
+    sampler
+    odecommon
     debug ${SBML_LIBRARIES_DEBUG}
     optimized ${SBML_LIBRARIES}
 )
 
 set_target_properties(sbml PROPERTIES DEBUG_POSTFIX d)
-target_include_directories(sbml PRIVATE ../utils ../sampler ../odecommon ../../dependencies/cvode-5.3.0/include)
-target_include_directories(sbml SYSTEM PUBLIC ${Boost_INCLUDE_DIR} ${SBML_INCLUDE_DIR})
 target_precompile_headers(sbml PRIVATE ../utils/Utils.h)

@@ -2,7 +2,6 @@
 #include "LikelihoodFactory.h"
 
 #include "CellPopulationLikelihood.h"
-#include "dynamicISALikelihood.h"
 #include "fISALikelihood.h"
 #include "LikelihoodPharmacokineticTrajectory.h"
 #include "LikelihoodPopPKTrajectory.h"
@@ -28,9 +27,7 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 		boost::property_tree::ptree likelihood_node = pt.get_child("bcm_likelihood");
 		
 		std::string type = likelihood_node.get<std::string>("<xmlattr>.type");
-		if (type == "dynamicISA") {
-			ll = std::make_shared<dynamicISALikelihood>(sampling_threads, evaluation_threads);
-		} else if (type == "fISA") {
+		if (type == "fISA") {
 			ll = std::make_shared<fISALikelihood>(sampling_threads, evaluation_threads);
 		} else if (type == "cell_population") {
 			ll = std::make_shared<CellPopulationLikelihood>(sampling_threads, evaluation_threads);
