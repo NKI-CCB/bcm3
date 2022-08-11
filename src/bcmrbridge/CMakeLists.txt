@@ -18,7 +18,6 @@ target_include_directories(bcmrbridge
 target_link_libraries(bcmrbridge
   PRIVATE
     likelihoods
-    ${CMAKE_DL_LIBS}
 )
 
 set_target_properties(bcmrbridge PROPERTIES DEBUG_POSTFIX d)

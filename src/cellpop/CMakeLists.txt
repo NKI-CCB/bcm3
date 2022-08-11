@@ -29,11 +29,11 @@ target_link_libraries(cellpop
   PUBLIC
     utils
     sbml
+    ${CMAKE_DL_LIBS}
   PRIVATE
     hungarian_matching
     odecommon
     sampler
-    #${CMAKE_DL_LIBS}
 )
 
 target_precompile_headers(cellpop PRIVATE ../utils/Utils.h)
