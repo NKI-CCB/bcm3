@@ -887,12 +887,17 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 	std::vector<ptrdiff_t> assignment;
 	NaiveKMeans(Y, sampler->clustered_blocking_n_clusters, 10, 100, clustered_blocking_kmeans_centroids, assignment, sampler->async[thread].rng);
 
-	// Could do better here and assign the whole history rather than the subsample;
-	// then calculate the covariances over the whole history
-
 	if (output_update_info) {
-		update_info_output.AddVector(output_update_info_group, "assignment", assignment);
+		std::vector<int> assignment_int(assignment.size());
+		for (ptrdiff_t i = 0; i < assignment.size(); i++) {
+			ASSERT(assignment[i] <= std::numeric_limits<int>::max());
+			assignment_int[i] = (int)assignment[i];
+		}
+		update_info_output.AddVector(output_update_info_group, "assignment", assignment_int);
 	}
+
+	// Could perhaps do slightly better here and assign the whole history rather than the subsample;
+	// then calculate the covariances over the whole history
 
 	// Calculate covariance in every cluster
 	MatrixReal max_abs_corr = MatrixReal::Constant(sampler->num_variables, sampler->num_variables, 0.0);
