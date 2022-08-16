@@ -7,6 +7,13 @@
 
 namespace bcm3 {
 
+template<> int NetCDFDataFile::CreateVariableSpec<int>					(int group, const char* varname, int ndims, const int* dimidsp, int* varidp) const { return nc_def_var(group, varname, NC_INT	, 1, dimidsp, varidp); }
+template<> int NetCDFDataFile::CreateVariableSpec<unsigned int>			(int group, const char* varname, int ndims, const int* dimidsp, int* varidp) const { return nc_def_var(group, varname, NC_UINT	, 1, dimidsp, varidp); }
+template<> int NetCDFDataFile::CreateVariableSpec<long long>			(int group, const char* varname, int ndims, const int* dimidsp, int* varidp) const { return nc_def_var(group, varname, NC_INT64	, 1, dimidsp, varidp); }
+template<> int NetCDFDataFile::CreateVariableSpec<unsigned long long>	(int group, const char* varname, int ndims, const int* dimidsp, int* varidp) const { return nc_def_var(group, varname, NC_UINT64, 1, dimidsp, varidp); }
+template<> int NetCDFDataFile::CreateVariableSpec<float>				(int group, const char* varname, int ndims, const int* dimidsp, int* varidp) const { return nc_def_var(group, varname, NC_FLOAT	, 1, dimidsp, varidp); }
+template<> int NetCDFDataFile::CreateVariableSpec<double>				(int group, const char* varname, int ndims, const int* dimidsp, int* varidp) const { return nc_def_var(group, varname, NC_DOUBLE, 1, dimidsp, varidp); }
+
 template<> int NetCDFDataFile::GetValueSpec(int group, int var, size_t dim1ix, int*					value) const { return nc_get_var1_int		(group, var, &dim1ix, value); }
 template<> int NetCDFDataFile::GetValueSpec(int group, int var, size_t dim1ix, unsigned int*		value) const { return nc_get_var1_uint		(group, var, &dim1ix, value); }
 template<> int NetCDFDataFile::GetValueSpec(int group, int var, size_t dim1ix, long*				value) const { return nc_get_var1_long		(group, var, &dim1ix, value); }
@@ -221,19 +228,6 @@ bool NetCDFDataFile::CreateVariable(const std::string& group_name, const std::st
 
 	int varid = -1;
 	NC_HANDLE_ERROR(nc_def_var(group, variable_name.c_str(), NC_DOUBLE, 3, dims, &varid), "Error creating variable \"%s\"; status: %d", group_name.c_str())
-	return true;
-}
-
-bool NetCDFDataFile::CreateUintVariable(const std::string& group_name, const std::string& variable_name, const std::string& dim1name)
-{
-	// Probably better to make it a parameter instead..
-	int group = GetGroup(group_name);
-	if (group == -1) { return false; }
-	int dim = GetDimension(group, dim1name);
-	if (dim == -1) { return false; }
-
-	int varid = -1;
-	NC_HANDLE_ERROR(nc_def_var(group, variable_name.c_str(), NC_UINT, 1, &dim, &varid), "Error creating variable \"%s\"; status: %d", variable_name.c_str())
 	return true;
 }
 

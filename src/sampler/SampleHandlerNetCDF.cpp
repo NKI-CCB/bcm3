@@ -46,7 +46,7 @@ bool SampleHandlerNetCDF::Initialize(size_t sample_count, const VariableSet* var
 	result &= netcdf_file.CreateDimension("samples", "sample_ix", sampleix);
 	result &= netcdf_file.CreateDimension("samples", "variable", varnames);
 	result &= netcdf_file.CreateDimension("samples", "temperature", output_temperatures);
-	result &= netcdf_file.CreateUintVariable("samples", "variable_transform", "variable");
+	result &= netcdf_file.CreateVariable<unsigned int>("samples", "variable_transform", "variable");
 	result &= netcdf_file.CreateVariable("samples", "variable_values", "sample_ix", "temperature", "variable");
 	result &= netcdf_file.CreateVariable("samples", "log_prior", "sample_ix", "temperature");
 	result &= netcdf_file.CreateVariable("samples", "log_likelihood", "sample_ix", "temperature");

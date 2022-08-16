@@ -930,7 +930,6 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 	std::vector< std::set<size_t> > variable_clusters;
 	bcm3::TreeCluster(distance, variable_clusters, 0.5);
 
-
 	// Use the same variable clustering for all the sample clusters, but use only the samples belonging
 	// to a cluster to calculate the covariance for this block of variables in this cluster
 	clustered_blocking_blocks.resize(sampler->clustered_blocking_n_clusters);
@@ -938,6 +937,9 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 		Cluster& c = clustered_blocking_blocks[ci];
 		c.blocks.clear();
 		c.blocks.resize(variable_clusters.size());
+
+		std::vector<int> block_assignment(sampler->num_variables);
+		MatrixReal joint_covariance_for_output = MatrixReal::Zero(sampler->num_variables, sampler->num_variables);
 
 		for (size_t i = 0; i < variable_clusters.size(); i++) {
 			for (std::set<size_t>::iterator vi = variable_clusters[i].begin(); vi != variable_clusters[i].end(); ++vi) {
@@ -949,10 +951,15 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 			}
 
 			if (variable_clusters[i].size() > 1) {
+				for (std::vector<int>::iterator bi = c.blocks[i].variable_indices.begin(); bi != c.blocks[i].variable_indices.end(); bi++) {
+					block_assignment[*bi] = i;
+				}
+
 				MatrixReal cov = MatrixReal::Zero(variable_clusters[i].size(), variable_clusters[i].size());
 				for (size_t x = 0; x < variable_clusters[i].size(); x++) {
 					for (size_t y = 0; y < variable_clusters[i].size(); y++) {
 						cov(x, y) = covariances[ci](c.blocks[i].variable_indices[x], c.blocks[i].variable_indices[y]);
+						joint_covariance_for_output(c.blocks[i].variable_indices[x], c.blocks[i].variable_indices[y]) = cov(x, y);
 					}
 				}
 				c.blocks[i].cov = cov;
@@ -964,10 +971,6 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 					det += log(c.blocks[i].covariance_decomp(j, j));
 				}
 				c.blocks[i].logC = -det - 0.5 * variable_clusters[i].size() * log(2.0 * M_PI);
-
-				if (output_update_info) {
-					update_info_output.AddMatrix(output_update_info_group, "cluster" + std::to_string(ci) + "block" + std::to_string(i) + std::string("_covariance"), c.blocks[i].cov);
-				}
 			} else {
 				int ix = c.blocks[i].variable_indices[0];
 
@@ -981,13 +984,17 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 				var = std::max(var, (Real)1e-6 * prior_var);
 				c.blocks[i].sigma = sqrt(var);
 
-				if (output_update_info) {
-					update_info_output.AddMatrix(output_update_info_group, "cluster" + std::to_string(ci) + "block" + std::to_string(i) + std::string("_covariance"), MatrixReal::Constant(1, 1, var));
-				}
+				block_assignment[ix] = i;
+				joint_covariance_for_output(ix, ix) = var;
 			}
 
 			c.blocks[i].scale = 1.0;
 			c.blocks[i].current_acceptance_rate_ema = sampler->target_acceptance_rate;
+		}
+
+		if (output_update_info) {
+			update_info_output.AddVector(output_update_info_group, "cluster" + std::to_string(ci) + std::string("_block_assignment"), block_assignment);
+			update_info_output.AddMatrix(output_update_info_group, "cluster" + std::to_string(ci) + std::string("_covariance"), joint_covariance_for_output);
 		}
 	}
 

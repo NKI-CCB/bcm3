@@ -39,7 +39,7 @@ bool NetCDFBundler::AddVector(const std::string& group, const std::string& name,
 	std::string dimname = name + "_dim";
 
 	result &= ncfile.CreateDimension(group, dimname, dimvals);
-	result &= ncfile.CreateVariable(group, name, dimname);
+	result &= ncfile.CreateVariable<T>(group, name, dimname);
 	for (size_t i = 0; i < dimvals.size(); i++) {
 		result &= ncfile.PutValue(group, name, i, vec[i]);
 	}

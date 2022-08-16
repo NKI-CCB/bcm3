@@ -21,7 +21,9 @@ public:
 	bool CreateVariable(const std::string& group_name, const std::string& variable_name, const std::string& dim1name);
 	bool CreateVariable(const std::string& group_name, const std::string& variable_name, const std::string& dim1name, const std::string& dim2name);
 	bool CreateVariable(const std::string& group_name, const std::string& variable_name, const std::string& dim1name, const std::string& dim2name, const std::string& dim3name);
-	bool CreateUintVariable(const std::string& group_name, const std::string& variable_name, const std::string& dim1name);
+
+	template<typename T>
+	bool CreateVariable(const std::string& group_name, const std::string& variable_name, const std::string& dim1name);
 
 	template<typename T>
 	bool GetValue(const std::string& group_name, const std::string& variable_name, size_t dim1ix, T* value) const;
@@ -64,6 +66,7 @@ private:
 	int GetVariable(int group, const std::string& variable_name) const;
 	bool GetNDims(const std::string& group_name, const std::string& variable_name, int group, int var, int* ndims) const;
 
+	template<typename T> int CreateVariableSpec(int group, const char* varname, int ndims, const int* dimidsp, int* varidp) const;
 	template<typename T> int GetValueSpec(int group, int var, size_t dim1ix, T* value) const;
 	template<typename T> int GetValueSpec(int group, int var, size_t dim1ix, size_t dim2ix, T* value) const;
 	template<typename T> int GetValuesSpec(int group, int var, size_t dim1ix, size_t count, std::vector<T>& value) const;
@@ -72,6 +75,23 @@ private:
 
 	int fd;
 };
+
+template<typename T>
+bool NetCDFDataFile::CreateVariable(const std::string& group_name, const std::string& variable_name, const std::string& dim1name)
+{
+	int group = GetGroup(group_name);
+	if (group == -1) { return false; }
+	int dim = GetDimension(group, dim1name);
+	if (dim == -1) { return false; }
+
+	int varid = -1;
+	int result = CreateVariableSpec<T>(group, variable_name.c_str(), 1, &dim, &varid);
+	if (result != 0) {
+		LOGERROR("Error creating variable \"%s\" in group \"%s\"; status: %d", variable_name.c_str(), group_name.c_str(), result);
+		return false;
+	}
+	return true;
+}
 
 template<typename T>
 bool NetCDFDataFile::GetValue(const std::string& group_name, const std::string& variable_name, size_t dim1ix, T* value) const
