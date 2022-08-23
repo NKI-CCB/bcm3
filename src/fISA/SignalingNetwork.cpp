@@ -56,6 +56,7 @@ SignalingNetwork::SignalingMolecule::SignalingMolecule()
 	, num_parents(0)
 	, input_mixing_param(Mixing_Undefined)
 	, expression_mixing_param(std::numeric_limits<parameter_index_type>::max())
+	, has_susceptibility_altering_parent(false)
 {
 	for (int i = 0; i < MAX_PARENTS; i++) {
 		drug_susceptibility[i] = std::numeric_limits<parameter_index_type>::max();
@@ -382,6 +383,10 @@ bool SignalingNetwork::Initialize(const std::string& sbml_file, std::shared_ptr<
 			if (parent.type == SignalingMolecule::Drug && (parent.drug_inhibition_type == SignalingMolecule::InhibitActivityAlterSusceptibility ||
 														   parent.drug_inhibition_type == SignalingMolecule::AlterSusceptibility)) {
 				result &= GetVariableIx(varset.get(), parent.name + "_" + sm.name + "_susceptibility", sm.drug_susceptibility[j]);
+				if (sm.has_susceptibility_altering_parent) {
+					LOGERROR("Error: signaling molecule has more than 1 drug which alters susceptibility - this is currently not implemented");
+				}
+				sm.has_susceptibility_altering_parent = true;
 			}
 		}
 	}
@@ -779,7 +784,7 @@ void SignalingNetwork::Precalculate(size_t threadix, VectorReal& activities, Vec
 	}
 }
 
-Real SignalingNetwork::CalculateSignalInhibition(size_t i, size_t parent_ix, const VectorReal& activities, const Real* values, size_t threadix) const
+inline Real SignalingNetwork::CalculateSignalInhibition(size_t i, size_t parent_ix, const VectorReal& activities, const Real* values, size_t threadix) const
 {
 	const SignalingMolecule& sm = signaling_molecules[i];
 	const SignalingMolecule& parent = signaling_molecules[sm.parents[parent_ix]];
@@ -801,20 +806,22 @@ Real SignalingNetwork::CalculateSignalInhibition(size_t i, size_t parent_ix, con
 	}
 
 	// Special case -- TODO, this only works correctly if there is only one drug with alter susceptibility
-	for (signaling_index_type k = 0; k < sm.num_parents; k++) {
-		const SignalingMolecule& parent2 = signaling_molecules[sm.parents[k]];
-		if (parent2.type == SignalingMolecule::Drug &&
-			(parent2.drug_inhibition_type == SignalingMolecule::AlterSusceptibility || parent2.drug_inhibition_type == SignalingMolecule::InhibitActivityAlterSusceptibility) &&
-			activities(sm.parents[k]) > 0) {
-			ASSERT(sm.drug_susceptibility[k] != std::numeric_limits<parameter_index_type>::max());
-			inhibition *= GetValue(values, sm.drug_susceptibility[k]);
+	if (sm.has_susceptibility_altering_parent) {
+		for (signaling_index_type k = 0; k < sm.num_parents; k++) {
+			const SignalingMolecule& parent2 = signaling_molecules[sm.parents[k]];
+			if (parent2.type == SignalingMolecule::Drug &&
+				(parent2.drug_inhibition_type == SignalingMolecule::AlterSusceptibility || parent2.drug_inhibition_type == SignalingMolecule::InhibitActivityAlterSusceptibility) &&
+				activities(sm.parents[k]) > 0) {
+				ASSERT(sm.drug_susceptibility[k] != std::numeric_limits<parameter_index_type>::max());
+				inhibition *= GetValue(values, sm.drug_susceptibility[k]);
+			}
 		}
 	}
 
 	return inhibition;
 }
 
-Real SignalingNetwork::CalculateSignalStrength(size_t i, size_t parent_ix, const VectorReal& activities, const Real* values, size_t threadix) const
+inline Real SignalingNetwork::CalculateSignalStrength(size_t i, size_t parent_ix, const VectorReal& activities, const Real* values, size_t threadix) const
 {
 	const SignalingMolecule& sm = signaling_molecules[i];
 

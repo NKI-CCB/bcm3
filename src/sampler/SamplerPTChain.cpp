@@ -118,6 +118,7 @@ bool SamplerPTChain::Initialize(size_t history_size, size_t history_subsampling)
 			adaptation_iter = 0;
 
 			clustered_blocking_variable_scaling.setOnes(sampler->num_variables);
+			get_cluster_buffer.setZero(sampler->num_variables);
 			break;
 		}
 
@@ -815,6 +816,7 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 	VectorReal dists(n);
 	clustered_blocking_sample_scale = VectorReal::Ones(n);
 	clustered_blocking_nearest_neighbors.resize(n);
+	clustered_blocking_nearest_neighbors_bitset.resize(n);
 	for (ptrdiff_t si = 0; si < n; si++) {
 		for (ptrdiff_t sj = 0; sj < n; sj++) {
 			VectorReal v = clustered_blocking_scaled_samples.row(si) - clustered_blocking_scaled_samples.row(sj);
@@ -828,27 +830,24 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 
 		clustered_blocking_sample_scale(si) = sqrt(dists(it - ranks.begin()));
 		clustered_blocking_nearest_neighbors[si].resize(sampler->clustered_blocking_nn2);
+		clustered_blocking_nearest_neighbors_bitset[si].resize(n);
 		for (int i = 1; i < sampler->clustered_blocking_nn2 + 1; i++) {
 			auto it = std::find(ranks.begin(), ranks.end(), i + 1);
 			ASSERT(it != ranks.end());
 			clustered_blocking_nearest_neighbors[si][i - 1] = it - ranks.begin();
+			clustered_blocking_nearest_neighbors_bitset[si][it - ranks.begin()] = true;
 		}
 	}
 
 	for (ptrdiff_t si = 1; si < n; si++) {
 		for (ptrdiff_t sj = 0; sj < si; sj++) {
 			Real cnns = 0.0;
-			for (int i = 0; i < sampler->clustered_blocking_nn2; i++) {
-				for (int j = 0; j < sampler->clustered_blocking_nn2; j++) {
-					if (clustered_blocking_nearest_neighbors[si][i] == clustered_blocking_nearest_neighbors[sj][j]) {
-						cnns += 1.0;
-						break;
-					}
-				}
+			for (ptrdiff_t i = 0; i < sampler->clustered_blocking_nn2; i++) {
+				cnns += (Real)clustered_blocking_nearest_neighbors_bitset[si][clustered_blocking_nearest_neighbors[sj][i]];
 			}
 
-			Real x = K(si, sj) / (clustered_blocking_sample_scale(si) * clustered_blocking_sample_scale(sj) * (cnns + 1.0));
-			K(si, sj) = exp(-x);
+			Real val = -K(si, sj) / (clustered_blocking_sample_scale(si) * clustered_blocking_sample_scale(sj) * (cnns + 1.0));
+			K(si, sj) = approx_exp(val);
 			K(sj, si) = K(si, sj);
 		}
 	}
@@ -1019,40 +1018,44 @@ ptrdiff_t SamplerPTChain::GetSampleCluster(const VectorReal& x)
 		ASSERT(clustered_blocking_blocks.size() == 1);
 		return 0;
 	}
+
+	int nearest_neighbours_needed = std::max(sampler->clustered_blocking_nn, sampler->clustered_blocking_nn2);
+	std::vector<ptrdiff_t> nearest_neighbors(nearest_neighbours_needed);
+	std::vector<Real> nearest_neighbors_dists(nearest_neighbours_needed, std::numeric_limits<Real>::infinity());
 	
 	VectorReal y = x.cwiseQuotient(clustered_blocking_variable_scaling);
 	VectorReal dists(n);
 	for (ptrdiff_t i = 0; i < n; i++) {
-		VectorReal v = clustered_blocking_scaled_samples.row(i).transpose() - y;
-		dists(i) = v.dot(v);
+		get_cluster_buffer = clustered_blocking_scaled_samples.row(i).array() - y.array();
+		Real dist = get_cluster_buffer.dot(get_cluster_buffer);
+		dists(i) = dist;
+		for (int j = 0; j < nearest_neighbours_needed; j++) {
+			if (dist < nearest_neighbors_dists[j]) {
+				// Move the rest backward
+				for (int k = nearest_neighbours_needed - 1; k > j; k--) {
+					nearest_neighbors[k] = nearest_neighbors[k - 1];
+					nearest_neighbors_dists[k] = nearest_neighbors_dists[k - 1];
+				}
+
+				// Insert this point
+				nearest_neighbors[j] = i;
+				nearest_neighbors_dists[j] = dist;
+			}
+		}
 	}
 
-	std::vector<ptrdiff_t> ranks = rank(dists);
-
-	auto it = std::find(ranks.begin(), ranks.end(), sampler->clustered_blocking_nn + 1);
-	ASSERT(it != ranks.end());
-	Real scale = sqrt(dists(it - ranks.begin()));
-
-	std::vector<ptrdiff_t> nearest_neighbors(sampler->clustered_blocking_nn2);
-	for (ptrdiff_t i = 1; i < sampler->clustered_blocking_nn2 + 1; i++) {
-		auto it = std::find(ranks.begin(), ranks.end(), i + 1);
-		ASSERT(it != ranks.end());
-		nearest_neighbors[i - 1] = it - ranks.begin();
-	}
+	Real scale = sqrt(nearest_neighbors_dists[sampler->clustered_blocking_nn-1]);
 
 	VectorReal B = VectorReal::Zero(n);
 	for (ptrdiff_t si = 0; si < n; si++) {
 		Real cnns = 0.0;
 		for (ptrdiff_t i = 0; i < sampler->clustered_blocking_nn2; i++) {
-			for (ptrdiff_t j = 0; j < sampler->clustered_blocking_nn2; j++) {
-				if (clustered_blocking_nearest_neighbors[si][i] == nearest_neighbors[j]) {
-					cnns += 1.0;
-					break;
-				}
-			}
+			cnns += (Real)clustered_blocking_nearest_neighbors_bitset[si][nearest_neighbors[i]];
 		}
 
-		B(si) = exp(-dists(si) / (scale * clustered_blocking_sample_scale(si) * (cnns + 1.0)));
+		//B(si) = exp(-dists(si) / (scale * clustered_blocking_sample_scale(si) * (cnns + 1.0)));
+		Real val = -dists(si) / (scale * clustered_blocking_sample_scale(si) * (cnns + 1.0));
+		B(si) = exp(val);
 	}
 
 	VectorReal f = B.transpose() * clustered_blocking_spectral_decomposition;

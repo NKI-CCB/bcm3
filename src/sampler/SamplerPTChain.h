@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GMM.h"
+#include <boost/dynamic_bitset.hpp>
 
 namespace bcm3 {
 
@@ -104,8 +105,11 @@ private:
 	MatrixReal clustered_blocking_kmeans_centroids;
 	std::vector<Cluster> clustered_blocking_blocks;
 	std::vector< std::vector<ptrdiff_t> > clustered_blocking_nearest_neighbors;
+	std::vector< boost::dynamic_bitset<> > clustered_blocking_nearest_neighbors_bitset;
 	size_t current_cluster_assignment;
 	size_t adaptation_iter;
+	VectorReal get_cluster_buffer;
+
 
 	// For parallelization
 	uint64 async_task;

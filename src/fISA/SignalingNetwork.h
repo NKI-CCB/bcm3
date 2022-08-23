@@ -84,6 +84,7 @@ private:
 		parameter_index_type drug_susceptibility[MAX_PARENTS];
 		parameter_index_type input_mixing_param;
 		parameter_index_type expression_mixing_param;
+		bool has_susceptibility_altering_parent; // performance optimization
 	};
 
 	struct DrugTransporter {
@@ -116,8 +117,8 @@ private:
 	void ConstructGraph();
 	void Precalculate(size_t threadix, VectorReal& activities, VectorReal& expression, const Real* values);
 	void CalculateActivationInput(size_t i, const VectorReal& activities, const Real* values, size_t threadix, Real& sum, Real& inhibition, Real& maxinput, Real& multinput) const;
-	Real CalculateSignalInhibition(size_t i, size_t parent_ix, const VectorReal& activities, const Real* values, size_t threadix) const;
-	Real CalculateSignalStrength(size_t i, size_t parent_ix, const VectorReal& activities, const Real* values, size_t threadix) const;
+	inline Real CalculateSignalInhibition(size_t i, size_t parent_ix, const VectorReal& activities, const Real* values, size_t threadix) const;
+	inline Real CalculateSignalStrength(size_t i, size_t parent_ix, const VectorReal& activities, const Real* values, size_t threadix) const;
 	bool SolveSystem(NonlinearSystem& system, VectorReal& activities, VectorReal& expression, const Real* values, size_t threadix) const;
 	bool GetVariableIx(const bcm3::VariableSet* varset, const std::string& varstr, parameter_index_type& ix) const;
 	inline Real expression_function(Real activity, Real expression, SignalingNetwork::parameter_index_type expression_mixing_param, const Real* values) const;
