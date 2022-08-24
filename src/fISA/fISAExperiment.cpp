@@ -517,6 +517,9 @@ void fISAExperiment::PrepareActivitiesCalculation(VectorReal& activities, Vector
 			//e = bcm3::logistic(e);
 			expression(eli->model_ix) = e;
 		}
+		if (std::isnan(expression(eli->model_ix))) {
+			expression(eli->model_ix) = 1.0;
+		}
 	}
 }
 
