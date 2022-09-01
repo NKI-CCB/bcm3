@@ -16,6 +16,7 @@ public:
 	virtual void NotifyStartingCells(size_t cell_ix);
 	virtual void NotifyParents(size_t parent, size_t child);
 
+	inline const std::vector<size_t>& GetTrajectoryMatching() const { return trajectory_matching; }
 	inline const VectorReal& GetTimepoints() const { return timepoints; }
 	inline const size_t GetNumObservedData() const { return observed_data.size(); }
 	inline const MatrixReal& GetObservedData(size_t ix) const { return observed_data[ix]; }
@@ -45,6 +46,7 @@ private:
 	std::vector<MatrixReal> cell_trajectories;
 	std::vector<size_t> simulated_cell_parents;
 	std::vector< std::pair<size_t, size_t> > simulated_cell_children;
+	std::vector<size_t> trajectory_matching;
 	std::vector<MatrixReal> matched_trajectories;
 
 	std::vector<std::string> species_names;

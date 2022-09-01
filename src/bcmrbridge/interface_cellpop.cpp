@@ -285,6 +285,73 @@ void bcm3_rbridge_cellpop_get_simulated_data(char** bcm3info_ptr, char** experim
 	}
 }
 
+void bcm3_rbridge_cellpop_get_matched_simulation(char** bcm3info_ptr, char** experiment, double* param_values, int* data_ix, double* out_values, double* out_timepoints, int* out_num_cells, int* out_num_timepoints, int* retval)
+{
+	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
+	std::shared_ptr<CellPopulationLikelihood> ll = GetCellPopulationLikelihood(info, retval);
+	if (!info || !ll) {
+		return;
+	}
+
+	const Experiment* e = ll->GetExperiment(*experiment);
+	if (!e) {
+		*retval = -3;
+		return;
+	}
+
+	Real logl;
+	if (!EvaluateCellPopulationLikelihood(info, ll, param_values, &logl, retval)) {
+		*retval = -4;
+		return;
+	}
+
+	*out_num_timepoints = 0;
+	*out_num_cells = 0;
+
+	const VectorReal& timepoints = e->GetOutputTimepoints();
+	*out_num_timepoints = timepoints.size();
+	if (timepoints.size() > 500) {
+		// Need to increase size in the R buffer
+		*retval = -6;
+		return;
+	}
+	for (size_t time_i = 0; time_i < timepoints.size(); time_i++) {
+		out_timepoints[time_i] = timepoints(time_i);
+	}
+
+	const DataLikelihoodBase* dl = e->GetData(*data_ix);
+	const DataLikelihoodTimeCourse* dltc = dynamic_cast<const DataLikelihoodTimeCourse*>(dl);
+	if (dltc != nullptr) {
+		*out_num_cells = dltc->GetNumObservedData();
+		if (*out_num_cells > 500) {
+			// Need to increase size in the R buffer
+			*retval = -5;
+			return;
+		}
+		for (int i = 0; i < *out_num_cells; i++) {
+			size_t matched_ix = dltc->GetTrajectoryMatching()[i];
+			for (size_t time_i = 0; time_i < timepoints.size(); time_i++) {
+				const VectorReal& x = e->GetSimulatedTrajectory(matched_ix, time_i);
+				for (size_t j = 0; j < e->GetNumSpecies(); j++) {
+					out_values[i * timepoints.size() * e->GetNumSpecies() + time_i * e->GetNumSpecies() + j] = x(j);
+				}
+			}
+		}
+	}
+#if 0
+	// TODO
+	const DataLikelihoodDuration* dld = dynamic_cast<const DataLikelihoodDuration*>(dl);
+	if (dld != nullptr) {
+		*out_num_timepoints = 1;
+		*out_num_cells = dld->GetSimulatedData().size();
+		*out_num_markers = 1;
+		for (size_t i = 0; i < *out_num_cells; i++) {
+			out_values[i] = dld->GetSimulatedData()(i);
+		}
+	}
+#endif
+}
+
 }
 
 #if 0

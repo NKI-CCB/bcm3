@@ -105,3 +105,34 @@ bcm3.cellpop.get.simulated.data <- function(bcm3, experiment, param.values) {
   }
   return(retval)
 }
+
+bcm3.cellpop.get.matched.simulation <- function(bcm3, experiment, param.values) {
+  res <- .C("bcm3_rbridge_cellpop_get_num_data", bcm3$.cpp, as.character(experiment), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
+  if (res[[4]] != 0) {
+    stop(paste("BCM3 C++ bridge error:", res[[4]]))
+  }
+  nd <- res[[3]]
+  ns <- bcm3.cellpop.get.num.species(bcm3, experiment)
+  
+  retval <- list()
+  for (i in 1:nd) {
+    retval[[i]] <- list()
+    max_nt <- 500
+    max_cells <- 500
+    traj_buffer <- rep(0.0, ns * max_nt * max_cells)
+    time_buffer <- rep(0.0, max_nt)
+    
+    res <- .C("bcm3_rbridge_cellpop_get_matched_simulation", bcm3$.cpp, as.character(experiment), as.numeric(param.values), as.integer(i-1), traj_buffer, time_buffer,
+              as.integer(0), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
+    if (res[[9]] != 0) {
+      stop(paste("BCM3 C++ bridge error:", res[[10]]))
+    }
+    
+    ncells <- res[[7]]
+    ntimepoints <- res[[8]]
+    
+    retval[[i]]$time <- res[[6]][1:ntimepoints]
+    retval[[i]]$cells <- array(res[[5]], c(ns, ntimepoints, ncells))
+  }
+  return(retval)
+}

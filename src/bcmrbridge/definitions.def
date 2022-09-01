@@ -7,6 +7,7 @@ EXPORTS
 	bcm3_rbridge_cellpop_get_num_data
 	bcm3_rbridge_cellpop_get_observed_data
 	bcm3_rbridge_cellpop_get_simulated_data
+	bcm3_rbridge_cellpop_get_matched_simulation
 	bcm3_rbridge_fISA_get_num_data
 	bcm3_rbridge_fISA_get_num_cell_lines
 	bcm3_rbridge_fISA_get_cell_line_name

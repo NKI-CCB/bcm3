@@ -232,6 +232,8 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 		}
 	}
 
+	trajectory_matching.resize(cell_trajectories.size());
+
 	if (synchronize != ESynchronizeCellTrajectory::None) {
 		// If we're going to synchronize, make sure we simulate the cells as long as the full duration of the time course
 		// (this is needed in case there are negative timepoints)
@@ -458,11 +460,13 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 
 					size_t oi = observed_cells_with_no_parents[i];
 					matched_trajectories[oi] = cell_trajectories[j];
+					trajectory_matching[oi] = j;
 
 					if (!observed_children.empty()) {
 						for (auto ci = observed_children[oi].begin(); ci != observed_children[oi].end(); ci++) {
 							size_t child = matched_hierarchy[i][j][*ci];
 							matched_trajectories[*ci] = cell_trajectories[child];
+							trajectory_matching[*ci] = child;
 						}
 					}
 				}
