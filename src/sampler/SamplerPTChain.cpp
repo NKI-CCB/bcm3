@@ -618,7 +618,7 @@ bool SamplerPTChain::AdaptProposalGMM(size_t thread)
 		ess(i) = (Real)n_history_samples / (1.0 + 2.0 * rho_t);
 	}
 	Real min_ess = ess.minCoeff();
-	if (temperature == 1.0) {
+	if (temperature == sampler->current_temperatures.tail(1)(0)) {
 		LOG("Fitting GMMs...");
 		LOG("Number of samples in history: %u", n_history_samples);
 		LOG("Minimum effective sample size: %g", min_ess);
@@ -631,11 +631,11 @@ bool SamplerPTChain::AdaptProposalGMM(size_t thread)
 	for (size_t i = 0; i < 7; i++) {
 		std::shared_ptr<GMM> gmm = std::make_shared<GMM>();
 		if (min_ess < num_components[i] * sampler->num_variables * 2) {
-			if (temperature == 1.0) {
+			if (temperature == sampler->current_temperatures.tail(1)(0)) {
 				LOG("GMM num_components=%2d - not enough effective samples", num_components[i], gmm->GetAIC());
 			}
 		} else if (gmm->Fit(sample_history, n_history_samples, num_components[i], rng)) {
-			if (temperature == 1.0) {
+			if (temperature == sampler->current_temperatures.tail(1)(0)) {
 				LOG("GMM num_components=%2d - AIC=%.6g", num_components[i], gmm->GetAIC());
 
 #if 0
@@ -654,7 +654,7 @@ bool SamplerPTChain::AdaptProposalGMM(size_t thread)
 				best_aic = gmm->GetAIC();
 			}
 		} else {
-			if (temperature == 1.0) {
+			if (temperature == sampler->current_temperatures.tail(1)(0)) {
 				LOG("GMM num_components=%2d failed", i + 1);
 			}
 		}
@@ -741,7 +741,7 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 	NetCDFBundler update_info_output;
 	bool output_update_info = false;
 	std::string output_update_info_group = std::string("info") + std::to_string(adaptation_iter);
-	if (sampler->output_proposal_adaptation && temperature == 1.0) {
+	if (sampler->output_proposal_adaptation && temperature == sampler->current_temperatures.tail(1)(0)) {
 		if (update_info_output.Open(sampler->output_path + "sampler_adaptation.nc")) {
 			update_info_output.AddGroup(output_update_info_group);
 			output_update_info = true;

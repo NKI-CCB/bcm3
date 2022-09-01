@@ -90,12 +90,13 @@ bool SamplerPT::LoadSettings(const boost::program_options::variables_map& vm)
 
 		size_t num_chains = vm["sampler.num_chains"].as<size_t>();
 		Real temperature_power = vm["sampler.fixed_temperature_schedule_power"].as<Real>();
+		Real temperature_max = vm["sampler.fixed_temperature_schedule_max"].as<Real>();
 
 		// Power-law scaling from 1.0 downwards and the lowest chain at temperature 0
 		fixed_temperatures.setZero(num_chains);
 		for (size_t i = 1; i < num_chains - 1; i++) {
 			Real alpha = i / (Real)(num_chains - 1);
-			fixed_temperatures(i) = pow(alpha, temperature_power);
+			fixed_temperatures(i) = temperature_max * pow(alpha, temperature_power);
 		}
 		fixed_temperatures(num_chains - 1) = 1.0;
 	} catch (boost::program_options::error& e) {
@@ -301,6 +302,7 @@ void SamplerPT::AddOptionsDescription(boost::program_options::options_descriptio
 		("sampler.clustered_blocking_nn2",				boost::program_options::value<int>()->default_value(30),					"")
 		("sampler.clustered_blocking_n_clusters",		boost::program_options::value<int>()->default_value(4),						"")
 		("sampler.fixed_temperature_schedule_power",	boost::program_options::value<Real>()->default_value(3.0),					"Specifies the rate of the power-law used for the initial temperature schedule.")
+		("sampler.fixed_temperature_schedule_max",		boost::program_options::value<Real>()->default_value(1.0),					"Specifies the maximum temperature used for the initial temperature schedule.")
 		("sampler.rngseed",								boost::program_options::value<unsigned long long>()->default_value(0),		"Random number generator seed, set to 0 to use an arbitrary seed based on the computer time.")
 		("sampler.output_proposal_adaptation",			boost::program_options::value<bool>()->default_value(false),				"Whether to output information describing the proposal adaptation.")
 		;
