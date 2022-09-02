@@ -98,7 +98,7 @@ bool SamplerPT::LoadSettings(const boost::program_options::variables_map& vm)
 			Real alpha = i / (Real)(num_chains - 1);
 			fixed_temperatures(i) = temperature_max * pow(alpha, temperature_power);
 		}
-		fixed_temperatures(num_chains - 1) = 1.0;
+		fixed_temperatures(num_chains - 1) = temperature_max;
 	} catch (boost::program_options::error& e) {
 		LOGERROR("Error parsing sampler: %s", e.what());
 		return false;
