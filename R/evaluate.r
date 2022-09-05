@@ -19,9 +19,29 @@ bcm3.init.cpp <- function(bcm3, clparam = "", threads = NA) {
   if (res[[7]] != 0) {
     dyn.unload(bcm3$.cppdllfn)
     stop(paste("BCM3 C++ bridge init failed:", res[[7]]))
-  } else {
-    bcm3$.cpp <- res[[1]]
   }
+  
+  bcm3$.cpp <- res[[1]]
+  return(bcm3)
+}
+
+bcm3.reinit.cpp <- function(bcm3, clparam = "", threads = NA) {
+  res <- .C("bcm3_rbridge_cleanup", bcm3$.cpp, as.integer(0), PACKAGE="bcmrbridge")
+  if (res[[2]] != 0) {
+    stop(paste("BCM3 C++ bridge cleanup failed:", res[[2]]))
+  }
+  
+  if (is.na(threads)) {
+    threads <- as.integer(-1)
+  }
+  
+  res <- .C("bcm3_rbridge_init", "", bcm3$base_folder, bcm3$prior$file_name, bcm3$likelihood$file_name, clparam, as.integer(threads), as.integer(0), PACKAGE="bcmrbridge")
+  if (res[[7]] != 0) {
+    dyn.unload(bcm3$.cppdllfn)
+    stop(paste("BCM3 C++ bridge init failed:", res[[7]]))
+  }
+  
+  bcm3$.cpp <- res[[1]]
   return(bcm3)
 }
 

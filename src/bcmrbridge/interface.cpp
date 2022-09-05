@@ -65,8 +65,10 @@ void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn,
 	boost::program_options::options_description likelihood_options("Configuration", 120);
 	bcm3::LikelihoodFactory::AddOptionsDescription(likelihood_options);
 	boost::program_options::variables_map vm;
-	int argc = 1;
-	boost::program_options::store(boost::program_options::command_line_parser(argc, arg1).options(likelihood_options).run(), vm);
+	std::string exe_file = "";
+	const char* const argv[2] = { exe_file.c_str(), *arg1 };
+	int argc = 2;
+	boost::program_options::store(boost::program_options::command_line_parser(argc, argv).options(likelihood_options).run(), vm);
 	info->likelihood = bcm3::LikelihoodFactory::CreateLikelihood(*likelihood_fn, info->varset, vm, 1, evaluation_threads);
 	if (!info->likelihood) {
 		*retval = -5;
@@ -77,6 +79,20 @@ void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn,
 	
 	snprintf(*bcm3info_ptr, 128, "%p", (void*)info);
 	boost::filesystem::current_path(cwd);
+	*retval = 0;
+}
+
+void bcm3_rbridge_cleanup(char** bcm3info_ptr, int* retval)
+{
+	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
+	if (!info) {
+		return;
+	}
+
+	info->prior.reset();
+	info->likelihood.reset();
+	info->varset.reset();
+	delete info;
 	*retval = 0;
 }
 
