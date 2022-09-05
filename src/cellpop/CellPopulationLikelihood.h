@@ -5,6 +5,8 @@
 #include "RNG.h"
 #include "SBMLModel.h"
 
+#include <boost/program_options.hpp>
+
 class SBMLModel;
 
 class CellPopulationLikelihood : public bcm3::Likelihood
@@ -13,7 +15,7 @@ public:
 	CellPopulationLikelihood(size_t sampling_threads, size_t evaluation_threads);
 	~CellPopulationLikelihood();
 	
-	virtual bool Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node);
+	virtual bool Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm);
 	virtual bool AddNonSampledParameters(const std::vector<std::string>& variable_names);
 	virtual void SetNonSampledParameters(const VectorReal& values);
 	virtual bool PostInitialize();
@@ -22,6 +24,8 @@ public:
 	virtual bool EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp);
 
 	const Experiment* GetExperiment(const std::string& experiment);
+
+	static void AddOptionsDescription(boost::program_options::options_description& pod);
 
 private:
 	// Static variables

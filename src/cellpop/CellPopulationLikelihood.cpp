@@ -15,7 +15,7 @@ CellPopulationLikelihood::~CellPopulationLikelihood()
 {
 }
 
-bool CellPopulationLikelihood::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node)
+bool CellPopulationLikelihood::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm)
 {
 	this->varset = varset;
 	transformed_variables.setConstant(varset->GetNumVariables(), std::numeric_limits<Real>::quiet_NaN());
@@ -25,7 +25,7 @@ bool CellPopulationLikelihood::Initialize(std::shared_ptr<const bcm3::VariableSe
 		// Load all experiments
 		BOOST_FOREACH(const boost::property_tree::ptree::value_type& data, likelihood_node.get_child("")) {
 			if (data.first == "experiment") {
-				std::unique_ptr<Experiment> experiment = Experiment::Create(data.second, varset, rng, evaluation_threads);
+				std::unique_ptr<Experiment> experiment = Experiment::Create(data.second, varset, vm, rng, evaluation_threads);
 				if (!experiment) {
 					return false;
 				}
@@ -107,4 +107,11 @@ const Experiment* CellPopulationLikelihood::GetExperiment(const std::string& exp
 		}
 	}
 	return NULL;
+}
+
+void CellPopulationLikelihood::AddOptionsDescription(boost::program_options::options_description& pod)
+{
+	pod.add_options()
+		("cellpop.use_only_cell_ix", boost::program_options::value<std::string>()->default_value("-1"), "Use only a specific cell in the data likelihood; -1 to disable.")
+	;
 }

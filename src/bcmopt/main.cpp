@@ -3,7 +3,7 @@
 #include "Prior.h"
 #include "ProgressIndicatorConsole.h"
 #include "VariableSet.h"
-#include "SampleHandlerNetCDF.h"
+#include "SampleHandlerStoreMaxAPosteriori.h"
 #include "SamplerPT.h"
 
 #include <boost/program_options.hpp>
@@ -18,9 +18,11 @@ int run(const po::variables_map& vm)
 	std::shared_ptr<bcm3::Likelihood> likelihood;
 	std::vector< std::shared_ptr<bcm3::Likelihood> > parallel_likelihoods;
 	std::shared_ptr<bcm3::SamplerPT> sampler;
-	std::shared_ptr<bcm3::SampleHandlerNetCDF> output;
+	std::shared_ptr<bcm3::SampleHandlerStoreMaxAPosteriori> output;
+
+	std::string input_sample_file;
+	size_t num_input_samples, start_sample_ix;
 	std::string output_path;
-	double progress_update_time = 0.5;
 
 	try {
 		// Determine the number of threads we should use
@@ -57,7 +59,6 @@ int run(const po::variables_map& vm)
 			}
 		}
 
-		progress_update_time = vm["progress_update_time"].as<double>();
 		output_path = vm["output.folder"].as<std::string>();
 
 		// Make sure output folder exists
@@ -66,13 +67,13 @@ int run(const po::variables_map& vm)
 			std::string create_path = output_path.substr(0, output_path.size() - 1);
 			if (!boost::filesystem::create_directories(create_path)) {
 				LOGERROR("Could not create output directory.");
-				return -5;
+				return false;
 			}
 		}
 
 		// Open up a log file
 		std::string log_filename = output_path + "log.txt";
-		bcm3::logger->SetLogToFile(bcm3::Logger::Info, log_filename.c_str());
+		bcm3::logger->SetLogToFile(bcm3::Logger::Warning, log_filename.c_str());
 		bcm3::logger->LogTime();
 
 		// Create the sampler
@@ -81,22 +82,17 @@ int run(const po::variables_map& vm)
 		sampler->SetVariableSet(varset);
 		sampler->SetPrior(prior);
 
-		Real learning_rate = vm["learning_rate"].as<Real>();
 		if (likelihood->IsReentrant()) {
 			for (size_t i = 0; i < numthreads; i++) {
-				likelihood->SetLearningRate(learning_rate);
 				sampler->SetLikelihood(likelihood, i);
 			}
 		} else {
 			for (size_t i = 0; i < numthreads; i++) {
-				parallel_likelihoods[i]->SetLearningRate(learning_rate);
 				sampler->SetLikelihood(parallel_likelihoods[i], i);
 			}
 		}
 
-		output = std::make_shared<bcm3::SampleHandlerNetCDF>();
-		output->SetFile(output_path + "output.nc");
-		output->Initialize(sampler->GetNumOutputSamples(), varset.get(), sampler->GetOutputTemperatures());
+		output = std::make_shared<bcm3::SampleHandlerStoreMaxAPosteriori>();
 		sampler->AddSampleHandler(output);
 		sampler->SetOutputPath(output_path);
 
@@ -104,168 +100,187 @@ int run(const po::variables_map& vm)
 		if (!sampler->Initialize()) {
 			return -10;
 		}
+
+		input_sample_file = vm["input.sample_file"].as<std::string>();
+		num_input_samples = vm["input.num_samples"].as<size_t>();
+		start_sample_ix = vm["input.start_sample_ix"].as<size_t>();
 	} catch (const std::exception & e) {
 		LOGERROR("Program options error: %s", e.what());
 		return -1;
 	}
 
-	if (likelihood->IsReentrant()) {
-		if (!likelihood->PostInitialize()) {
-			return -6;
-		}
-	} else {
-		for (size_t i = 0; i < parallel_likelihoods.size(); i++) {
-			if (!parallel_likelihoods[i]->PostInitialize()) {
-				return -6;
-			}
-		}
-	}
-
-	std::shared_ptr<bcm3::ProgressIndicatorConsole> pic = std::make_shared<bcm3::ProgressIndicatorConsole>();
-	pic->SetUpdateTime(progress_update_time);
-	sampler->SetProgressIndicator(pic);
-
-	printf("Starting sampler...\n");
-	bool result = sampler->Run();
-	printf("Sampling finished.\n");
-
-	output->Close();
-
-	likelihood->OutputEvaluationStatistics(output_path);
-
-	if (result) {
-		return 0;
-	} else {
-		return -20;
-	}
-}
-
-int predict(const po::variables_map& vm)
-{
-	std::shared_ptr<bcm3::VariableSet> varset;
-	std::shared_ptr<bcm3::Prior> prior;
-	std::shared_ptr<bcm3::Likelihood> likelihood;
-	std::vector< std::shared_ptr<bcm3::Likelihood> > parallel_likelihoods;
-
-	std::string predict_input_fn;
-	std::string predict_output_fn;
-
-	try {
-		size_t evaluation_threads = vm["evaluation_threads"].as<size_t>();
-		varset = std::make_shared<bcm3::VariableSet>();
-		if (!varset->LoadFromXML(vm["prior"].as<std::string>())) {
-			return -2;
-		}
-
-		prior = bcm3::Prior::Create(vm["prior"].as<std::string>(), varset, 1);
-		if (!prior) {
-			return -3;
-		}
-
-		std::string likelihood_file = vm["likelihood"].as<std::string>();
-		likelihood = bcm3::LikelihoodFactory::CreateLikelihood(likelihood_file, varset, vm, 1, evaluation_threads);
-		if (!likelihood) {
-			return -4;
-		}
-
-		std::string output_path = vm["output.folder"].as<std::string>();
-		predict_input_fn = vm["predict.input"].as<std::string>();
-		predict_output_fn = vm["predict.output"].as<std::string>();
-
-		// Make sure output folder exists
-		bcm3::fix_path(output_path);
-		if (!boost::filesystem::is_directory(output_path)) {
-			std::string create_path = output_path.substr(0, output_path.size() - 1);
-			if (!boost::filesystem::create_directories(create_path)) {
-				LOGERROR("Could not create output directory.");
-				return -5;
-			}
-		}
-
-		// Open up a log file
-		std::string log_filename = output_path + "log.txt";
-		bcm3::logger->SetLogToFile(bcm3::Logger::Info, log_filename.c_str());
-		bcm3::logger->LogTime();
-
-		predict_output_fn = output_path + predict_output_fn;
-	} catch (const std::exception & e) {
-		LOGERROR("Program options error: %s", e.what());
-		return -1;
-	}
-
-	if (!likelihood->PostInitialize()) {
-		return -6;
-	}
+	//std::shared_ptr<bcm3::ProgressIndicator> pic = std::make_shared<bcm3::ProgressIndicatorConsole>();
+	//sampler->SetProgressIndicator(pic);
 
 	bcm3::NetCDFDataFile sample_file;
-	if (!sample_file.Open(predict_input_fn, false)) {
-		LOGERROR("Unable to open input sample file \"%s\"", predict_input_fn.c_str());
+	if (!sample_file.Open(input_sample_file, false)) {
+		LOGERROR("Unable to open input sample file \"%s\"", input_sample_file.c_str());
 		return -11;
 	}
 	bool result = true;
 	size_t total_samples, num_variables, num_temperatures;
 	std::vector<std::string> variable_names;
 	VectorReal temperatures;
-	std::vector<unsigned int> sample_ixs;
 	result &= sample_file.GetDimensionSize("samples", "sample_ix", &total_samples);
 	result &= sample_file.GetDimensionSize("samples", "variable", &num_variables);
 	result &= sample_file.GetDimensionSize("samples", "temperature", &num_temperatures);
-	result &= sample_file.GetValues("samples", "sample_ix", 0, total_samples, sample_ixs);
 	result &= sample_file.GetValues("samples", "variable", 0, num_variables, variable_names);
 	result &= sample_file.GetValues("samples", "temperature", 0, num_temperatures, temperatures);
+
+	std::vector<size_t> use_parameter_ix;
+	std::vector<std::string> use_parameter_names;
+	std::vector<unsigned int> use_variable_transforms;
+	for (size_t i = 0; i < num_variables; i++) {
+		bool is_sampled = false;
+		for (size_t j = 0; j < varset->GetNumVariables(); j++) {
+			if (varset->GetVariableName(j) == variable_names[i]) {
+				is_sampled = true;
+				break;
+			}
+		}
+		if (!is_sampled) {
+			use_parameter_ix.push_back(i);
+			use_parameter_names.push_back(variable_names[i]);
+			unsigned int transform;
+			result &= sample_file.GetValue("samples", "variable_transform", i, &transform);
+			use_variable_transforms.push_back(transform);
+		}
+	}
+
 	if (!result) {
 		return -12;
 	}
 
-	bcm3::NetCDFDataFile output_file;
-	if (!output_file.Create(predict_output_fn)) {
-		LOGERROR("Unable to open output file \"%s\"", predict_output_fn.c_str());
-		return -13;
+	if (likelihood->IsReentrant()) {
+		if (!likelihood->AddNonSampledParameters(use_parameter_names)) {
+			return -7;
+		}
+		if (!likelihood->PostInitialize()) {
+			return -6;
+		}
+	} else {
+		for (size_t i = 0; i < parallel_likelihoods.size(); i++) {
+			if (!parallel_likelihoods[i]->AddNonSampledParameters(use_parameter_names)) {
+				return -7;
+			}
+			if (!parallel_likelihoods[i]->PostInitialize()) {
+				return -6;
+			}
+		}
 	}
-	result &= output_file.CreateGroup("predictions");
-	result &= output_file.CreateDimension("predictions", "sample_ix", sample_ixs);
-	result &= output_file.CreateDimension("predictions", "temperature", temperatures);
-	result &= output_file.CreateVariable("predictions", "log_likelihood", "sample_ix", "temperature");
-	if (!result) {
+
+	bcm3::logger->SetLogToConsole(bcm3::Logger::None);
+	printf("Starting optimizations...\n");
+
+	std::string outputfn = output_path + "MAP_estimates.tsv";
+	FILE* file = fopen(outputfn.c_str(), "w");
+	if (!file) {
 		return -14;
+	} else {
+		fprintf(file, "temperature");
+		for (size_t i = 0; i < num_input_samples; i++) {
+			fprintf(file, "\t%zd", i);
+		}
+		fprintf(file, "\n");
+		fclose(file);
 	}
 
-	bcm3::Timer timer;
-	timer.Start();
+	std::string paramoutputfn = output_path + "MAP_estimates_paramvalues.tsv";
+	file = fopen(paramoutputfn.c_str(), "w");
+	if (!file) {
+		return -14;
+	} else {
+		fprintf(file, "temperature_sample");
+		for (size_t i = 0; i < use_parameter_ix.size(); i++) {
+			fprintf(file, "\tfixed_%s", use_parameter_names[i].c_str());
+		}
+		for (size_t i = 0; i < varset->GetNumVariables(); i++) {
+			fprintf(file, "\toptimized_%s", varset->GetVariableName(i).c_str());
+		}
+		fprintf(file, "\n");
+		fclose(file);
+	}
 
-	unsigned int num_likelihood_evaluations = 0;
-	for (int j = 0; j < temperatures.size(); j++) {
-		printf("Temperature %d (%.6g)...\n", j, temperatures(j));
+	for (size_t tempi = 0; tempi < num_temperatures; tempi++) {
+		printf("Temperature %zd (%.6g)...\n", tempi, temperatures(tempi));
 		printf("  Sample     ");
-		for (size_t i = total_samples / 2; i < total_samples; i++) {
+		for (size_t i = 0; i < num_input_samples; i++) {
+			size_t sample_ix = start_sample_ix + i * (total_samples - start_sample_ix) / num_input_samples + ((total_samples - start_sample_ix) / num_input_samples - 1);
 			printf("\b\b\b\b%4zd", i);
 			fflush(stdout);
 
 			VectorReal sample;
-			if (!sample_file.GetValuesDim3("samples", "variable_values", i, j, 0, num_variables, sample)) {
-				return -12;
+			if (!sample_file.GetValuesDim3("samples", "variable_values", sample_ix, tempi, 0, num_variables, sample)) {
+				return -13;
+			}
+			VectorReal use_sample(use_parameter_ix.size());
+			for (size_t j = 0; j < use_parameter_ix.size(); j++) {
+				Real x = sample(use_parameter_ix[j]);
+				if (use_variable_transforms[j] == bcm3::VariableSet::Transform_None) {
+					use_sample(j) = x;
+				} else if (use_variable_transforms[j] == bcm3::VariableSet::Transform_Log10) {
+					use_sample(j) = bcm3::fastpow10(x);
+				} else {
+					LOGERROR("Not implemented");
+					return -13;
+				}
 			}
 
-			Real llh = 0.0;
-			result = likelihood->EvaluateLogProbability(0, sample, llh);
-			if (result) {
+			if (likelihood->IsReentrant()) {
+				likelihood->SetNonSampledParameters(use_sample);
 			} else {
-				llh = std::numeric_limits<Real>::quiet_NaN();
+				for (size_t j = 0; j < parallel_likelihoods.size(); j++) {
+					parallel_likelihoods[j]->SetNonSampledParameters(use_sample);
+				}
 			}
-			num_likelihood_evaluations++;
 
-			output_file.PutValue("predictions", "log_likelihood", i, j, llh);
+			output->Reset();
+			bool result = sampler->Run();
+			Real MAP_lposterior;
+			if (!result) {
+				MAP_lposterior = std::numeric_limits<Real>::quiet_NaN();
+			} else {
+				MAP_lposterior = output->GetMAPlposterior();
+			}
+
+			file = fopen(outputfn.c_str(), "a");
+			if (file) {
+				if (i == 0) {
+					fprintf(file, "%g", temperatures(tempi));
+				}
+				fprintf(file, "\t%g", MAP_lposterior);
+				if (i == num_input_samples - 1) {
+					fprintf(file, "\n");
+				}
+				fclose(file);
+			} else {
+				LOGERROR("Unable to open output file %s", outputfn.c_str());
+			}
+
+			file = fopen(paramoutputfn.c_str(), "a");
+			if (file) {
+				fprintf(file, "%g_%zd", temperatures(tempi), sample_ix);
+				for (size_t pi = 0; pi < use_parameter_ix.size(); pi++) {
+					fprintf(file, "\t%g", sample(use_parameter_ix[pi]));
+				}
+				for (size_t pi = 0; pi < varset->GetNumVariables(); pi++) {
+					if (result) {
+						fprintf(file, "\t%g", output->GetMAP()(pi));
+					} else {
+						fprintf(file, "\t%g", std::numeric_limits<Real>::quiet_NaN());
+					}
+				}
+				fprintf(file, "\n");
+				fclose(file);
+			} else {
+				LOGERROR("Unable to open output file %s", outputfn.c_str());
+			}
 		}
 		printf("\n");
 	}
 
-	double prediction_time = timer.GetElapsedSeconds();
-	LOG("  Integration time: %.3g seconds", prediction_time);
-	LOG("  Number of likelihood evaluations: %u", num_likelihood_evaluations);
-	LOG("  Evaluations per second: %.0f", num_likelihood_evaluations / prediction_time);
-
-	sample_file.Close();
-	output_file.Close();
+	printf("Optimization finished.\n");
+	bcm3::logger->SetLogToConsole(bcm3::Logger::Error);
 
 	return 0;
 }
@@ -289,18 +304,17 @@ int main(int argc, char* argv[])
 			("evaluation_threads,k",	po::value<size_t>()->default_value(1),						"number of threads to use during each likelihood evaluation")
 			("prior",					po::value<std::string>()->default_value("prior.xml"),		"File describing the priors for the parameters/initial conditions")
 			("likelihood",				po::value<std::string>()->default_value("likelihood.xml"),	"File describing the likelihood functions")
-			("learning_rate,e",			po::value<Real>()->default_value(1.0),						"Learning rate between 0 and 1 - raises the likelihood function to this power.")
 			("output.folder",			po::value<std::string>()->default_value("output"),			"Folder in which output files will be generated, subfolder of the model directory.")
-			("predict",																				"Make a prediction for the function described in the likelihood file, given a set of output samples.")
-			("predict.input",			po::value<std::string>()->default_value("output.nc"),		"This should point to the output.nc file of a previous inference.")
-			("predict.output",			po::value<std::string>()->default_value("prediction.nc"),	"Prediction output will be written to this file (in the output folder).")
-			("progress_update_time",	po::value<Real>()->default_value(0.5),						"Update the progress counter every x seconds.")
+			("input.sample_file",		po::value<std::string>()->default_value("output.nc"),		"NetCDF file from which to load samples.")
+			("input.num_samples",		po::value<size_t>()->default_value(50),						"Number of samples to select from the input sample file.")
+			("input.start_sample_ix",	po::value<size_t>()->default_value(0),						"Start from this sample index.")
 			;
 #if 0
 			("predict", "Make a prediction for the function described in the likelihood file, given a set of output samples.")
 			("predict.input", po::value<std::string>()->default_value("output.nc"), "This should point to the output.nc file of a previous inference.")
 			("predict.output", po::value<std::string>()->default_value("prediction.nc"), "Prediction output will be written to this file (in the output folder).")
 			("tempered_prediction", po::value<std::string>(), "Option for generating predictions from tempered output samples.")
+			("learning_rate,e", po::value<Real>()->default_value(1.0), "Learning rate between 0 and 1 - raises the likelihood function to this power.")
 			("bootstrap_celllines", po::value<unsigned long>()->default_value(0), "Do inference with a bootstrap over cell lines")
 			("safe_bayes_ix", po::value<size_t>()->default_value(std::numeric_limits<size_t>::max()), "SafeBayes - include cell lines up to and including index")
 			("safe_bayes_cv_ix", po::value<std::string>()->default_value(std::string()), "Cross-validated SafeBayes - include cell lines excluding index")
@@ -336,13 +350,14 @@ int main(int argc, char* argv[])
 #if 0
 			if (vm.count("gen_variable_file")) {
 				result = gen_variable_file(vm);
-			} else 
-#endif
-			if (vm.count("predict")) {
+			} else if (vm.count("predict")) {
 				result = predict(vm);
 			} else {
 				result = run(vm);
 			}
+#else
+			result = run(vm);
+#endif
 		}
 	} catch (po::error & e) {
 		LOGERROR("Error processing program options: %s", e.what());

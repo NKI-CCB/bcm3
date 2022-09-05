@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sundials/sundials_matrix.h>
+#include <boost/program_options.hpp>
 #include <boost/random/sobol.hpp>
 #include <condition_variable>
 
@@ -50,7 +51,7 @@ public:
 	bool EvaluateLogProbability(size_t threadix, const VectorReal& values, const VectorReal& transformed_values, Real& logp);
 	void DumpCVodeStatistics(const std::string& output_folder);
 
-	static std::unique_ptr<Experiment> Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, bcm3::RNG& rng, size_t evaluation_threads);
+	static std::unique_ptr<Experiment> Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads);
 	inline const std::string& GetName() const { return Name; }
 	inline size_t GetSimulatedSpeciesByName(const std::string& species_name) const { return cell_model.GetSimulatedSpeciesByName(species_name); }
 	inline size_t GetCVodeSpeciesByName(const std::string& species_name) const { return cell_model.GetCVodeSpeciesByName(species_name); }
@@ -66,7 +67,7 @@ public:
 	inline const DataLikelihoodBase* GetData(size_t i) const { return data_likelihoods[i].get(); }
 
 protected:
-	bool Load(const boost::property_tree::ptree& xml_node);
+	bool Load(const boost::property_tree::ptree& xml_node, const boost::program_options::variables_map& vm);
 	bool GenerateAndCompileSolverCode(const std::string& codegen_name);
 	bool Initialize(const boost::property_tree::ptree& xml_node);
 	bool Simulate(const VectorReal& transformed_values);

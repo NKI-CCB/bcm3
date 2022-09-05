@@ -24,9 +24,9 @@ DataLikelihoodTimeCourse::~DataLikelihoodTimeCourse()
 {
 }
 
-bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node, Experiment* experiment, const bcm3::VariableSet& varset, const bcm3::NetCDFDataFile& data_file)
+bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node, Experiment* experiment, const bcm3::VariableSet& varset, const bcm3::NetCDFDataFile& data_file, const boost::program_options::variables_map& vm)
 {
-	if (!DataLikelihoodBase::Load(xml_node, experiment, varset, data_file)) {
+	if (!DataLikelihoodBase::Load(xml_node, experiment, varset, data_file, vm)) {
 		return false;
 	}
 
@@ -68,6 +68,10 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 		return false;
 	}
 
+	std::string use_only_cell_ix_str = vm["cellpop.use_only_cell_ix"].as<std::string>();
+	std::vector<std::string> use_only_cell_ix_tokens;
+	bcm3::tokenize(use_only_cell_ix_str, use_only_cell_ix_tokens, ",");
+
 	// Check whether there is data for just one cell or an average (one dimension) or a collection of cells (two+ dimensions)
 	if (num_dimensions == 1) {
 		observed_data.resize(1);
@@ -83,11 +87,26 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 		result &= data_file.GetDimensionName(experiment->GetName(), data_name, 1, cell_dimension_name);
 		result &= data_file.GetDimensionSize(experiment->GetName(), cell_dimension_name, &num_cells);
 
-		observed_data.resize(num_cells);
-		for (size_t i = 0; i < num_cells; i++) {
-			VectorReal od;
-			result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, i, num_timepoints, od);
-			observed_data[i] = od;
+		if (use_only_cell_ix_str == "-1") {
+			observed_data.resize(num_cells);
+			for (size_t i = 0; i < num_cells; i++) {
+				VectorReal od;
+				result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, i, num_timepoints, od);
+				observed_data[i] = od;
+			}
+		} else {
+			observed_data.resize(use_only_cell_ix_tokens.size());
+			for (size_t i = 0; i < use_only_cell_ix_tokens.size(); i++) {
+				int ix = boost::lexical_cast<int>(use_only_cell_ix_tokens[i]);
+				if (ix >= num_cells) {
+					LOGERROR("Requested to use cell %d, but data contains only %u cells", ix, num_cells);
+					return false;
+				} else {
+					VectorReal od;
+					result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, ix, num_timepoints, od);
+					observed_data[i] = od;
+				}
+			}
 		}
 	} else if (num_dimensions == 3) {
 		size_t num_cells, num_markers;
@@ -97,13 +116,31 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 		result &= data_file.GetDimensionName(experiment->GetName(), data_name, 2, marker_dim_name);
 		result &= data_file.GetDimensionSize(experiment->GetName(), marker_dim_name, &num_markers);
 
-		observed_data.resize(num_cells);
-		for (size_t i = 0; i < num_cells; i++) {
-			observed_data[i] = MatrixReal::Zero(num_timepoints, num_markers);
-			for (size_t j = 0; j < num_markers; j++) {
-				VectorReal od;
-				result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, i, j, num_timepoints, od);
-				observed_data[i].col(j) = od;
+		if (use_only_cell_ix_str == "-1") {
+			observed_data.resize(num_cells);
+			for (size_t i = 0; i < num_cells; i++) {
+				observed_data[i] = MatrixReal::Zero(num_timepoints, num_markers);
+				for (size_t j = 0; j < num_markers; j++) {
+					VectorReal od;
+					result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, i, j, num_timepoints, od);
+					observed_data[i].col(j) = od;
+				}
+			}
+		} else {
+			observed_data.resize(use_only_cell_ix_tokens.size());
+			for (size_t i = 0; i < use_only_cell_ix_tokens.size(); i++) {
+				int ix = boost::lexical_cast<int>(use_only_cell_ix_tokens[i]);
+				if (ix >= num_cells) {
+					LOGERROR("Requested to use cell %d, but data contains only %u cells", ix, num_cells);
+					return false;
+				} else {
+					observed_data[i] = MatrixReal::Zero(num_timepoints, num_markers);
+					for (size_t j = 0; j < num_markers; j++) {
+						VectorReal od;
+						result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, ix, j, num_timepoints, od);
+						observed_data[i].col(j) = od;
+					}
+				}
 			}
 		}
 	}
@@ -136,14 +173,26 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 	// Do we have parent information?
 	if (data_file.VariableExists(experiment->GetName(), "parent")) {
 		std::vector<unsigned int> cell_ids(observed_data.size());
-		for (unsigned int i = 0; i < observed_data.size(); i++) {
-			data_file.GetValue(experiment->GetName(), "cell_id", i, cell_ids.data() + i);
+		if (use_only_cell_ix_str == "-1") {
+			for (unsigned int i = 0; i < observed_data.size(); i++) {
+				data_file.GetValue(experiment->GetName(), "cell_id", i, cell_ids.data() + i);
+			}
+		} else {
+			for (unsigned int i = 0; i < observed_data.size(); i++) {
+				data_file.GetValue(experiment->GetName(), "cell_id", boost::lexical_cast<int>(use_only_cell_ix_tokens[i]), cell_ids.data() + i);
+			}
 		}
 
 		observed_children.resize(observed_data.size());
 		for (size_t i = 0; i < observed_data.size(); i++) {
 			int parent_ix;
-			data_file.GetValue(experiment->GetName(), "parent", i, &parent_ix);
+
+			if (use_only_cell_ix_str == "-1") {
+				data_file.GetValue(experiment->GetName(), "parent", i, &parent_ix);
+			} else {
+				data_file.GetValue(experiment->GetName(), "parent", boost::lexical_cast<int>(use_only_cell_ix_tokens[i]), &parent_ix);
+			}
+
 			if (parent_ix != std::numeric_limits<int>::min()) {
 				auto cii = std::find(cell_ids.begin(), cell_ids.end(), parent_ix);
 				if (cii == cell_ids.end()) {

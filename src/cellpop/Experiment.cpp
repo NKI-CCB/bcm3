@@ -274,13 +274,13 @@ void Experiment::DumpCVodeStatistics(const std::string& output_folder)
 	fclose(f);
 }
 
-std::unique_ptr<Experiment> Experiment::Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, bcm3::RNG& rng, size_t evaluation_threads)
+std::unique_ptr<Experiment> Experiment::Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads)
 {
 	std::unique_ptr<Experiment> experiment;
 
 	try {
 		experiment = std::make_unique<Experiment>(varset, evaluation_threads);
-		if (!experiment->Load(xml_node)) {
+		if (!experiment->Load(xml_node, vm)) {
 			experiment.reset();
 		} else {
 			experiment->rng.Seed(rng.GetUnsignedInt());
@@ -293,7 +293,7 @@ std::unique_ptr<Experiment> Experiment::Create(const boost::property_tree::ptree
 	return experiment;
 }
 
-bool Experiment::Load(const boost::property_tree::ptree& xml_node)
+bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::program_options::variables_map& vm)
 {
 	Name = xml_node.get<std::string>("<xmlattr>.name");
 
@@ -368,7 +368,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node)
 				if (var.first == "data") {
 					std::unique_ptr<DataLikelihoodBase> dl = DataLikelihoodBase::Create(var.second, AuxEvaluationThreads.size());
 					data_likelihoods.push_back(std::move(dl)); // Need to have the data likelihood in the member list already
-					if (!(*data_likelihoods.rbegin())->Load(var.second, this, *varset.get(), file)) {
+					if (!(*data_likelihoods.rbegin())->Load(var.second, this, *varset.get(), file, vm)) {
 						data_likelihoods.pop_back();
 						return false;
 					}

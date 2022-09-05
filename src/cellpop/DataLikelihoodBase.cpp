@@ -36,7 +36,7 @@ std::unique_ptr<DataLikelihoodBase> DataLikelihoodBase::Create(const boost::prop
 	return dl;
 }
 
-bool DataLikelihoodBase::Load(const boost::property_tree::ptree& xml_node, Experiment* experiment, const bcm3::VariableSet& varset, const bcm3::NetCDFDataFile& data_file)
+bool DataLikelihoodBase::Load(const boost::property_tree::ptree& xml_node, Experiment* experiment, const bcm3::VariableSet& varset, const bcm3::NetCDFDataFile& data_file, const boost::program_options::variables_map& vm)
 {
 	data_name = xml_node.get<std::string>("<xmlattr>.data_name");
 	

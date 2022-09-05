@@ -2,6 +2,8 @@
 
 #include "VariableSet.h"
 
+#include <boost/program_options.hpp>
+
 namespace bcm3 {
 
 class Likelihood
@@ -12,7 +14,7 @@ public:
 	bool SetLearningRate(Real learning_rate);
 	inline Real GetLearningRate() const { return learning_rate; }
 
-	virtual bool Initialize(std::shared_ptr<const VariableSet> varset, boost::property_tree::ptree likelihood_node);
+	virtual bool Initialize(std::shared_ptr<const VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm);
 	virtual bool AddNonSampledParameters(const std::vector<std::string>& variable_names);
 	virtual void SetNonSampledParameters(const VectorReal& values);
 	virtual bool PostInitialize();

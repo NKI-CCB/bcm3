@@ -12,7 +12,7 @@
 size_t Cell::total_num_simulations = 0;
 size_t Cell::cvode_max_steps_reached = 0;
 size_t Cell::cvode_min_timestep_reached = 0;
-static const int max_cvode_steps = 10000;
+static const int max_cvode_steps = 5000;
 
 Cell::CVodeTimepoint::CVodeTimepoint()
 	: cvode_time(0.0)

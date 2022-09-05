@@ -22,7 +22,7 @@ bool Likelihood::SetLearningRate(Real learning_rate)
 	return true;
 }
 
-bool Likelihood::Initialize(std::shared_ptr<const VariableSet> varset, boost::property_tree::ptree likelihood_node)
+bool Likelihood::Initialize(std::shared_ptr<const VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm)
 {
 	return true;
 }
