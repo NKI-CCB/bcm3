@@ -188,6 +188,11 @@ bool fISAExperimentSingleCondition::EvaluateCellLine(void* cell_line_ix_as_ptr, 
 	pd.multisolve_logp.setZero();
 
 	for (size_t mi = 0; mi < network->GetMultirootSolveCount(); mi++) {
+//		LOG("Experiment %s - cell line %u - solve %u - MTORC2 activity=%g; AKT_S473 activity=%g, PI3K activity=%g, IRS1 activity=%g", Name.c_str(), cell_line_ix, mi,
+//			pd.multi_activities[mi](network->GetSignalingMoleculeIxByName("MTORC2")),
+//			pd.multi_activities[mi](network->GetSignalingMoleculeIxByName("AKT_S473")),
+//			pd.multi_activities[mi](network->GetSignalingMoleculeIxByName("IRS1")),
+//			pd.multi_activities[mi](network->GetSignalingMoleculeIxByName("PI3K")));
 		for (size_t di = 0; di < data.size(); di++) {
 			const DataPart& d = data[di];
 			Real z;

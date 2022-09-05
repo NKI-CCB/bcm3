@@ -65,7 +65,7 @@ private:
 		Real cv_h;
 		Real cv_hu;
 		int cv_q;
-		VectorReal cv_zn[13];
+		VectorReal cv_zn[6];
 	};
 	std::vector<CVodeTimepoint> cvode_timepoints;
 	size_t cvode_timepoint_iter;
