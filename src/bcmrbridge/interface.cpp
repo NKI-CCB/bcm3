@@ -24,7 +24,7 @@ bcm3info* GetBCM3InfoPtr(char** bcm3info_ptr, int* retval)
 
 extern "C" {
 
-void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn, char** likelihood_fn, int* num_threads, int* retval)
+void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn, char** likelihood_fn, char** arg1, int* num_threads, int* retval)
 {
 	bcm3info* info = new bcm3info;
 	if (!info) {
@@ -62,7 +62,12 @@ void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn,
 		return;
 	}
 
-	info->likelihood = LikelihoodFactory::CreateLikelihood(*likelihood_fn, info->varset, 1, evaluation_threads);
+	boost::program_options::options_description likelihood_options("Configuration", 120);
+	bcm3::LikelihoodFactory::AddOptionsDescription(likelihood_options);
+	boost::program_options::variables_map vm;
+	int argc = 1;
+	boost::program_options::store(boost::program_options::command_line_parser(argc, arg1).options(likelihood_options).run(), vm);
+	info->likelihood = bcm3::LikelihoodFactory::CreateLikelihood(*likelihood_fn, info->varset, vm, 1, evaluation_threads);
 	if (!info->likelihood) {
 		*retval = -5;
 		boost::filesystem::current_path(cwd);

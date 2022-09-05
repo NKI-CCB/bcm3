@@ -10,7 +10,9 @@
 
 #include <boost/property_tree/xml_parser.hpp>
 
-std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::string likelihood_xml_fn, std::shared_ptr<const bcm3::VariableSet> varset, size_t sampling_threads, size_t evaluation_threads)
+namespace bcm3 {
+
+std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::string likelihood_xml_fn, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, size_t sampling_threads, size_t evaluation_threads)
 {
 	std::shared_ptr<bcm3::Likelihood> ll;
 
@@ -43,7 +45,7 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 			LOGERROR("Unknown likelihood type \"%s\"", type.c_str());
 		}
 		if (ll) {
-			if (!ll->Initialize(varset, likelihood_node)) {
+			if (!ll->Initialize(varset, likelihood_node, vm)) {
 				LOGERROR("Failed to initialize likelihood");
 				ll.reset();
 			}
@@ -56,4 +58,11 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 	}
 
 	return ll;
+}
+
+void LikelihoodFactory::AddOptionsDescription(boost::program_options::options_description& pod)
+{
+	CellPopulationLikelihood::AddOptionsDescription(pod);
+}
+
 }

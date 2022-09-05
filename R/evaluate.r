@@ -1,4 +1,4 @@
-bcm3.init.cpp <- function(bcm3, threads = NA) {
+bcm3.init.cpp <- function(bcm3, clparam = "", threads = NA) {
   if (.Platform$OS.type == "windows") {
     # Need to go into the Release directory to resolve dependency dlls
     cwd <- getwd()
@@ -15,10 +15,10 @@ bcm3.init.cpp <- function(bcm3, threads = NA) {
     threads <- as.integer(-1)
   }
   
-  res <- .C("bcm3_rbridge_init", "", bcm3$base_folder, bcm3$prior$file_name, bcm3$likelihood$file_name, as.integer(threads), as.integer(0), PACKAGE="bcmrbridge")
-  if (res[[6]] != 0) {
+  res <- .C("bcm3_rbridge_init", "", bcm3$base_folder, bcm3$prior$file_name, bcm3$likelihood$file_name, clparam, as.integer(threads), as.integer(0), PACKAGE="bcmrbridge")
+  if (res[[7]] != 0) {
     dyn.unload(bcm3$.cppdllfn)
-    stop(paste("BCM3 C++ bridge init failed:", res[[5]]))
+    stop(paste("BCM3 C++ bridge init failed:", res[[7]]))
   } else {
     bcm3$.cpp <- res[[1]]
   }

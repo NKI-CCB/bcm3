@@ -45,7 +45,7 @@ int run(const po::variables_map& vm)
 		}
 
 		std::string likelihood_file = vm["likelihood"].as<std::string>();
-		likelihood = LikelihoodFactory::CreateLikelihood(likelihood_file, varset, numthreads, evaluation_threads);
+		likelihood = bcm3::LikelihoodFactory::CreateLikelihood(likelihood_file, varset, vm, numthreads, evaluation_threads);
 		if (!likelihood) {
 			return -4;
 		}
@@ -53,7 +53,7 @@ int run(const po::variables_map& vm)
 			parallel_likelihoods.resize(numthreads);
 			parallel_likelihoods[0] = likelihood;
 			for (size_t i = 1; i < numthreads; i++) {
-				parallel_likelihoods[i] = LikelihoodFactory::CreateLikelihood(likelihood_file, varset, numthreads, evaluation_threads);
+				parallel_likelihoods[i] = bcm3::LikelihoodFactory::CreateLikelihood(likelihood_file, varset, vm, numthreads, evaluation_threads);
 			}
 		}
 
@@ -163,7 +163,7 @@ int predict(const po::variables_map& vm)
 		}
 
 		std::string likelihood_file = vm["likelihood"].as<std::string>();
-		likelihood = LikelihoodFactory::CreateLikelihood(likelihood_file, varset, 1, evaluation_threads);
+		likelihood = bcm3::LikelihoodFactory::CreateLikelihood(likelihood_file, varset, vm, 1, evaluation_threads);
 		if (!likelihood) {
 			return -4;
 		}
@@ -308,6 +308,7 @@ int main(int argc, char* argv[])
 		//bcm::SamplerFactory::AddOptionsDescription(config_options);
 #endif
 		bcm3::SamplerPT::AddOptionsDescription(config_options);
+		bcm3::LikelihoodFactory::AddOptionsDescription(config_options);
 		po::options_description cmdline_only_options("Command-line only options", 120);
 		cmdline_only_options.add_options()
 			("config_file,c", po::value<std::string>()->default_value("config.txt"), "Configuration file")

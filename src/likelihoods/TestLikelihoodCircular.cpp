@@ -10,7 +10,7 @@ TestLikelihoodCircular::~TestLikelihoodCircular()
 {
 }
 
-bool TestLikelihoodCircular::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node)
+bool TestLikelihoodCircular::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm)
 {
 	this->varset = varset;
 

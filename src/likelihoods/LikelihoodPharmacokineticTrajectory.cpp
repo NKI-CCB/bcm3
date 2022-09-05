@@ -54,7 +54,7 @@ void LikelihoodPharmacokineticTrajectory::SetPKModelType(std::string type)
 	}
 }
 
-bool LikelihoodPharmacokineticTrajectory::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node)
+bool LikelihoodPharmacokineticTrajectory::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm)
 {
 	this->varset = varset;
 

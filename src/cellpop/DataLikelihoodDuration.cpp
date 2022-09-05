@@ -13,9 +13,9 @@ DataLikelihoodDuration::~DataLikelihoodDuration()
 
 }
 
-bool DataLikelihoodDuration::Load(const boost::property_tree::ptree& xml_node, Experiment* experiment, const bcm3::VariableSet& varset, const bcm3::NetCDFDataFile& data_file)
+bool DataLikelihoodDuration::Load(const boost::property_tree::ptree& xml_node, Experiment* experiment, const bcm3::VariableSet& varset, const bcm3::NetCDFDataFile& data_file, const boost::program_options::variables_map& vm)
 {
-	if (!DataLikelihoodBase::Load(xml_node, experiment, varset, data_file)) {
+	if (!DataLikelihoodBase::Load(xml_node, experiment, varset, data_file, vm)) {
 		return false;
 	}
 
