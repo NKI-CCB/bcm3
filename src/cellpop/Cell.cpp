@@ -170,10 +170,9 @@ Cell::Cell(const SBMLModel* model, const Experiment* experiment)
 	cell_specific_non_sampled_transformed_variables.setConstant(experiment->non_sampled_parameters.size(), std::numeric_limits<Real>::quiet_NaN());
 
 	cvode_timepoints.resize(max_cvode_steps);
-	for (size_t i = 0; i < max_cvode_steps; i++) {
-		for (size_t j = 0; j < 6; j++) {
-			cvode_timepoints[i].cv_zn[j].setConstant(num_cvode_species, std::numeric_limits<Real>::quiet_NaN());
-		}
+	for (size_t j = 0; j < 6; j++) {
+		cvode_timepoints_zn[j].resize(num_cvode_species, max_cvode_steps);
+		//cvode_timepoints_zn[j].setConstant(num_cvode_species, max_cvode_steps, std::numeric_limits<Real>::quiet_NaN());
 	}
 
 	DNA_replication_ix = model->GetCVodeSpeciesByName("replicating_DNA", false);
@@ -535,7 +534,7 @@ Real Cell::GetInterpolatedSpeciesValue(Real time, size_t species_ix, ESynchroniz
 		for (int i = 0; i < j; i++)
 			cval *= s;
 
-		cvode_interpolate_y += cval * cvt.cv_zn[j];
+		cvode_interpolate_y += cval * cvode_timepoints_zn[j].col(cvode_timepoint_iter);
 	}
 
 	return cvode_interpolate_y(species_ix);
@@ -634,6 +633,6 @@ void Cell::RetrieveCVodeInterpolationInfo()
 
 	ASSERT(cvt.cv_q <= 5);
 	for (int j = cv_mem->cv_q; j >= 0; j--) {
-		memcpy(cvt.cv_zn[j].data(), NV_DATA_S(cv_mem->cv_zn[j]), cvt.cv_zn[j].size() * sizeof(Real));
+		cvode_timepoints_zn[j].col(cvode_steps) = *NV_CONTENT_S(cv_mem->cv_zn[j]);
 	}
 }

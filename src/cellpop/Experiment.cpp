@@ -515,7 +515,7 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 			printf("Unable to find generated derivative or jacobian in the dll\n");
 			printf("Recompiling..\n");
 		} else {
-			printf("Found DLL with derivative function, reusing it.\n");
+			LOG("Found DLL with derivative function, reusing it.\n");
 			return true;
 		}
 	} else {

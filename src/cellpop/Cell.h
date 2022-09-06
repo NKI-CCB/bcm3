@@ -65,9 +65,9 @@ private:
 		Real cv_h;
 		Real cv_hu;
 		int cv_q;
-		VectorReal cv_zn[6];
 	};
 	std::vector<CVodeTimepoint> cvode_timepoints;
+	MatrixReal cvode_timepoints_zn[6];
 	size_t cvode_timepoint_iter;
 	Real synchronize_offset_time;
 
