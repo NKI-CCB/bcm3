@@ -166,6 +166,10 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 			parallel_population_averages[i] = population_average;
 		}
 	} else {
+		if (experiment->GetMaxNumberOfCells() < observed_data.size()) {
+			LOGERROR("Maximum number of simulated cells (%zu) in the experiment is not sufficient for the amount of cells in the data (%zu)", experiment->GetMaxNumberOfCells(), observed_data.size());
+			return false;
+		}
 		cell_trajectories.resize(experiment->GetMaxNumberOfCells(), MatrixReal::Constant(num_timepoints, species_names.size(), std::numeric_limits<Real>::quiet_NaN()));
 		matched_trajectories.resize(observed_data.size(), MatrixReal::Constant(observed_data[0].rows(), observed_data[0].cols(), std::numeric_limits<Real>::quiet_NaN()));
 	}
@@ -665,7 +669,7 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 
 		// Simulation does not have multipolar division, so only need to consider two simulated children, if any
 		if (!observed_children.empty() && !observed_children[observed_cell_ix].empty()) {
-			if (simulated_cell_ix < simulated_cell_children.size()) {
+			if (simulated_cell_ix < simulated_cell_children.size() && simulated_cell_children[simulated_cell_ix].first != std::numeric_limits<size_t>::max()) {
 				std::pair<size_t, size_t> simulated_children = simulated_cell_children[simulated_cell_ix];
 				MatrixReal children_matching(2, observed_children[observed_cell_ix].size());
 				//std::vector< std::vector<double> > children_matching(2, std::vector<double>(observed_children[observed_cell_ix].size()));

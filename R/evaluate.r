@@ -46,6 +46,14 @@ bcm3.reinit.cpp <- function(bcm3, clparam = "", threads = NA) {
 }
 
 bcm3.release.cpp <- function(bcm3) {
+  # This call to cleanup shouldn't be necessary - if the DLL was actually unloaded everything would be cleaned up
+  # But it seems dyn.unload often doesn't actually unload the DLL. So at least try to release all the memory
+  # used by the likelihood
+  res <- .C("bcm3_rbridge_cleanup", bcm3$.cpp, as.integer(0), PACKAGE="bcmrbridge")
+  if (res[[2]] != 0) {
+    stop(paste("BCM3 C++ bridge cleanup failed:", res[[2]]))
+  }
+  
   dyn.unload(bcm3$.cppdllfn)
   bcm3$.cpp <- ""
   bcm3$.cppdllfn <- ""
