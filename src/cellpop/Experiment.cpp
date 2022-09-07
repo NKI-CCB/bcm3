@@ -514,13 +514,14 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		jacobian = (jacobian_fn)dlsym(derivative_dll, "generated_jacobian");
 #endif
 		if (!derivative || !jacobian) {
-			printf("Unable to find generated derivative or jacobian in the dll\n");
-			printf("Recompiling..\n");
+			LOG("Unable to find generated derivative or jacobian in the dll, recompiling derivative");
+			printf("Unable to find generated derivative or jacobian in the dll, recompiling...\n");
 		} else {
-			LOG("Found DLL with derivative function, reusing it.\n");
+			LOG("Found DLL with derivative function, reusing it.");
 			return true;
 		}
 	} else {
+		LOG("Can't find dll with derivative functions for experiment \"%s\", generating and compiling derivative code.", Name.c_str());
 		printf("Can't find dll with derivative functions for experiment \"%s\", generating and compiling derivative code...\n", Name.c_str());
 	}
 
@@ -940,7 +941,6 @@ bool Experiment::SimulateCell(size_t i, Real target_time, size_t eval_thread)
 		}
 
 		// Try to wake up one other aux threads if any is sleeping
-#if 0
 		for (size_t i = 0; i < AuxEvaluationThreads.size(); i++) {
 			if (i != eval_thread) {
 				AuxEvaluation& e = *AuxEvaluationThreads[i];
@@ -956,7 +956,6 @@ bool Experiment::SimulateCell(size_t i, Real target_time, size_t eval_thread)
 				}
 			}
 		}
-#endif
 	}
 
 	return true;
