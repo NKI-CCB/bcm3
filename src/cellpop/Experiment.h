@@ -165,6 +165,10 @@ protected:
 	bcm3::spinlock cells_to_process_lock;
 	std::vector<size_t> add_new_cell_parents;
 	std::mutex cell_vector_mutex;
+	size_t cell_submit_count;
+	size_t cell_done_count;
+	std::mutex all_done_mutex;
+	std::condition_variable all_done_condition;
 
 	bcm3::spinlock timings_lock;
 	std::vector<VectorReal> cell_update_timings;

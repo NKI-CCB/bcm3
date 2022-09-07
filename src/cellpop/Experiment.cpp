@@ -50,6 +50,8 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, simulated_num_cells(0)
 	, requested_duration(EPhaseDuration::None)
 	, any_requested_synchronization(false)
+	, cell_submit_count(0)
+	, cell_done_count(0)
 {
 	if (evaluation_threads > 1) {
 		AuxEvaluationThreads.resize(evaluation_threads);
@@ -874,9 +876,17 @@ bool Experiment::ParallelSimulation(Real target_time)
 	bool result = true;
 
 	if (!AuxEvaluationThreads.empty()) {
+		cells_to_process_lock.lock();
 		aux_target_time = target_time;
 		for (size_t i = 0; i < active_cells; i++) {
 			cells_to_process.push(i);
+		}
+		cells_to_process_lock.unlock();
+
+		{
+			std::unique_lock<std::mutex> lock(all_done_mutex);
+			cell_submit_count = active_cells;
+			cell_done_count = 0;
 		}
 
 		StartAuxThreads();
@@ -919,12 +929,34 @@ bool Experiment::SimulateCell(size_t i, Real target_time, size_t eval_thread)
 			}
 		}
 
-		cells_to_process_lock.lock();
-		cells_to_process.push(cell1);
-		cells_to_process.push(cell2);
-		cells_to_process_lock.unlock();
+		{
+			std::unique_lock<std::mutex> lock(all_done_mutex);
+			cell_submit_count += 2;
 
-		// would be good to wake up other aux threads if we're the only one still alive
+			cells_to_process_lock.lock();
+			cells_to_process.push(cell1);
+			cells_to_process.push(cell2);
+			cells_to_process_lock.unlock();
+		}
+
+		// Try to wake up one other aux threads if any is sleeping
+#if 0
+		for (size_t i = 0; i < AuxEvaluationThreads.size(); i++) {
+			if (i != eval_thread) {
+				AuxEvaluation& e = *AuxEvaluationThreads[i];
+				if (e.mutex.try_lock()) {
+					if (e.finished) {
+						e.finished = false;
+						e.mutex.unlock();
+						e.condition.notify_one();
+						break;
+					} else {
+						e.mutex.unlock();
+					}
+				}
+			}
+		}
+#endif
 	}
 
 	return true;
@@ -1025,15 +1057,12 @@ void Experiment::StartAuxThreads()
 bool Experiment::WaitAuxThreads()
 {
 	bool result = true;
+	std::unique_lock<std::mutex> lock(all_done_mutex);
+	while (cell_done_count != cell_submit_count) {
+		all_done_condition.wait(lock);
+	}
 	for (size_t i = 0; i < AuxEvaluationThreads.size(); i++) {
 		AuxEvaluation& e = *AuxEvaluationThreads[i];
-
-		{
-			std::unique_lock<std::mutex> lock(e.mutex);
-			while (!e.finished) {
-				e.condition.wait(lock);
-			}
-		}
 		result &= e.result;
 	}
 	return result;
@@ -1056,6 +1085,7 @@ void Experiment::AuxWorkerFunction(size_t threadIndex)
 		}
 
 		bool queue_empty = false;
+		size_t cells_processed = 0;
 		while (!queue_empty) {
 			size_t cell_ix;
 			cells_to_process_lock.lock();
@@ -1073,6 +1103,7 @@ void Experiment::AuxWorkerFunction(size_t threadIndex)
 #endif
 
 				e.result &= SimulateCell(cell_ix, aux_target_time, threadIndex);
+				cells_processed++;
 
 #if DUMP_CELL_TIMINGS
 				Real time = timer.GetElapsedSeconds();
@@ -1087,6 +1118,10 @@ void Experiment::AuxWorkerFunction(size_t threadIndex)
 			std::lock_guard<std::mutex> lock(e.mutex);
 			e.finished = true;
 		}
-		e.condition.notify_one();
+		{
+			std::unique_lock<std::mutex> lock(all_done_mutex);
+			cell_done_count += cells_processed;
+		}
+		all_done_condition.notify_one();
 	}
 }
