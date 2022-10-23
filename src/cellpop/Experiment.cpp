@@ -581,6 +581,13 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "\tif (kn == INFINITY) return 0.0;\n";
 		f << "\treturn xn / (kn + xn);\n";
 		f << "}\n";
+		f << "inline double hill_function_fixedn1(double x, double k)\n";
+		f << "{\n";
+		f << "\tif (x < 0.0) return -hill_function_fixedn1(-x, k);\n";
+		f << "\tif (x <= DBL_EPSILON) return 0.0;\n";
+		f << "\tif (x == INFINITY) return 1.0;\n";
+		f << "\treturn x / (k + x);\n";
+		f << "}\n";
 		f << "inline double hill_function_fixedn2(double x, double k)\n";
 		f << "{\n";
 		f << "\tif (x < 0.0) return -hill_function_fixedn2(-x, k);\n";
@@ -678,6 +685,13 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "\tdouble kn = pow(k, n);\n";
 		f << "\tif (kn == INFINITY) return 0.0;\n";
 		f << "\treturn kn * n * xn / (x * square(kn + xn));\n";
+		f << "}\n";
+		f << "inline double hill_function_derivative_fixedn1(double x, double k)\n";
+		f << "{\n";
+		f << "\tif (x < 0.0) return -hill_function_derivative_fixedn1(-x, k);\n";
+		f << "\tif (x <= DBL_EPSILON) return 0.0;\n";
+		f << "\tif (x == INFINITY) return 0.0;\n";
+		f << "\treturn k / (square(k + x));\n";
 		f << "}\n";
 		f << "inline double michaelis_menten_function(double kcat, double KM, double e, double s)\n";
 		f << "{\n";
