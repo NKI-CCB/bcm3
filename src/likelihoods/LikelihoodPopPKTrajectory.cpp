@@ -47,12 +47,14 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 
 	this->varset = varset;
 	std::string trial;
+	std::string pkdata_file;
 
 	try {
 		boost::property_tree::ptree& modelnode = likelihood_node.get_child("pk_model");
 		drug = modelnode.get<std::string>("<xmlattr>.drug");
 		std::string pk_type_str = modelnode.get<std::string>("<xmlattr>.type");
 		trial = modelnode.get<std::string>("<xmlattr>.trial");
+		pkdata_file = modelnode.get<std::string>("<xmlattr>.pkdata_file");
 
 		if (pk_type_str == "one") {
 			pk_type = PKMT_OneCompartment;
@@ -73,7 +75,7 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 	}
 
 	bcm3::NetCDFDataFile data;
-	if (!data.Open("pkdata.nc", false)) {
+	if (!data.Open(pkdata_file, false)) {
 		return false;
 	}
 
