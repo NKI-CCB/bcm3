@@ -188,8 +188,13 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 		parallel_data[threadix].stored_trajectories.resize(num_patients);
 	}
 
-	prev_parameters.resize(num_patients, VectorReal::Constant(10, 0));
-	prev_llh.resize(num_patients, std::numeric_limits<Real>::quiet_NaN());
+	prev_parameters.resize(20);
+	prev_llh.resize(20);
+	for (size_t i = 0; i < prev_parameters.size(); i++) {
+		prev_parameters[i].resize(num_patients, VectorReal::Constant(10, 0));
+		prev_llh[i].resize(num_patients, std::numeric_limits<Real>::quiet_NaN());
+	}
+	prev_ix.resize(num_patients, 0);
 
 	return result;
 }
@@ -303,18 +308,25 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 				parameters(8) = pd.k_absorption2;
 			}
 			parameters(9) = sd;
-			bool exactly_equal = true;
-			for (int pi = 0; pi < 10; pi++) {
-				if (parameters(pi) != prev_parameters[j](pi)) {
-					exactly_equal = false;
+			int which_exactly_equal = -1;
+			for (size_t hi = 0; hi < prev_parameters.size(); hi++) {
+				bool exactly_equal = true;
+				for (int pi = 0; pi < 10; pi++) {
+					if (parameters(pi) != prev_parameters[hi][j](pi)) {
+						exactly_equal = false;
+						break;
+					}
+				}
+				if (exactly_equal) {
+					which_exactly_equal = (int)hi;
 					break;
 				}
 			}
-			if (exactly_equal) {
-				logp += prev_llh[j];
+			if (which_exactly_equal != -1) {
+				logp += prev_llh[which_exactly_equal][j];
 				continue;
 			} else {
-				prev_parameters[j] = parameters;
+				prev_parameters[prev_ix[j]][j] = parameters;
 			}
 		}
 
@@ -366,8 +378,7 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 			LOG(" k_elimination: %g", pd.k_elimination);
 #endif
 			logp = -std::numeric_limits<Real>::infinity();
-			prev_llh[j] = -std::numeric_limits<Real>::infinity();
-			return true;
+			prev_llh[prev_ix[j]][j] = -std::numeric_limits<Real>::infinity();
 		} else {
 			pd.simulated_concentrations[j] = pd.simulated_trajectories.row(1) * conversion;
 			pd.stored_trajectories[j] = pd.simulated_trajectories;
@@ -379,11 +390,22 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 					patient_logllh += bcm3::LogPdfTnu3(x, y, sd);
 				}
 				if (std::isnan(x)) {
-					LOGERROR("NaN in trajectory for patient %zu, timepoint %zu", j, i);
+					//LOGERROR("NaN in trajectory for patient %zu, timepoint %zu", j, i);
+					patient_logllh = -std::numeric_limits<Real>::infinity();
+					break;
 				}
 			}
-			prev_llh[j] = patient_logllh;
+			prev_llh[prev_ix[j]][j] = patient_logllh;
 			logp += patient_logllh;
+		}
+
+		prev_ix[j]++;
+		if (prev_ix[j] >= prev_parameters.size()) {
+			prev_ix[j] = 0;
+		}
+
+		if (logp == -std::numeric_limits<Real>::infinity()) {
+			break;
 		}
 	}
 

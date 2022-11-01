@@ -88,6 +88,7 @@ private:
 	std::vector< std::unique_ptr<ODESolver> > solvers;
 	std::vector<ParallelData> parallel_data;
 
-	std::vector<VectorReal> prev_parameters;
-	std::vector<Real> prev_llh;
+	std::vector< std::vector<VectorReal> > prev_parameters;
+	std::vector< std::vector<Real> > prev_llh;
+	std::vector< size_t > prev_ix;
 };
