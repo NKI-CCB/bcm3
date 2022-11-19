@@ -5,6 +5,7 @@
 #include "Likelihood.h"
 #include "RNG.h"
 #include "VariableSet.h"
+#include "Spinlock.h"
 
 class SBMLModel;
 
@@ -88,6 +89,7 @@ private:
 	std::vector< std::unique_ptr<ODESolver> > solvers;
 	std::vector<ParallelData> parallel_data;
 
+	bcm3::spinlock buffer_spinlock;
 	std::vector< std::vector<VectorReal> > prev_parameters;
 	std::vector< std::vector<Real> > prev_llh;
 	std::vector< size_t > prev_ix;

@@ -1,7 +1,7 @@
 library(XML)
 library(hdf5r)
 
-bcm3.load.results <- function(base_folder, output_folder, prior_file="prior.xml", likelihood_file="likelihood.xml", output_filename="output.nc")
+bcm3.load.results <- function(base_folder, output_folder, prior_file="prior.xml", likelihood_file="likelihood.xml", output_filename="output.nc", load_sampler_adaptation = T)
 {
   model <- bcm3.load(base_folder, prior_file, likelihood_file)
   model$output_folder <- paste(base_folder, "/", output_folder, sep="")
@@ -27,9 +27,13 @@ bcm3.load.results <- function(base_folder, output_folder, prior_file="prior.xml"
   
   output_file$close_all()
   
-  sampler_adaptation_fn <- paste(model$output_folder, "/sampler_adaptation.nc", sep="")
-  if (file.exists(sampler_adaptation_fn)) {
-    model$sampler_adaptation <- load.netcdf.bundler.data(sampler_adaptation_fn)
+  if (load_sampler_adaptation) {
+    sampler_adaptation_fn <- paste(model$output_folder, "/sampler_adaptation.nc", sep="")
+    if (file.exists(sampler_adaptation_fn)) {
+      model$sampler_adaptation <- load.netcdf.bundler.data(sampler_adaptation_fn)
+    } else {
+      model$sampler_adaptation <- NULL
+    }
   } else {
     model$sampler_adaptation <- NULL
   }

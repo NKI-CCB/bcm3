@@ -287,47 +287,49 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		}
 #endif
 
-		if (sampling_threads == 1) {
-			VectorReal parameters = VectorReal::Constant(10, 0);
-			parameters(0) = pd.k_absorption;
-			parameters(1) = pd.k_excretion;
-			parameters(2) = pd.k_vod;
-			parameters(3) = pd.k_elimination;
-			if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
-				parameters(4) = pd.k_periphery_fwd;
-				parameters(5) = pd.k_periphery_bwd;
-			}
-			if (pk_type == PKMT_OneCompartmentTransit) {
-				parameters(6) = pd.k_transit;
-			}
-			if (pk_type == PKMT_TwoCompartmentTransit) {
-				parameters(6) = pd.k_transit;
-			}
-			if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-				parameters(7) = pd.k_biphasic_switch_time;
-				parameters(8) = pd.k_absorption2;
-			}
-			parameters(9) = sd;
-			int which_exactly_equal = -1;
-			for (size_t hi = 0; hi < prev_parameters.size(); hi++) {
-				bool exactly_equal = true;
-				for (int pi = 0; pi < 10; pi++) {
-					if (parameters(pi) != prev_parameters[hi][j](pi)) {
-						exactly_equal = false;
-						break;
-					}
-				}
-				if (exactly_equal) {
-					which_exactly_equal = (int)hi;
+		VectorReal parameters = VectorReal::Constant(10, 0);
+		parameters(0) = pd.k_absorption;
+		parameters(1) = pd.k_excretion;
+		parameters(2) = pd.k_vod;
+		parameters(3) = pd.k_elimination;
+		if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
+			parameters(4) = pd.k_periphery_fwd;
+			parameters(5) = pd.k_periphery_bwd;
+		}
+		if (pk_type == PKMT_OneCompartmentTransit) {
+			parameters(6) = pd.k_transit;
+		}
+		if (pk_type == PKMT_TwoCompartmentTransit) {
+			parameters(6) = pd.k_transit;
+		}
+		if (pk_type == PKMT_TwoCompartmentBiPhasic) {
+			parameters(7) = pd.k_biphasic_switch_time;
+			parameters(8) = pd.k_absorption2;
+		}
+		parameters(9) = sd;
+
+		buffer_spinlock.lock();
+		int which_exactly_equal = -1;
+		for (size_t hi = 0; hi < prev_parameters.size(); hi++) {
+			bool exactly_equal = true;
+			for (int pi = 0; pi < 10; pi++) {
+				if (parameters(pi) != prev_parameters[hi][j](pi)) {
+					exactly_equal = false;
 					break;
 				}
 			}
-			if (which_exactly_equal != -1) {
-				logp += prev_llh[which_exactly_equal][j];
-				continue;
-			} else {
-				prev_parameters[prev_ix[j]][j] = parameters;
+			if (exactly_equal) {
+				which_exactly_equal = (int)hi;
+				break;
 			}
+		}
+		if (which_exactly_equal != -1) {
+			logp += prev_llh[which_exactly_equal][j];
+			buffer_spinlock.unlock();
+			continue;
+		} else {
+			prev_parameters[prev_ix[j]][j] = parameters;
+			buffer_spinlock.unlock();
 		}
 
 		solvers[threadix]->SetUserData((void*)threadix);
@@ -369,6 +371,7 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		}
 		Real conversion = (1e6 / MW) / pd.k_vod;
 
+		Real patient_logllh = 0.0;
 		if (!solvers[threadix]->Simulate(initial_conditions, time, pd.simulated_trajectories)) {
 #if 0
 			LOG("Patient %u failed", j);
@@ -377,12 +380,10 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 			LOG(" k_vod: %g", pd.k_vod);
 			LOG(" k_elimination: %g", pd.k_elimination);
 #endif
-			logp = -std::numeric_limits<Real>::infinity();
-			prev_llh[prev_ix[j]][j] = -std::numeric_limits<Real>::infinity();
+			patient_logllh = -std::numeric_limits<Real>::infinity();
 		} else {
 			pd.simulated_concentrations[j] = pd.simulated_trajectories.row(1) * conversion;
 			pd.stored_trajectories[j] = pd.simulated_trajectories;
-			Real patient_logllh = 0.0;
 			for (size_t i = 0; i < time.size(); i++) {
 				Real x = conversion * pd.simulated_trajectories(1, i);
 				Real y = observed_concentration[j](i);
@@ -395,14 +396,17 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 					break;
 				}
 			}
-			prev_llh[prev_ix[j]][j] = patient_logllh;
-			logp += patient_logllh;
 		}
 
+		logp += patient_logllh;
+
+		buffer_spinlock.lock();
+		prev_llh[prev_ix[j]][j] = patient_logllh;
 		prev_ix[j]++;
 		if (prev_ix[j] >= prev_parameters.size()) {
 			prev_ix[j] = 0;
 		}
+		buffer_spinlock.unlock();
 
 		if (logp == -std::numeric_limits<Real>::infinity()) {
 			break;
