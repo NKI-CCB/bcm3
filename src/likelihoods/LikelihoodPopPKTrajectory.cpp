@@ -95,8 +95,8 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 			return false;
 		}
 	} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-		if (varset->GetNumVariables() != 8 * (num_patients + 2) + 1) {
-			LOGERROR("Incorrect number of variables in prior - should be 8 variables for a two-compartment biphasic model");
+		if (varset->GetNumVariables() != (8 + 7) + 7 * num_patients + 1) {
+			LOGERROR("Incorrect number of variables in prior - should be 8 mean variables and 7 per-patient variables for a two-compartment biphasic model");
 			return false;
 		}
 	} else if (pk_type == PKMT_OneCompartmentTransit) {
@@ -212,17 +212,22 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 	Real sd = varset->TransformVariable(sdix, values[sdix]);
 
 	size_t num_params = 4;
+	size_t num_pop_params = 4;
 	if (pk_type == PKMT_TwoCompartment) {
 		num_params = 6;
+		num_pop_params = 6;
 	}
 	if (pk_type == PKMT_OneCompartmentTransit) {
 		num_params = 5;
+		num_pop_params = 5;
 	}
 	if (pk_type == PKMT_TwoCompartmentTransit) {
 		num_params = 7;
+		num_pop_params = 7;
 	}
 	if (pk_type == PKMT_TwoCompartmentBiPhasic) {
 		num_params = 8;
+		num_pop_params = 7;
 	}
 
 	for (size_t j = 0; j < patient_ids.size(); j++) {
@@ -264,26 +269,27 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 			pd.k_transit = varset->TransformVariable(6, values[6]) * exp(bcm3::QuantileNormal(values[num_params * (j + 2) + 6], 0, exp(values[num_params + 6])));
 		}
 #else
-		pd.k_absorption  = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params * (j + 2) + 0], values[0], values[num_params + 0]));
-		pd.k_excretion   = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params * (j + 2) + 1], values[1], values[num_params + 1]));
-		pd.k_vod		 = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params * (j + 2) + 3], values[3], values[num_params + 3]));
-		pd.k_elimination = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params * (j + 2) + 2], values[2], values[num_params + 2])) / pd.k_vod;
+		pd.k_absorption  = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params + num_pop_params * (j + 1) + 0], values[0], values[num_params + 0]));
+		pd.k_excretion   = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params + num_pop_params * (j + 1) + 1], values[1], values[num_params + 1]));
+		pd.k_vod		 = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params + num_pop_params * (j + 1) + 3], values[3], values[num_params + 3]));
+		pd.k_elimination = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params + num_pop_params * (j + 1) + 2], values[2], values[num_params + 2])) / pd.k_vod;
 		if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
-			pd.k_periphery_fwd = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params * (j + 2) + 4], values[4], values[num_params + 4]));
-			pd.k_periphery_bwd = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params * (j + 2) + 5], values[5], values[num_params + 5]));
+			pd.k_periphery_fwd = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params + num_pop_params * (j + 1) + 4], values[4], values[num_params + 4]));
+			pd.k_periphery_bwd = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params + num_pop_params * (j + 1) + 5], values[5], values[num_params + 5]));
 		}
 		if (pk_type == PKMT_OneCompartmentTransit) {
-			pd.k_transit = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params * (j + 2) + 4], values[4], values[num_params + 4]));
+			pd.k_transit = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params + num_pop_params * (j + 1) + 4], values[4], values[num_params + 4]));
 		}
 		if (pk_type == PKMT_TwoCompartmentTransit) {
-			pd.k_transit = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params * (j + 2) + 6], values[6], values[num_params + 6]));
+			pd.k_transit = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params + num_pop_params * (j + 1) + 6], values[6], values[num_params + 6]));
 		}
 		if (pk_type == PKMT_TwoCompartmentBiPhasic) {
+			// No between-subject variation in biphasic time
+			pd.k_biphasic_switch_time = bcm3::fastpow10(values[6]);
+
 			// The biphasic logic assumes that the switching time is always bigger than 0 and strictly less than the treatment interval
-			pd.k_biphasic_switch_time = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params * (j + 2) + 6], values[6], values[num_params + 6]));
 			pd.k_biphasic_switch_time = std::min(pd.k_biphasic_switch_time, pd.dosing_interval - 1e-2);
-			//pd.k_absorption2 = varset->TransformVariable(7, values[7]);
-			pd.k_absorption2 = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params * (j + 2) + 7], values[7], values[num_params + 7]));
+			pd.k_absorption2 = bcm3::fastpow10(bcm3::QuantileNormal(values[num_params + num_pop_params * (j + 1) + 6], values[7], values[num_params + 6]));
 		}
 #endif
 
