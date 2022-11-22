@@ -188,8 +188,8 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 		parallel_data[threadix].stored_trajectories.resize(num_patients);
 	}
 
-	prev_parameters.resize(20);
-	prev_llh.resize(20);
+	prev_parameters.resize(parallel_data.size());
+	prev_llh.resize(parallel_data.size());
 	for (size_t i = 0; i < prev_parameters.size(); i++) {
 		prev_parameters[i].resize(num_patients, VectorReal::Constant(10, 0));
 		prev_llh[i].resize(num_patients, std::numeric_limits<Real>::quiet_NaN());
@@ -328,7 +328,6 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 			buffer_spinlock.unlock();
 			continue;
 		} else {
-			prev_parameters[prev_ix[j]][j] = parameters;
 			buffer_spinlock.unlock();
 		}
 
@@ -401,6 +400,7 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		logp += patient_logllh;
 
 		buffer_spinlock.lock();
+		prev_parameters[prev_ix[j]][j] = parameters;
 		prev_llh[prev_ix[j]][j] = patient_logllh;
 		prev_ix[j]++;
 		if (prev_ix[j] >= prev_parameters.size()) {
