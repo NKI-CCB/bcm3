@@ -81,9 +81,6 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 	size_t num_timepoints, num_patients;
 	result &= data.GetDimensionSize(trial, "time", &num_timepoints);
 	result &= data.GetDimensionSize(trial, "patients", &num_patients);
-
-	num_patients = 3;
-
 	result &= data.GetValues(trial, "patients", 0, num_patients, patient_ids);
 
 	if (pk_type == PKMT_OneCompartment) {
