@@ -967,6 +967,7 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 					}
 				}
 				c.blocks[i].cov = cov;
+				c.blocks[i].cov.diagonal().array() += 1e-6; // TODO - scale shrinkage to prior variance?
 				c.blocks[i].covariance_llt = cov.llt();
 				c.blocks[i].covariance_decomp = c.blocks[i].covariance_llt.matrixL();
 
