@@ -86,40 +86,25 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 	if (pk_type == PKMT_OneCompartment) {
 		num_pk_params = 4;
 		num_pk_pop_params = 4;
-		if (varset->GetNumVariables() != num_pk_params + num_pk_pop_params * (num_patients + 1) + 1) {
-			LOGERROR("Incorrect number of variables in prior - should be 4 variables per patient for a one-compartment model");
-			return false;
-		}
 	} else if (pk_type == PKMT_TwoCompartment) {
-		num_pk_params = 6;
-		num_pk_pop_params = 6;
-		if (varset->GetNumVariables() != num_pk_params + num_pk_pop_params * (num_patients + 1) + 1) {
-			LOGERROR("Incorrect number of variables in prior - should be 6 variables for a two-compartment model");
-			return false;
-		}
+		num_pk_params = 5;
+		num_pk_pop_params = 4;
 	} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
 		num_pk_params = 7;
 		num_pk_pop_params = 5;
-		if (varset->GetNumVariables() != num_pk_params + num_pk_pop_params * (num_patients + 1) + 1) {
-			LOGERROR("Incorrect number of variables in prior - should be 7 mean variables and 5 per-patient variables for a two-compartment biphasic model");
-			return false;
-		}
 	} else if (pk_type == PKMT_OneCompartmentTransit) {
 		num_pk_params = 5;
-		num_pk_pop_params = 5;
-		if (varset->GetNumVariables() != num_pk_params + num_pk_pop_params * (num_patients + 1) + 1) {
-			LOGERROR("Incorrect number of variables in prior - should be 5 variables for a one-compartment transit model");
-			return false;
-		}
+		num_pk_pop_params = 4;
 	} else if (pk_type == PKMT_TwoCompartmentTransit) {
-		num_pk_params = 7;
-		num_pk_pop_params = 7;
-		if (varset->GetNumVariables() != num_pk_params + num_pk_pop_params * (num_patients + 1) + 1) {
-			LOGERROR("Incorrect number of variables in prior - should be 7 variables for a two-compartment transit model");
-			return false;
-		}
+		num_pk_params = 6;
+		num_pk_pop_params = 4;
 	} else {
 		LOGERROR("Invalid PK model type");
+		return false;
+	}
+
+	if (varset->GetNumVariables() != num_pk_params + num_pk_pop_params * (num_patients + 1) + 1) {
+		LOGERROR("Incorrect number of variables in prior");
 		return false;
 	}
 
@@ -200,7 +185,7 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 	prev_parameters.resize(parallel_data.size());
 	prev_llh.resize(parallel_data.size());
 	for (size_t i = 0; i < prev_parameters.size(); i++) {
-		prev_parameters[i].resize(num_patients, VectorReal::Constant(10, 0));
+		prev_parameters[i].resize(num_patients, VectorReal::Constant(8, 0));
 		prev_llh[i].resize(num_patients, std::numeric_limits<Real>::quiet_NaN());
 	}
 	prev_ix.resize(num_patients, 0);
@@ -228,52 +213,18 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		pd.dosing_interval = dosing_interval[j];
 		pd.skipped_days = &skipped_days[j];
 		
-#if 0
-		pd.k_absorption  =  varset->TransformVariable(0, values[0]);
-		pd.k_excretion   =  varset->TransformVariable(1, values[1]);
-		pd.k_vod		 =  varset->TransformVariable(3, values[3]);
-		pd.k_elimination = (varset->TransformVariable(2, values[2])) / pd.k_vod;
-		if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic) {
-			pd.k_intercompartmental = varset->TransformVariable(4, values[4]);
-			pd.k_intercompartmental = varset->TransformVariable(5, values[5]);
-		}
-		if (pk_type == PKMT_OneCompartmentTransit) {
-			pd.k_transit = varset->TransformVariable(4, values[4]);
-		}
-		if (pk_type == PKMT_TwoCompartmentTransit) {
-			pd.k_transit = varset->TransformVariable(6, values[6]);
-		}
-#elif 0
-		pd.k_absorption  =  varset->TransformVariable(0, values[0]) * exp(bcm3::QuantileNormal(values[num_pk_params * (j + 2) + 0], 0, exp(values[num_pk_params + 0])));
-		pd.k_excretion   =  varset->TransformVariable(1, values[1]) * exp(bcm3::QuantileNormal(values[num_pk_params * (j + 2) + 1], 0, exp(values[num_pk_params + 1])));
-		pd.k_vod		 =  varset->TransformVariable(3, values[3]) * exp(bcm3::QuantileNormal(values[num_pk_params * (j + 2) + 3], 0, exp(values[num_pk_params + 3])));
-		pd.k_elimination = (varset->TransformVariable(2, values[2]) * exp(bcm3::QuantileNormal(values[num_pk_params * (j + 2) + 2], 0, exp(values[num_pk_params + 2])))) / pd.k_vod;
-		if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
-			pd.k_intercompartmental = varset->TransformVariable(4, values[4]) * exp(bcm3::QuantileNormal(values[num_pk_params * (j + 2) + 4], 0, exp(values[num_pk_params + 4])));
-			pd.k_intercompartmental = varset->TransformVariable(5, values[5]) * exp(bcm3::QuantileNormal(values[num_pk_params * (j + 2) + 5], 0, exp(values[num_pk_params + 5])));
-		}
-		if (pk_type == PKMT_OneCompartmentTransit) {
-			pd.k_transit = varset->TransformVariable(4, values[4]) * exp(bcm3::QuantileNormal(values[num_pk_params * (j + 2) + 4], 0, exp(values[num_pk_params + 4])));
-		}
-		if (pk_type == PKMT_TwoCompartmentTransit) {
-			pd.k_transit = varset->TransformVariable(6, values[6]) * exp(bcm3::QuantileNormal(values[num_pk_params * (j + 2) + 6], 0, exp(values[num_pk_params + 6])));
-		}
-#else
 		pd.k_absorption  = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 0], values[0], values[num_pk_params + 0]));
-		//pd.k_excretion   = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 1], values[1], values[num_pk_params + 1]));
-		pd.k_excretion = bcm3::fastpow10(values[1]);
+		pd.k_excretion	 = bcm3::fastpow10(values[1]);
 		pd.k_vod		 = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 2], values[3], values[num_pk_params + 2]));
 		pd.k_elimination = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 1], values[2], values[num_pk_params + 1])) / pd.k_vod;
 		if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
-			//pd.k_intercompartmental = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 4], values[4], values[num_pk_params + 4]));
-			//pd.k_intercompartmental = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 5], values[5], values[num_pk_params + 5]));
 			pd.k_intercompartmental = bcm3::fastpow10(values[4]) / pd.k_vod;
 		}
 		if (pk_type == PKMT_OneCompartmentTransit) {
-			pd.k_transit = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 4], values[4], values[num_pk_params + 4]));
+			pd.k_transit = bcm3::fastpow10(values[4]);
 		}
 		if (pk_type == PKMT_TwoCompartmentTransit) {
-			pd.k_transit = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 6], values[6], values[num_pk_params + 6]));
+			pd.k_transit = bcm3::fastpow10(values[5]);
 		}
 		if (pk_type == PKMT_TwoCompartmentBiPhasic) {
 			// No between-subject variation in biphasic time
@@ -283,9 +234,8 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 			pd.k_biphasic_switch_time = std::min(pd.k_biphasic_switch_time, pd.dosing_interval - 1e-2);
 			pd.k_absorption2 = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 4], values[6], values[num_pk_params + 4]));
 		}
-#endif
 
-		VectorReal parameters = VectorReal::Constant(10, 0);
+		VectorReal parameters = VectorReal::Constant(8, 0);
 		parameters(0) = pd.k_absorption;
 		parameters(1) = pd.k_excretion;
 		parameters(2) = pd.k_vod;
@@ -293,23 +243,19 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
 			parameters(4) = pd.k_intercompartmental;
 		}
-		if (pk_type == PKMT_OneCompartmentTransit) {
+		if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
 			parameters(5) = pd.k_transit;
+		} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
+			parameters(5) = pd.k_biphasic_switch_time;
+			parameters(6) = pd.k_absorption2;
 		}
-		if (pk_type == PKMT_TwoCompartmentTransit) {
-			parameters(5) = pd.k_transit;
-		}
-		if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-			parameters(6) = pd.k_biphasic_switch_time;
-			parameters(7) = pd.k_absorption2;
-		}
-		parameters(8) = sd;
+		parameters(7) = sd;
 
 		buffer_spinlock.lock();
 		int which_exactly_equal = -1;
 		for (size_t hi = 0; hi < prev_parameters.size(); hi++) {
 			bool exactly_equal = true;
-			for (int pi = 0; pi < 10; pi++) {
+			for (int pi = 0; pi < parameters.size(); pi++) {
 				if (parameters(pi) != prev_parameters[hi][j](pi)) {
 					exactly_equal = false;
 					break;
