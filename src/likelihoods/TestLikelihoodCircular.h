@@ -14,4 +14,9 @@ public:
 
 private:
 	std::shared_ptr<const bcm3::VariableSet> varset;
+	size_t dimension;
+	VectorReal mu1;
+	VectorReal mu2;
+	Real w;
+	Real r;
 };

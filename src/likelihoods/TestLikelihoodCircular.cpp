@@ -15,18 +15,36 @@ bool TestLikelihoodCircular::Initialize(std::shared_ptr<const bcm3::VariableSet>
 	this->varset = varset;
 
 	try {
-		boost::property_tree::ptree model_node = likelihood_node.get_child("model");
-		std::string model_fn = model_node.get<std::string>("<xmlattr>.file");
-		//dim = model_node.get<size_t>("<xmlattr>.dimension");
+		dimension = likelihood_node.get<size_t>("<xmlattr>.dimension");
 	} catch (boost::property_tree::ptree_error& e) {
 		LOGERROR("Error parsing likelihood file: %s", e.what());
 		return false;
 	}
+
+	if (varset->GetNumVariables() != dimension) {
+		LOGERROR("Inconsistent prior and likelihood (%zu variables and %zu dimensions)", varset->GetNumVariables(), dimension);
+		return false;
+	}
+
+	mu1.setZero(dimension);
+	mu2.setZero(dimension);
+	mu1(0) = -3.5;
+	mu2(0) = 3.5;
+	r = 2.0;
+	w = 0.1;
 
 	return true;
 }
 
 bool TestLikelihoodCircular::EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp)
 {
+	Real x1 = (values - mu1).norm();
+	Real x2 = (values - mu2).norm();
+
+	Real logp1 = bcm3::LogPdfNormal(x1, r, w);
+	Real logp2 = bcm3::LogPdfNormal(x2, r, w);
+
+	logp = bcm3::logsum(logp1, logp2);
+
 	return true;
 }
