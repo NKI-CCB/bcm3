@@ -1,6 +1,8 @@
 #include "Utils.h"
-#include "sunmatrix_sparse_eigen.h"
-#include "nvector_serial_eigen.h"
+#include "LinearAlgebraSelector.h"
+
+#if CVODE_USE_SPARSE_SOLVER
+
 #include <sundials/sundials_math.h>
 
 #define ZERO RCONST(0.0)
@@ -152,3 +154,5 @@ int SUNMatSpace_SparseEigen(SUNMatrix A, long int *lenrw, long int *leniw)
 	*leniw = 0;
 	return SUNMAT_SUCCESS;
 }
+
+#endif

@@ -54,12 +54,12 @@ public:
 	const SBMLSpecies* GetSpeciesFromFullName(const std::string& id) const;
 	SBMLModelParameters* GetParameterSet();
 
-	bool CalculateDerivativePublic(OdeReal t, const OdeReal* y, OdeReal* dydt, const Real* constant_species_y, const Real* transformed_variables, const Real* non_sampled_parameters) const;
+	bool CalculateDerivativePublic(OdeReal t, const OdeReal* y, OdeReal* dydt, const OdeReal* constant_species_y, const OdeReal* transformed_variables, const OdeReal* non_sampled_parameters) const;
 
 private:
 	bool CalculateDerivative(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user) const;
 	bool CalculateJacobian(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeReal** jac, void* user) const;
-	void CalculateAssignments(const Real* y, const Real* variables, const Real* constant_species_y, const Real* non_sampled_parameters, Real* out) const;
+	void CalculateAssignments(const OdeReal* y, const OdeReal* variables, const OdeReal* constant_species_y, const OdeReal* non_sampled_parameters, OdeReal* out) const;
 
 	SBMLDocument* document;
 	const Model* model;
@@ -81,13 +81,13 @@ private:
 		ParallelSolver() : variables(NULL) {}
 		std::unique_ptr<CVODESolver> solver;
 		std::unique_ptr<SBMLModelParameters> parameters;
-		std::vector<Real> y;
-		std::vector<Real> constant_species_y;
+		std::vector<OdeReal> y;
+		std::vector<OdeReal> constant_species_y;
 		const Real* variables;
 		VectorReal transformed_variables;
-		VectorReal non_sampled_variables;
+		OdeVectorReal non_sampled_variables;
 		OdeVectorReal transformed_variables_use_in_ode;
-		MatrixReal cvode_trajectories;
+		OdeMatrixReal cvode_trajectories;
 		MatrixReal trajectories;
 	};
 	std::vector<ParallelSolver> Solvers;

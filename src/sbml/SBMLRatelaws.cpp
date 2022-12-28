@@ -297,7 +297,7 @@ bool SBMLRatelawElement::ContainsSpeciesLookup(size_t species_ix)
 	return false;
 }
 
-Real SBMLRatelawElementPlus::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementPlus::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() > 1);
 	Real result = children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters);
@@ -349,7 +349,7 @@ std::string SBMLRatelawElementPlus::GenerateDerivative(size_t species_ix)
 	}
 }
 
-Real SBMLRatelawElementMinus::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementMinus::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 2);
 	return children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters) - children[1]->Evaluate(species, constant_species, parameters, non_sampled_parameters);
@@ -397,7 +397,7 @@ std::string SBMLRatelawElementMinus::GenerateDerivative(size_t species_ix)
 	}
 }
 
-Real SBMLRatelawElementNegate::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementNegate::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 1);
 	return -children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters);
@@ -428,7 +428,7 @@ std::string SBMLRatelawElementNegate::GenerateDerivative(size_t species_ix)
 	}
 }
 
-Real SBMLRatelawElementTimes::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementTimes::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() > 1);
 	Real result = children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters);
@@ -489,7 +489,7 @@ std::string SBMLRatelawElementTimes::GenerateDerivative(size_t species_ix)
 	}
 }
 
-Real SBMLRatelawElementDivide::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementDivide::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 2);
 	return children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters) / children[1]->Evaluate(species, constant_species, parameters, non_sampled_parameters);
@@ -563,7 +563,7 @@ std::string SBMLRatelawElementDivide::GenerateDerivative(size_t species_ix)
 	}
 }
 
-Real SBMLRatelawElementLookupSpecies::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementLookupSpecies::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	return species[ix];
 }
@@ -584,13 +584,17 @@ bool SBMLRatelawElementLookupSpecies::ContainsSpeciesLookup(size_t species_ix)
 std::string SBMLRatelawElementLookupSpecies::GenerateDerivative(size_t species_ix)
 {
 	if (species_ix == ix) {
-		return "(double)1.0";
+#if ODE_SINGLE_PRECISION
+		return "1.0f";
+#else
+		return "1.0";
+#endif
 	} else {
 		return "";
 	}
 }
 
-Real SBMLRatelawElementLookupConstantSpecies::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementLookupConstantSpecies::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	return constant_species[ix];
 }
@@ -613,7 +617,7 @@ std::string SBMLRatelawElementLookupConstantSpecies::GenerateDerivative(size_t s
 	return "";
 }
 
-Real SBMLRatelawElementLookupParameter::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementLookupParameter::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	return parameters[ix];
 }
@@ -636,7 +640,7 @@ std::string SBMLRatelawElementLookupParameter::GenerateDerivative(size_t species
 	return "";
 }
 
-Real SBMLRatelawElementLookupNonSampledParameter::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementLookupNonSampledParameter::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	return non_sampled_parameters[ix];
 }
@@ -659,14 +663,18 @@ std::string SBMLRatelawElementLookupNonSampledParameter::GenerateDerivative(size
 	return "";
 }
 
-Real SBMLRatelawElementConstant::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementConstant::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	return constant;
 }
 
 std::string SBMLRatelawElementConstant::GenerateEquation()
 {
+#if ODE_SINGLE_PRECISION
+	return std::to_string((long double)constant) + "f";
+#else
 	return std::to_string((long double)constant);
+#endif
 }
 
 bool SBMLRatelawElementConstant::ContainsSpeciesLookup(size_t species_ix)
@@ -679,7 +687,7 @@ std::string SBMLRatelawElementConstant::GenerateDerivative(size_t species_ix)
 	return "";
 }
 
-Real SBMLRatelawElementFunctionExp::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementFunctionExp::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 1);
 	return exp(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
@@ -710,7 +718,7 @@ std::string SBMLRatelawElementFunctionExp::GenerateDerivative(size_t species_ix)
 	}
 }
 
-Real SBMLRatelawElementFunctionLog::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementFunctionLog::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 1);
 	return exp(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
@@ -739,7 +747,7 @@ std::string SBMLRatelawElementFunctionLog::GenerateDerivative(size_t species_ix)
 	}
 }
 
-Real SBMLRatelawElementFunctionPow::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementFunctionPow::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 2);
 	return safepow(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters), children[1]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
@@ -773,14 +781,18 @@ std::string SBMLRatelawElementFunctionPow::GenerateDerivative(size_t species_ix)
 		result += children[0]->GenerateEquation();
 		result += ",";
 		result += children[1]->GenerateEquation();
+#if ODE_SINGLE_PRECISION
 		result += "-1.0)*(";
+#else
+		result += "-1.0f)*(";
+#endif
 		result += children[1]->GenerateEquation();
 		result += "))";
 	}
 	return result;
 }
 
-Real SBMLRatelawElementFunctionHill::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementFunctionHill::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 3);
 	return bcm3::hill_function(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters), children[1]->Evaluate(species, constant_species, parameters, non_sampled_parameters), children[2]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
@@ -790,37 +802,37 @@ std::string SBMLRatelawElementFunctionHill::GenerateEquation()
 {
 	std::string result;
 	std::string n = children[2]->GenerateEquation();
-	if (n == "1.000000") {
+	if (n == "1.000000" || n == "1.000000f") {
 		result = "hill_function_fixedn1(";
 		result += children[0]->GenerateEquation();
 		result += ",";
 		result += children[1]->GenerateEquation();
 		result += ")";
-	} else if (n == "2.000000") {
+	} else if (n == "2.000000" || n == "2.000000f") {
 		result = "hill_function_fixedn2(";
 		result += children[0]->GenerateEquation();
 		result += ",";
 		result += children[1]->GenerateEquation();
 		result += ")";
-	} else if (n == "4.000000") {
+	} else if (n == "4.000000" || n == "4.000000f") {
 		result = "hill_function_fixedn4(";
 		result += children[0]->GenerateEquation();
 		result += ",";
 		result += children[1]->GenerateEquation();
 		result += ")";
-	} else if (n == "10.000000") {
+	} else if (n == "10.000000" || n == "10.000000f") {
 		result = "hill_function_fixedn10(";
 		result += children[0]->GenerateEquation();
 		result += ",";
 		result += children[1]->GenerateEquation();
 		result += ")";
-	} else if (n == "16.000000") {
+	} else if (n == "16.000000" || n == "16.000000f") {
 		result = "hill_function_fixedn16(";
 		result += children[0]->GenerateEquation();
 		result += ",";
 		result += children[1]->GenerateEquation();
 		result += ")";
-	} else if (n == "100.000000") {
+	} else if (n == "100.000000" || n == "100.000000f") {
 		result = "hill_function_fixedn100(";
 		result += children[0]->GenerateEquation();
 		result += ",";
@@ -845,7 +857,7 @@ std::string SBMLRatelawElementFunctionHill::GenerateDerivative(size_t species_ix
 	SBMLRatelawElementLookupSpecies* lookup_species = dynamic_cast<SBMLRatelawElementLookupSpecies*>(children[0].get());
 	if (lookup_species && lookup_species->ix == species_ix) {
 		std::string n = children[2]->GenerateEquation();
-		if (n == "1.000000") {
+		if (n == "1.000000" || n == "1.000000f") {
 			result = "hill_function_derivative_fixedn1(";
 			result += children[0]->GenerateEquation();
 			result += ",";
@@ -866,7 +878,7 @@ std::string SBMLRatelawElementFunctionHill::GenerateDerivative(size_t species_ix
 			if (!res.empty()) {
 				if (i == 0) {
 					std::string n = children[2]->GenerateEquation();
-					if (n == "1.000000") {
+					if (n == "1.000000" || n == "1.000000f") {
 						result = "hill_function_derivative_fixedn1(";
 						result += children[0]->GenerateEquation();
 						result += ",";
@@ -894,7 +906,7 @@ std::string SBMLRatelawElementFunctionHill::GenerateDerivative(size_t species_ix
 	return result;
 }
 
-Real SBMLRatelawElementFunctionMM::Evaluate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters)
+Real SBMLRatelawElementFunctionMM::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 3);
 	return michaelis_menten_function(

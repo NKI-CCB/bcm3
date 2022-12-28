@@ -1,7 +1,8 @@
 #include "Utils.h"
-#include "nvector_serial_eigen.h"
-#include "sunmatrix_sparse_eigen.h"
-#include "sunlinsol_sparse_eigen.h"
+#include "LinearAlgebraSelector.h"
+
+#if CVODE_USE_SPARSE_SOLVER
+
 #include <sundials/sundials_math.h>
 
 #define ONE  RCONST(1.0)
@@ -95,7 +96,7 @@ int SUNLinSolSetup_Sparse_Eigen(SUNLinearSolver S, SUNMatrix A)
 	}
 
 	if (EIGMAT(A).nonZeros() != ((SUNLinearSolverContent_Sparse_Eigen)S->content)->analyzed_nonzero_count) {
-		EIGSOL(S).analyzePattern(EIGMAT(A));
+		EIGSOL(S).analyzePattern((*(SparseMat*)(A->content)));
 		((SUNLinearSolverContent_Sparse_Eigen)S->content)->analyzed_nonzero_count = EIGMAT(A).nonZeros();
 	}
 	EIGSOL(S).factorize(EIGMAT(A));
@@ -150,3 +151,5 @@ int SUNLinSolFree_Sparse_Eigen(SUNLinearSolver S)
 	free(S);
 	return(SUNLS_SUCCESS);
 }
+
+#endif

@@ -1,6 +1,7 @@
 #include "Utils.h"
-#include "sunmatrix_dense_eigen.h"
-#include "nvector_serial_eigen.h"
+#include "LinearAlgebraSelector.h"
+
+#if CVODE_USE_EIGEN_SOLVER
 #include <sundials/sundials_math.h>
 
 #define ZERO RCONST(0.0)
@@ -13,7 +14,7 @@
 SUNMatrix SUNDenseEigenMatrix(sunindextype M, sunindextype N)
 {
 	SUNMatrix A;
-	MatrixReal* content;
+	OdeMatrixReal* content;
 	sunindextype j;
 
 	/* return with NULL matrix on illegal dimension input */
@@ -37,7 +38,7 @@ SUNMatrix SUNDenseEigenMatrix(sunindextype M, sunindextype N)
 
 	/* Create content */
 	content = NULL;
-	content = new MatrixReal(M, N);
+	content = new OdeMatrixReal(M, N);
 	if (content == NULL) { SUNMatDestroy(A); return(NULL); }
 
 	/* Attach content */
@@ -100,7 +101,7 @@ void SUNMatDestroy_DenseEigen(SUNMatrix A)
 
 	/* free content */
 	if (A->content != NULL) {
-		delete (MatrixReal*)(A->content);
+		delete (OdeMatrixReal*)(A->content);
 		A->content = NULL;
 	}
 
@@ -148,3 +149,5 @@ int SUNMatSpace_DenseEigen(SUNMatrix A, long int *lenrw, long int *leniw)
 	*leniw = 0;
 	return SUNMAT_SUCCESS;
 }
+
+#endif

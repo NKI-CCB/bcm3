@@ -16,7 +16,7 @@ public:
 	bool SetNonSampledParameters(const std::vector<std::string>& parameter_names);
 	bool PostInitialize(const Model* model, const std::map<std::string, Real>& fixed_parameter_values);
 
-	bool Calculate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters, Real* value) const;
+	bool Calculate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters, OdeReal* value) const;
 	inline const std::string& GetVariable() const { return TargetVariable; }
 
 private:

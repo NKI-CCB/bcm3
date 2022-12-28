@@ -1,12 +1,13 @@
 #pragma once
 
 #include <sundials/sundials_nvector.h>
+#include "LinearAlgebraSelector.h"
 
-#define NV_CONTENT_S(v)  ( (VectorReal*)(v->content) )
+#define NV_CONTENT_S(v)  ( (OdeVectorReal*)(v->content) )
 #define NV_LENGTH_S(v)   ( NV_CONTENT_S(v)->size() )
 #define NV_DATA_S(v)     ( NV_CONTENT_S(v)->data() )
 #define NV_Ith_S(v,i)	 ( (*NV_CONTENT_S(v))(i) )
-#define EIGV(v)			 (*(VectorReal*)(v->content))
+#define EIGV(v)			 (*(OdeVectorReal*)(v->content))
 
 N_Vector N_VNew_Eigen(sunindextype vec_length);
 N_Vector N_VNewEmpty_Eigen(sunindextype vec_length);

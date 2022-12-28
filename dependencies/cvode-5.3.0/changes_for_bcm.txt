@@ -1,2 +1,3 @@
 - Removed unneeded parts
 - Modified the root CMakeLists.txt to work within the BCM CMakeLists
+- Required the presence of N_Vadd and use it in cvPredict, it's faster than a linear sum

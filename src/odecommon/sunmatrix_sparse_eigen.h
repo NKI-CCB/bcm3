@@ -2,12 +2,13 @@
 
 #include <sundials/sundials_matrix.h>
 #include <Eigen/Sparse>
+#include "LinearAlgebraSelector.h"
 
 /* ------------------------------------
  * Macros for access to SUNMATRIX_DENSE
  * ------------------------------------ */
 
-typedef Eigen::SparseMatrix<double> SparseMat;
+typedef Eigen::SparseMatrix<OdeReal> SparseMat;
 #define EIGMAT(A) (*(SparseMat*)(A->content))
 #define SM_ELEMENT_D(A, i, j) (((SparseMat*)(A->content))->coeffRef(i,j))
 

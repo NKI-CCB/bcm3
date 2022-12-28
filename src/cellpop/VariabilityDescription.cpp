@@ -92,29 +92,33 @@ bool VariabilityDescription::ApplyVariabilityEntryTime(Real& value, const Vector
 	}
 }
 
-bool VariabilityDescription::ApplyVariabilityParameter(const std::string& parameter, Real& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
+bool VariabilityDescription::ApplyVariabilityParameter(const std::string& parameter, OdeReal& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
 {
 	if (!parameter_name.empty() && parameter == parameter_name) {
 		// This variability description applies to this parameter
 		Real sobol_sample = sobol_sequence[sobol_sequence_ix++];
 		Real range = GetRangeValue(transformed_values, non_sampled_parameters);
 		Real q = DistributionQuantile(sobol_sample, range);
-		ApplyType(value, q);
+		Real real_value = (Real)value;
+		ApplyType(real_value, q);
+		value = (OdeReal)real_value;
 		return true;
 	} else {
 		return false;
 	}
 }
 
-bool VariabilityDescription::ApplyVariabilitySpecies(const std::string& species, Real& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
+bool VariabilityDescription::ApplyVariabilitySpecies(const std::string& species, OdeReal& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
 {
 	if (!species_name.empty() && species == species_name) {
 		// This variability description applies to this species
 		Real sobol_sample = sobol_sequence[sobol_sequence_ix++];
 		Real range = GetRangeValue(transformed_values, non_sampled_parameters);
 		Real q = DistributionQuantile(sobol_sample, range);
-		ApplyType(value, q);
-		value = fabs(value);
+		Real real_value = (Real)value;
+		ApplyType(real_value, q);
+		real_value = fabs(real_value);
+		value = (OdeReal)real_value;
 		return true;
 	} else {
 		return false;
@@ -161,6 +165,8 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 			distribution = EDistribution::HalfNormal;
 	} else if (distribution_str == "bernoulli") {
 		distribution = EDistribution::Bernoulli;
+	} else if (distribution_str == "uniform") {
+		distribution = EDistribution::Uniform;
 	} else {
 		LOGERROR("Unknown distribution \"%s\" in variability description", distribution_str.c_str());
 	}
@@ -201,6 +207,10 @@ Real VariabilityDescription::DistributionQuantile(Real p, Real range) const
 		} else {
 			q = 1.0;
 		}
+		break;
+
+	case EDistribution::Uniform:
+		q = p * range;
 		break;
 
 	default:

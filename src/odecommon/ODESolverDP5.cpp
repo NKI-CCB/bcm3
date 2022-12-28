@@ -4,10 +4,10 @@
 
 #define TMP_USE_SSE 1
 
-static const Real MIN_DT = 1e-3;
+static const OdeReal MIN_DT = 1e-3;
 static const int ATTEMPTS = 5;
-static const Real MIN_SCALE_FACTOR = 0.2;
-static const Real MAX_SCALE_FACTOR = 5.0;
+static const OdeReal MIN_SCALE_FACTOR = 0.2;
+static const OdeReal MAX_SCALE_FACTOR = 5.0;
 static const unsigned int MAX_STEPS = 20000;
 
 ODESolverDP5::ODESolverDP5()
@@ -65,7 +65,7 @@ bool ODESolverDP5::Initialize(size_t N, void* user)
 	return true;
 }
 
-bool ODESolverDP5::Simulate(const Real* initial_conditions, const VectorReal& timepoints, MatrixReal& output, bool verbose)
+bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, OdeMatrixReal& output, bool verbose)
 {
 	ASSERT(ytmp != nullptr);
 	
@@ -74,18 +74,18 @@ bool ODESolverDP5::Simulate(const Real* initial_conditions, const VectorReal& ti
 		return false;
 	}
 
-	output.setConstant(N, timepoints.size(), std::numeric_limits<Real>::quiet_NaN());
+	output.setConstant(N, timepoints.size(), std::numeric_limits<OdeReal>::quiet_NaN());
 
 	size_t ti = 0;
-	if (timepoints(0) < std::numeric_limits<Real>::epsilon()) {
+	if (timepoints(0) < std::numeric_limits<OdeReal>::epsilon()) {
 		for (size_t i = 0; i < N; i++) {
 			output(i, 0) = initial_conditions[i];
 		}
 		ti++;
 	}
 
-	Real t = 0.0;
-	Real dt = 0.1;
+	OdeReal t = 0.0;
+	OdeReal dt = 0.1;
 
 	for (size_t i = 0; i < N; i++) {
 		yn[i] = initial_conditions[i];
@@ -97,8 +97,8 @@ bool ODESolverDP5::Simulate(const Real* initial_conditions, const VectorReal& ti
 	
 	while (1) {
 		// Temporarily decrease timestep if we're approaching a discontinuity.
-		Real cur_dt;
-		Real next_dt = dt;
+		OdeReal cur_dt;
+		OdeReal next_dt = dt;
 		bool approaching_discontinuity = false;
 		if (discontinuity_time == discontinuity_time) {
 			if (discontinuity_time < t + dt) {
@@ -112,7 +112,7 @@ bool ODESolverDP5::Simulate(const Real* initial_conditions, const VectorReal& ti
 		bool succeeded = false;
 		for (int i = 0; i < ATTEMPTS; i++) {
 			OdeReal maxdiff = ApplyRK(t, cur_dt);
-			if (std::isnan(maxdiff) || maxdiff == -std::numeric_limits<Real>::infinity()) {
+			if (std::isnan(maxdiff) || maxdiff == -std::numeric_limits<OdeReal>::infinity()) {
 				// LOGERROR(ODESolverDopri, IntegrateImpl, "NaN in error calculation");
 				return false;
 			}
@@ -139,7 +139,7 @@ bool ODESolverDP5::Simulate(const Real* initial_conditions, const VectorReal& ti
 						}
 					}
 				}
-			} else if (maxdiff < (Real)0.5) {
+			} else if (maxdiff < (OdeReal)0.5) {
 				if (!approaching_discontinuity) {
 					maxdiff = std::max(maxdiff, (OdeReal)1e-5);
 					OdeReal scale = (OdeReal)0.9 * pow(maxdiff, (OdeReal)-0.2);
@@ -161,7 +161,7 @@ bool ODESolverDP5::Simulate(const Real* initial_conditions, const VectorReal& ti
 		}
 
 		// Interpolate any timepoints we may have passed
-		Real target_t = t + cur_dt;
+		OdeReal target_t = t + cur_dt;
 		while (target_t >= timepoints(ti)) {
 			OdeReal theta = timepoints(ti) - t;
 			if (theta >= 1.0) { // theta should not be bigger than 1.0; if it is than it should be only a rounding error
@@ -369,7 +369,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 	derivative(t + cur_dt, ytmp, k[6], user_data);
 	
 	// Error
-	OdeReal maxdiff = (OdeReal)-std::numeric_limits<Real>::infinity();
+	OdeReal maxdiff = -std::numeric_limits<OdeReal>::infinity();
 	for (size_t i = 0; i < N; i++) {
 		OdeReal error = cur_dt * (
 			+ (OdeReal)0.00123263888888888888888888888889 * k[0][i]

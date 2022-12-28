@@ -21,10 +21,10 @@ public:
 	virtual bool EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp);
 
 	inline size_t GetNumPatients() const { return patient_ids.size(); }
-	inline const VectorReal& GetTimepoints() const { return time; }
+	inline const OdeVectorReal& GetTimepoints() const { return time; }
 	inline const VectorReal& GetObservedConcentrations(size_t patient_id) const { return observed_concentration[patient_id]; }
-	inline const VectorReal& GetSimulatedConcentrations(size_t threadix, size_t patient_id) const { return parallel_data[threadix].simulated_concentrations[patient_id]; }
-	inline const MatrixReal& GetSimulatedTrajectories(size_t threadix, size_t patient_id) const { return parallel_data[threadix].stored_trajectories[patient_id]; }
+	inline const OdeVectorReal& GetSimulatedConcentrations(size_t threadix, size_t patient_id) const { return parallel_data[threadix].simulated_concentrations[patient_id]; }
+	inline const OdeMatrixReal& GetSimulatedTrajectories(size_t threadix, size_t patient_id) const { return parallel_data[threadix].stored_trajectories[patient_id]; }
 
 private:
 	enum PKModelType {
@@ -56,9 +56,9 @@ private:
 		bool biphasic_switch;
 
 		Real current_dose_time;
-		MatrixReal simulated_trajectories;
-		std::vector<VectorReal> simulated_concentrations;
-		std::vector<MatrixReal> stored_trajectories;
+		OdeMatrixReal simulated_trajectories;
+		std::vector<OdeVectorReal> simulated_concentrations;
+		std::vector<OdeMatrixReal> stored_trajectories;
 	};
 
 	bool CalculateDerivative_OneCompartment(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
@@ -74,7 +74,7 @@ private:
 	size_t sampling_threads;
 	std::shared_ptr<const bcm3::VariableSet> varset;
 
-	VectorReal time;
+	OdeVectorReal time;
 	std::vector<VectorReal> observed_concentration;
 	std::string drug;
 	std::vector<Real> dose;

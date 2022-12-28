@@ -24,7 +24,7 @@ bool ODESolver::Initialize(size_t N, void* user)
 	return true;
 }
 
-bool ODESolver::SetTolerance(Real relative, Real absolute)
+bool ODESolver::SetTolerance(OdeReal relative, OdeReal absolute)
 {
 	abstol = absolute;
 	reltol = relative;
@@ -36,7 +36,7 @@ void ODESolver::SetUserData(void* user)
 	user_data = user;
 }
 
-void ODESolver::SetDiscontinuity(Real time, TDiscontinuityCallback cb, void* user)
+void ODESolver::SetDiscontinuity(OdeReal time, TDiscontinuityCallback cb, void* user)
 {
 	discontinuity_time = time;
 	discontinuity_cb = cb;
@@ -45,7 +45,7 @@ void ODESolver::SetDiscontinuity(Real time, TDiscontinuityCallback cb, void* use
 
 void ODESolver::ResetDiscontinuity()
 {
-	discontinuity_time = std::numeric_limits<Real>::quiet_NaN();
+	discontinuity_time = std::numeric_limits<OdeReal>::quiet_NaN();
 }
 
 void ODESolver::SetDerivativeFunction(TDeriviativeFunction f)

@@ -90,6 +90,7 @@ N_Vector N_VNewEmpty_Serial(sunindextype length)
   v->ops->nvgetlength       = N_VGetLength_Serial;
 
   /* standard vector operations */
+  v->ops->nvadd			 = N_VAdd_Serial;
   v->ops->nvlinearsum    = N_VLinearSum_Serial;
   v->ops->nvconst        = N_VConst_Serial;
   v->ops->nvprod         = N_VProd_Serial;
@@ -414,6 +415,23 @@ void N_VSetArrayPointer_Serial(realtype *v_data, N_Vector v)
   if (NV_LENGTH_S(v) > 0) NV_DATA_S(v) = v_data;
 
   return;
+}
+
+void N_VAdd_Serial(N_Vector x, N_Vector y)
+{
+	sunindextype i, N;
+	realtype* xd, * yd;
+
+	xd = yd = NULL;
+
+	N = NV_LENGTH_S(x);
+	xd = NV_DATA_S(x);
+	yd = NV_DATA_S(y);
+
+	for (i = 0; i < N; i++)
+		xd[i] += yd[i];
+
+	return;
 }
 
 void N_VLinearSum_Serial(realtype a, N_Vector x, realtype b, N_Vector y, N_Vector z)

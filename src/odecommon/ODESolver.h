@@ -1,14 +1,6 @@
 #pragma once
 
-#if ODE_SINGLE_PRECISION
-	typedef float OdeReal;
-	typedef Eigen::VectorXf OdeVectorReal;
-	typedef Eigen::MatrixXf OdeMatrixReal;
-#else
-	typedef double OdeReal;
-	typedef Eigen::VectorXd OdeVectorReal;
-	typedef Eigen::MatrixXd OdeMatrixReal;
-#endif
+#include "LinearAlgebraSelector.h"
 
 class ODESolver
 {
@@ -29,19 +21,19 @@ public:
 	void SetDerivativeFunction(TDeriviativeFunction f);
 	void SetJacobianFunction(TJacobianFunction f);
 
-	virtual bool Simulate(const Real* initial_conditions, const VectorReal& timepoints, MatrixReal& output, bool verbose = false) = 0;
+	virtual bool Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, OdeMatrixReal& output, bool verbose = false) = 0;
 	virtual OdeReal get_y(size_t i) { return std::numeric_limits<OdeReal>::quiet_NaN(); }
 	virtual void set_y(size_t i, OdeReal y) {}
 
 protected:
 	size_t N;
 	void* user_data;
-	Real discontinuity_time;
+	OdeReal discontinuity_time;
 	TDiscontinuityCallback discontinuity_cb;
 	void* discontinuity_user;
 	TDeriviativeFunction derivative;
 	TJacobianFunction jacobian;
 
-	Real abstol;
-	Real reltol;
+	OdeReal abstol;
+	OdeReal reltol;
 };

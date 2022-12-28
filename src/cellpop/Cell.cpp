@@ -30,7 +30,7 @@ static void static_cvode_err_fn(int error_code, const char *module, const char *
 }
 
 bool tmp = false;
-int Cell::static_cvode_rhs_fn(Real t, N_Vector y, N_Vector ydot, void* user_data)
+int Cell::static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data)
 {
 	Cell* cell = reinterpret_cast<Cell*>(user_data);
 	cell->SetTreatmentConcentration(t);
@@ -364,7 +364,7 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 
 	current_simulation_time = 0;
 	bool result = true;
-	Real cell_end_time = end_time - creation_time;
+	OdeReal cell_end_time = end_time - creation_time;
 	while (current_simulation_time < cell_end_time) {
 		if (cvode_steps >= max_cvode_steps) {
 			cvode_max_steps_reached++;
@@ -633,6 +633,12 @@ void Cell::RetrieveCVodeInterpolationInfo()
 
 	ASSERT(cvt.cv_q <= 5);
 	for (int j = cv_mem->cv_q; j >= 0; j--) {
+#if CVODE_USE_EIGEN_SOLVER
 		cvode_timepoints_zn[j].col(cvode_steps) = *NV_CONTENT_S(cv_mem->cv_zn[j]);
+#else
+		for (int i = 0; i < NV_LENGTH_S(cv_mem->cv_zn[j]); i++) {
+			cvode_timepoints_zn[j](i, cvode_steps) = NV_Ith_S(cv_mem->cv_zn[j], i);
+		}
+#endif
 	}
 }

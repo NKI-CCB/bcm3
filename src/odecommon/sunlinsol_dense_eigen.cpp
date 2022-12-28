@@ -1,7 +1,7 @@
 #include "Utils.h"
-#include "nvector_serial_eigen.h"
-#include "sunmatrix_dense_eigen.h"
-#include "sunlinsol_dense_eigen.h"
+#include "LinearAlgebraSelector.h"
+
+#if CVODE_USE_EIGEN_SOLVER
 #include <sundials/sundials_math.h>
 
 #define ONE  RCONST(1.0)
@@ -14,7 +14,7 @@
 
 //#define EIGSOL(S)		  ( ((SUNLinearSolverContent_Dense_Eigen)S)->lu )
 
-inline PartialPivLUExtended& EIGSOL(SUNLinearSolver S) {
+inline PartialPivLUExtended< OdeMatrixReal >& EIGSOL(SUNLinearSolver S) {
 	return reinterpret_cast<SUNLinearSolverContent_Dense_Eigen>(S->content)->lu;
 }
 
@@ -96,6 +96,7 @@ int SUNLinSolSetup_Dense_Eigen(SUNLinearSolver S, SUNMatrix A)
 	}
 
 	EIGSOL(S).compute_optimized(EIGMAT(A));
+	//EIGSOL(S).compute(EIGMAT(A));
 
 #if 0
 	std::cout << EIGMAT(A) << std::endl << std::endl;
@@ -152,3 +153,5 @@ int SUNLinSolFree_Dense_Eigen(SUNLinearSolver S)
 	free(S);
 	return(SUNLS_SUCCESS);
 }
+
+#endif

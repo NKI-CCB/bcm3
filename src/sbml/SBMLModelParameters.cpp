@@ -53,7 +53,7 @@ void SBMLModelParameters::UpdateVariableValues(Real* variables) const
 	}
 }
 
-void SBMLModelParameters::UpdateInitialValues(Real* initial_values) const
+void SBMLModelParameters::UpdateInitialValues(OdeReal* initial_values) const
 {
 	for (std::map<size_t, Real>::const_iterator fici = ForcedInitialConditions.begin(); fici != ForcedInitialConditions.end(); ++fici) {
 		initial_values[fici->first] = fici->second;

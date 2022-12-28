@@ -61,7 +61,7 @@ void bcm3_rbridge_popPK_get_observed_data(char** bcm3info_ptr, double* out_value
 		return;
 	}
 
-	const VectorReal& t = ll->GetTimepoints();
+	const OdeVectorReal& t = ll->GetTimepoints();
 	*out_num_timepoints = t.size();
 	for (ptrdiff_t i = 0; i < t.size(); i++) {
 		out_timepoints[i] = t(i);
@@ -89,7 +89,7 @@ void bcm3_rbridge_popPK_get_simulated_data(char** bcm3info_ptr, double* param_va
 		return;
 	}
 
-	const VectorReal& t = ll->GetTimepoints();
+	const OdeVectorReal& t = ll->GetTimepoints();
 	*out_num_timepoints = t.size();
 	for (ptrdiff_t i = 0; i < t.size(); i++) {
 		out_timepoints[i] = t(i);

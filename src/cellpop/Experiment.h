@@ -13,8 +13,8 @@
 #include "VariableSet.h"
 
 extern "C" {
-	typedef void (*derivative_fn)(double* out, const double* species, const double* constant_species, const double* parameters, const double* non_sampled_parameters);
-	typedef void (*jacobian_fn)(SUNMatrix out, const double* species, const double* constant_species, const double* parameters, const double* non_sampled_parameters);
+	typedef void (*derivative_fn)(OdeReal* out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters);
+	typedef void (*jacobian_fn)(SUNMatrix out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters);
 }
 
 class Cell;

@@ -7,6 +7,7 @@ target_sources(odecommon
     CVODESolverDelay.h
     CVODESolverDelay.cpp
     LinearAlgebraSelector.h
+    LinearAlgebraSelector.cpp
     nvector_serial_eigen.h
     nvector_serial_eigen.cpp
     ODESolver.h

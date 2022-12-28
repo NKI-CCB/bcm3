@@ -108,7 +108,9 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 		return false;
 	}
 
-	result &= data.GetValues(trial, "time", 0, num_timepoints, time);
+	for (size_t i = 0; i < num_timepoints; i++) {
+		result &= data.GetValue(trial, "time", i, time.data() + i);
+	}
 
 	Real minimum_dose = std::numeric_limits<Real>::max();
 	observed_concentration.resize(num_patients);
@@ -285,7 +287,7 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 			solvers[threadix]->SetDiscontinuity(pd.dosing_interval, boost::bind(&LikelihoodPopPKTrajectory::TreatmentCallback, this, _1, _2), (void*)threadix);
 		}
 
-		Real initial_conditions[5];
+		OdeReal initial_conditions[5];
 		initial_conditions[0] = pd.dose;
 		initial_conditions[1] = 0.0;
 		initial_conditions[2] = 0.0;

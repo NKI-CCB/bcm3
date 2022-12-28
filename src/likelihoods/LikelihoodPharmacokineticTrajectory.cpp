@@ -177,7 +177,7 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 		solvers[threadix].SetDiscontinuity(dosing_interval, boost::bind(&LikelihoodPharmacokineticTrajectory::TreatmentCallback, this, _1, _2), (void*)threadix);
 	}
 
-	Real initial_conditions[5];
+	OdeReal initial_conditions[5];
 	initial_conditions[0] = dose;
 	initial_conditions[1] = 0.0;
 	initial_conditions[2] = 0.0;

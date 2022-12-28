@@ -16,7 +16,7 @@ public:
 	bool SetForcedVariable(const std::string& variable_name, Real value);
 
 	void UpdateVariableValues(Real* variables) const;
-	void UpdateInitialValues(Real* initial_values) const;
+	void UpdateInitialValues(OdeReal* initial_values) const;
 
 private:
 	const SBMLModel* Model;

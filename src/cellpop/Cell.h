@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Experiment.h"
-
+#include "LinearAlgebraSelector.h"
 #include <cvode/cvode.h>
 
 class SBMLModel;
@@ -36,23 +36,23 @@ private:
 	void SetMutations();
 	void SetTreatmentConcentration(Real t);
 	void RetrieveCVodeInterpolationInfo();
-	static int static_cvode_rhs_fn(Real t, N_Vector y, N_Vector ydot, void* user_data);
-	static int static_cvode_jac_fn(Real t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3);
+	static int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data);
+	static int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3);
 
 	const SBMLModel* model;
 	const Experiment* experiment;
-	VectorReal cell_specific_transformed_variables;
-	VectorReal cell_specific_non_sampled_transformed_variables;
+	OdeVectorReal cell_specific_transformed_variables;
+	OdeVectorReal cell_specific_non_sampled_transformed_variables;
 
 	void* cvode_mem;
 	SUNLinearSolver LS;
 	SUNNonlinearSolver NLS;
 	N_Vector cvode_y;
-	VectorReal constant_species_y;
+	OdeVectorReal constant_species_y;
 	SUNMatrix J;
 	bool cvode_initialized;
 	Real creation_time;
-	Real current_simulation_time;
+	OdeReal current_simulation_time;
 	size_t cvode_steps;
 	Real min_step_size;
 	bool completed;
@@ -67,7 +67,7 @@ private:
 		int cv_q;
 	};
 	std::vector<CVodeTimepoint> cvode_timepoints;
-	MatrixReal cvode_timepoints_zn[6];
+	OdeMatrixReal cvode_timepoints_zn[6];
 	size_t cvode_timepoint_iter;
 	Real synchronize_offset_time;
 
@@ -85,8 +85,8 @@ private:
 	Real nuclear_envelope_breakdown_time;
 	Real anaphase_onset_time;
 
-	VectorReal cvode_interpolate_y;
-	Real interpolation_time;
+	OdeVectorReal cvode_interpolate_y;
+	OdeReal interpolation_time;
 
 	derivative_fn derivative;
 	jacobian_fn jacobian;

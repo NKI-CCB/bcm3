@@ -6,16 +6,6 @@
 #include <sundials/sundials_nonlinearsolver.h>
 #include "LinearAlgebraSelector.h"
 
-#if ODE_SINGLE_PRECISION
-	typedef float OdeReal;
-	typedef Eigen::VectorXf OdeVectorReal;
-	typedef Eigen::MatrixXf OdeMatrixReal;
-#else
-	typedef double OdeReal;
-	typedef Eigen::VectorXd OdeVectorReal;
-	typedef Eigen::MatrixXd OdeMatrixReal;
-#endif
-
 class CVODESolver
 {
 public:
@@ -36,7 +26,7 @@ public:
 	void SetDerivativeFunction(TDeriviativeFunction f);
 	void SetJacobianFunction(TJacobianFunction f);
 
-	bool Simulate(const Real* initial_conditions, const VectorReal& timepoints, MatrixReal& output);
+	bool Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, OdeMatrixReal& output);
 
 	void DumpStatistics(const char* filename);
 

@@ -109,6 +109,7 @@ SUNDIALS_EXPORT realtype *N_VGetArrayPointer_Serial(N_Vector v);
 SUNDIALS_EXPORT void N_VSetArrayPointer_Serial(realtype *v_data, N_Vector v);
 
 /* standard vector operations */
+SUNDIALS_EXPORT void N_VAdd_Serial(N_Vector x, N_Vector y);
 SUNDIALS_EXPORT void N_VLinearSum_Serial(realtype a, N_Vector x, realtype b, N_Vector y, N_Vector z);
 SUNDIALS_EXPORT void N_VConst_Serial(realtype c, N_Vector z);
 SUNDIALS_EXPORT void N_VProd_Serial(N_Vector x, N_Vector y, N_Vector z);

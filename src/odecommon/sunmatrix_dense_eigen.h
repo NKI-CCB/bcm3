@@ -6,8 +6,8 @@
  * Macros for access to SUNMATRIX_DENSE
  * ------------------------------------ */
 
-#define EIGMAT(A) (*(MatrixReal*)(A->content))
-#define SM_ELEMENT_D(A, i, j) ((*(MatrixReal*)(A->content))(i,j))
+#define EIGMAT(A) (*(OdeMatrixReal*)(A->content))
+#define SM_ELEMENT_D(A, i, j) ((*(OdeMatrixReal*)(A->content))(i,j))
 
 /* ---------------------------------------
  * Exported Functions for SUNMATRIX_DENSE

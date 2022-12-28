@@ -357,10 +357,10 @@ std::string SBMLModel::GenerateCode()
 {
 	std::string code;
 
-	code += "EXPORT_PREFIX void generated_derivative(double* out, const double* species, const double* constant_species, const double* parameters, const double* non_sampled_parameters)\n";
+	code += "EXPORT_PREFIX void generated_derivative(OdeReal* out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)\n";
 	code += "{\n";
 
-	code += "\tdouble ratelaws[" + std::to_string(Reactions.size()) + "];\n";
+	code += "\tOdeReal ratelaws[" + std::to_string(Reactions.size()) + "];\n";
 	size_t i = 0;
 	std::map<SBMLReaction*, size_t> ratelaw_ix;
 	for (auto ri = Reactions.begin(); ri != Reactions.end(); ++ri) {
@@ -368,7 +368,11 @@ std::string SBMLModel::GenerateCode()
 
 		std::string eqn = ri->second->GetRateEquation(i);
 		if (eqn.empty()) {
-			code += "0.0;\n";
+			if (ODE_SINGLE_PRECISION) {
+				code += "0.0f;\n";
+			} else {
+				code += "0.0;\n";
+			}
 		} else {
 			code += eqn + ";\n";
 		}
@@ -389,7 +393,11 @@ std::string SBMLModel::GenerateCode()
 					if (stoichiometry == 1.0) {
 						eqn += "+ratelaws[" + std::to_string(ratelaw_ix[ri->second.get()]) + "]";
 					} else if (stoichiometry != 0.0) {
-						eqn += "+" + std::to_string(stoichiometry) + "*ratelaws[" + std::to_string(ratelaw_ix[ri->second.get()]) + "]";
+						if (ODE_SINGLE_PRECISION) {
+							eqn += "+" + std::to_string(stoichiometry) + "f*ratelaws[" + std::to_string(ratelaw_ix[ri->second.get()]) + "]";
+						} else {
+							eqn += "+" + std::to_string(stoichiometry) + "*ratelaws[" + std::to_string(ratelaw_ix[ri->second.get()]) + "]";
+						}
 					}
 				}
 			}
@@ -400,14 +408,22 @@ std::string SBMLModel::GenerateCode()
 					if (stoichiometry == 1.0) {
 						eqn += "-ratelaws[" + std::to_string(ratelaw_ix[ri->second.get()]) + "]";
 					} else if (stoichiometry != 0.0) {
-						eqn += "-" + std::to_string(stoichiometry) + "*ratelaws[" + std::to_string(ratelaw_ix[ri->second.get()]) + "]";
+						if (ODE_SINGLE_PRECISION) {
+							eqn += "-" + std::to_string(stoichiometry) + "f*ratelaws[" + std::to_string(ratelaw_ix[ri->second.get()]) + "]";
+						} else {
+							eqn += "-" + std::to_string(stoichiometry) + "*ratelaws[" + std::to_string(ratelaw_ix[ri->second.get()]) + "]";
+						}
 					}
 				}
 			}
 		}
 
 		if (eqn.empty()) {
-			code += "0.0;\n";
+			if (ODE_SINGLE_PRECISION) {
+				code += "0.0f;\n";
+			} else {
+				code += "0.0;\n";
+			}
 		} else {
 			code += eqn + ";\n";
 		}
@@ -415,7 +431,7 @@ std::string SBMLModel::GenerateCode()
 
 	code += "}\n\n";
 
-	code += "EXPORT_PREFIX void generated_jacobian(SUNMatrix out, const double* species, const double* constant_species, const double* parameters, const double* non_sampled_parameters)\n";
+	code += "EXPORT_PREFIX void generated_jacobian(SUNMatrix out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)\n";
 	code += "{\n";
 
 	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
@@ -493,7 +509,8 @@ bool SBMLModel::Simulate(const Real* variable_values, const Real* initial_condit
 		}
 		s.parameters->UpdateInitialValues(s.y.data());
 	}
-	CalculateAssignments(s.y.data(), s.transformed_variables.data(), s.constant_species_y.data(), s.non_sampled_variables.data(), s.y.data());
+	s.transformed_variables_use_in_ode = s.transformed_variables.cast<OdeReal>();
+	CalculateAssignments(s.y.data(), s.transformed_variables_use_in_ode.data(), s.constant_species_y.data(), s.non_sampled_variables.data(), s.y.data());
 	
 	// Sanity check
 	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
@@ -504,11 +521,8 @@ bool SBMLModel::Simulate(const Real* variable_values, const Real* initial_condit
 		}
 	}
 
-	for (size_t i = 0; i < variables->GetNumVariables(); i++) {
-		s.transformed_variables_use_in_ode(i) = (OdeReal)s.transformed_variables(i);
-	}
-
-	bool result = s.solver->Simulate(&s.y[0], timepoints, s.cvode_trajectories);
+	OdeVectorReal timepoints_use_in_solver = timepoints.cast<OdeReal>();
+	bool result = s.solver->Simulate(&s.y[0], timepoints_use_in_solver, s.cvode_trajectories);
 	if (!result) {
 #if 0
 		LOGERROR("Model simulation  failed with variable values:");
@@ -525,7 +539,7 @@ bool SBMLModel::Simulate(const Real* variable_values, const Real* initial_condit
 	}
 	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
 		size_t ix = GetSimulatedSpeciesByName(CVodeSpecies[i]);
-		s.trajectories.row(ix) = s.cvode_trajectories.row(i);
+		s.trajectories.row(ix) = s.cvode_trajectories.row(i).cast<Real>();
 	}
 	for (size_t i = 0; i < ConstantSpecies.size(); i++) {
 		// TODO
@@ -698,7 +712,7 @@ const SBMLSpecies* SBMLModel::GetSpeciesFromFullName(const std::string& id) cons
 	return NULL;
 }
 
-bool SBMLModel::CalculateDerivativePublic(OdeReal t, const OdeReal* y, OdeReal* dydt, const Real* constant_species_y, const Real* transformed_variables, const Real* non_sampled_parameters) const
+bool SBMLModel::CalculateDerivativePublic(OdeReal t, const OdeReal* y, OdeReal* dydt, const OdeReal* constant_species_y, const OdeReal* transformed_variables, const OdeReal* non_sampled_parameters) const
 {
 	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
 		dydt[i] = 0.0;
@@ -749,11 +763,11 @@ bool SBMLModel::CalculateJacobian(OdeReal t, const OdeReal* y, const OdeReal* dy
 	return true;
 }
 
-void SBMLModel::CalculateAssignments(const Real* y, const Real* variables, const Real* constant_species_y, const Real* non_sampled_parameters, Real* out) const
+void SBMLModel::CalculateAssignments(const OdeReal* y, const OdeReal* variables, const OdeReal* constant_species_y, const OdeReal* non_sampled_parameters, OdeReal* out) const
 {
 	for (size_t ri = 0; ri < AssignmentRules.size(); ri++) {
-		Real value;
-		AssignmentRules[ri]->Calculate(y, constant_species_y, variables, non_sampled_parameters , &value);
+		OdeReal value;
+		AssignmentRules[ri]->Calculate(y, constant_species_y, variables, non_sampled_parameters, &value);
 		out[AssignmentRulesTargetIx[ri]] = value;
 	}
 }

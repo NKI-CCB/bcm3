@@ -138,7 +138,7 @@ bool SBMLReaction::PostInitialize(const Model* model, const std::map<std::string
 	return SBMLRatelawElement::Generate(rate_law.get(), model, species_index_map, parameter_index_map, constant_species_index_map, non_sampled_parameter_index_map, fixed_parameter_values, &evaluate_rate_law);
 }
 
-bool SBMLReaction::AddRates(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters, Real* rates)
+bool SBMLReaction::AddRates(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters, OdeReal* rates)
 {
 	Real r = evaluate_rate_law->Evaluate(species, constant_species, parameters, non_sampled_parameters);
 	for (std::vector<size_t>::iterator ri = reactant_indices.begin(); ri != reactant_indices.end(); ++ri) {
@@ -164,7 +164,11 @@ void SBMLReaction::AddRateDerivativeEquation(size_t species_ix, size_t deriv_ix,
 				eqn += "-";
 				if (reactant_stoichiometry[ri] != 0.0) {
 					if (reactant_stoichiometry[ri] != 1.0) {
+#if ODE_SINGLE_PRECISION
+						eqn += std::to_string(reactant_stoichiometry[ri]) + "f*";
+#else
 						eqn += std::to_string(reactant_stoichiometry[ri]) + "*";
+#endif
 					}
 					eqn += derivative;
 				}
@@ -178,7 +182,11 @@ void SBMLReaction::AddRateDerivativeEquation(size_t species_ix, size_t deriv_ix,
 				eqn += "+";
 				if (product_stoichiometry[pi] != 0.0) {
 					if (product_stoichiometry[pi] != 1.0) {
+#if ODE_SINGLE_PRECISION
+						eqn += std::to_string(product_stoichiometry[pi]) + "f*";
+#else
 						eqn += std::to_string(product_stoichiometry[pi]) + "*";
+#endif
 					}
 					eqn += derivative;
 				}

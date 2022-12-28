@@ -43,7 +43,7 @@ private:
 		bool biphasic_switch;
 
 		Real current_dose_time;
-		MatrixReal simulated_trajectories;
+		OdeMatrixReal simulated_trajectories;
 	};
 
 	bool CalculateDerivative_OneCompartment(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
@@ -58,7 +58,7 @@ private:
 	size_t sampling_threads;
 	std::shared_ptr<const bcm3::VariableSet> varset;
 
-	VectorReal time;
+	OdeVectorReal time;
 	VectorReal observed_concentration;
 	std::string drug;
 	Real dose;

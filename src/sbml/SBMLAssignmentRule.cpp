@@ -49,7 +49,7 @@ bool SBMLAssignmentRule::PostInitialize(const Model* model, const std::map<std::
 	return SBMLRatelawElement::Generate(rate_law.get(), model, species_index_map, parameter_index_map, constant_species_index_map, non_sampled_parameter_index_map, fixed_parameter_values, &evaluate_rate_law);
 }
 
-bool SBMLAssignmentRule::Calculate(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters, Real* value) const
+bool SBMLAssignmentRule::Calculate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters, OdeReal* value) const
 {
 	ASSERT(value);
 	*value = evaluate_rate_law->Evaluate(species, constant_species, parameters, non_sampled_parameters);

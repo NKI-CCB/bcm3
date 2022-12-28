@@ -29,7 +29,7 @@ public:
 	bool SetSpeciesVector(const std::vector<std::string>& species_ids, const std::vector<std::string>& constant_species_ids);
 	bool SetVariableSet(const bcm3::VariableSet* variables);
 	bool SetNonSampledParameters(const std::vector<std::string>& parameter_names);
-	bool AddRates(const Real* species, const Real* constant_species, const Real* parameters, const Real* non_sampled_parameters, Real* rates);
+	bool AddRates(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters, OdeReal* rates);
 	std::string GetRateEquation(size_t species_ix);
 	void AddRateDerivativeEquation(size_t species_ix, size_t deriv_ix, std::string& eqn);
 	bool PostInitialize(const Model* model, const std::map<std::string, Real>& fixed_parameter_values);

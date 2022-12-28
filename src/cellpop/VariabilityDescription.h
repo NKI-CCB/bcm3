@@ -15,8 +15,8 @@ public:
 	bool PostInitialize(std::shared_ptr<const bcm3::VariableSet> varset, const std::vector<std::string>& non_sampled_parameter_names, const SBMLModel& model);
 
 	bool ApplyVariabilityEntryTime(Real& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
-	bool ApplyVariabilityParameter(const std::string& parameter, Real& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
-	bool ApplyVariabilitySpecies(const std::string& species, Real& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
+	bool ApplyVariabilityParameter(const std::string& parameter, OdeReal& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
+	bool ApplyVariabilitySpecies(const std::string& species, OdeReal& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
 
 private:
 	bool Load(const boost::property_tree::ptree& xml_node);
@@ -36,6 +36,7 @@ private:
 		Normal,
 		HalfNormal,
 		Bernoulli,
+		Uniform,
 
 		Invalid
 	};

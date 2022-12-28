@@ -162,7 +162,7 @@ void CVODESolver::SetJacobianFunction(TJacobianFunction f)
 	jacobian = f;
 }
 
-bool CVODESolver::Simulate(const Real* initial_conditions, const VectorReal& timepoints, MatrixReal& output)
+bool CVODESolver::Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, OdeMatrixReal& output)
 {
 	if (timepoints.size() == 0) {
 		LOGERROR("No time points requested");

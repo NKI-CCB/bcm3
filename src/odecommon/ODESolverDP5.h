@@ -9,7 +9,7 @@ public:
 	~ODESolverDP5();
 
 	virtual bool Initialize(size_t N, void* user);
-	virtual bool Simulate(const Real* initial_conditions, const VectorReal& timepoints, MatrixReal& output, bool verbose = false);
+	virtual bool Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, OdeMatrixReal& output, bool verbose = false);
 	virtual OdeReal get_y(size_t i);
 	virtual void set_y(size_t i, OdeReal y);
 

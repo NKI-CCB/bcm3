@@ -1,6 +1,7 @@
 #include "Utils.h"
+#include "LinearAlgebraSelector.h"
 
-#include "nvector_serial_eigen.h"
+#if CVODE_USE_EIGEN_SOLVER
 #include <sundials/sundials_math.h>
 
 #define ZERO   RCONST(0.0)
@@ -1246,3 +1247,5 @@ int N_VEnableLinearCombinationVectorArray_Eigen(N_Vector v, booleantype tf)
   /* return success */
   return(0);
 }
+
+#endif
