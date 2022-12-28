@@ -360,7 +360,6 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 	}
 	stdev *= stdev_multiplication_factor;
 	stdev += 1e-4;
-	const Real inv_two_var = 1.0 / (2.0 * stdev * stdev);
 
 	Real data_offset = 0.0;
 	if (offset_ix != std::numeric_limits<size_t>::max()) {
@@ -626,7 +625,6 @@ void DataLikelihoodTimeCourse::NotifyParents(size_t parent, size_t child)
 Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, size_t simulated_cell_ix, Real stdev, Real missing_simulation_time_stdev, std::vector<int>& matched_hierarchy)
 {
 	Real cell_logp = 0.0;
-	const Real inv_two_var = 1.0 / (2.0 * stdev * stdev);
 
 	if (simulated_cell_ix == std::numeric_limits<size_t>::max()) {
 		// Apparently the simulated cell did not divide, but we do have observed data, so

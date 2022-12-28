@@ -25,6 +25,47 @@ plot_variable_distribution <- function(model, var_ix=NULL, var_name=NULL, temper
   }
 }
 
+plot_all_densities <- function(model, sample_ix=NULL, imagetype="png")
+{
+  if (is.null(sample_ix)) {
+    sample_ix <- (dim(model$posterior$samples)[3]/2+1):dim(model$posterior$samples)[3]
+  }
+  if (imagetype == "pdf") {
+    pdf_tile(paste(model$output_folder, "/densities.pdf", sep=""), width=12, height=10, model$nvar)
+  } else if (imagetype == "png") {
+    png_tile(paste(model$output_folder, "/densities.png", sep=""), width=1600, height=1200, model$nvar)
+  } else {
+    stop("Unknown image type; should be either png or pdf")
+  }
+  par(mar=c(3,2,2,1))
+  for (i in 1:model$nvar) {
+    plot_variable_distribution(model, var_ix=i, sample_ix=sample_ix)
+  }
+  par(mfrow=c(1,1))
+  res <- dev.off()
+}
+
+plot_all_traces <- function(model, burnin_cutoff=NULL, imagetype="png")
+{
+  if (is.null(burnin_cutoff)) {
+    burnin_cutoff <- dim(model$posterior$samples)[3]/2+1
+  }
+  if (imagetype == "pdf") {
+    pdf_tile(paste(model$output_folder, "/traces.pdf", sep=""), width=12, height=10, model$nvar)
+  } else if (imagetype == "png") {
+    png_tile(paste(model$output_folder, "/traces.png", sep=""), width=1600, height=1200, model$nvar)
+  } else {
+    stop("Unknown image type; should be either png or pdf")
+  }
+  par(mar=c(2,2,2,2))
+  for (i in 1:model$nvar) {
+    plot_trace(model, var_ix=i)
+    abline(v=burnin_cutoff-0.5, col='grey', lty=2)
+  }
+  par(mfrow=c(1,1))
+  res <- dev.off()
+}
+
 plot_variable_prior <- function(model, var_ix=NULL, var_name=NULL, xlab="", ylim=NULL, plot=T)
 {
   if (!is.null(var_name)) {
