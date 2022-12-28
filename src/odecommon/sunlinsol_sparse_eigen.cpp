@@ -17,8 +17,6 @@ inline Eigen::SparseLU< SparseMat >& EIGSOL(SUNLinearSolver S) {
 	return reinterpret_cast<SUNLinearSolverContent_Sparse_Eigen>(S->content)->lu;
 }
 
-
-
 /* ----------------------------------------------------------------------------
  * Function to create a new sparse linear solver
  */

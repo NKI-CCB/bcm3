@@ -400,7 +400,7 @@ struct partial_lu_impl
       if(k<rows-1)
         lu.bottomRightCorner(fix<RRows>(rrows),fix<RCols>(rcols)).noalias() -= lu.col(k).tail(fix<RRows>(rrows)) * lu.row(k).tail(fix<RCols>(rcols));
 #else
-	  // Bram Thijssen modification - when matrices have quite a few 0's, we can skip many of the entries
+	  // Bram Thijssen modification - when matrices have quite a few 0's, we can skip many of the entries. Doesn't seem to help too much though
 	  for (Index j = k + 1; j < cols; j++) {
 		  Scalar a_kj = lu.coeff(k, j);
 		  if (a_kj != 0.0) {

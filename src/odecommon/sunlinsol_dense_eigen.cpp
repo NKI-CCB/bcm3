@@ -1,7 +1,8 @@
 #include "Utils.h"
 #include "LinearAlgebraSelector.h"
 
-#if CVODE_USE_EIGEN_SOLVER
+#if CVODE_USE_EIGEN_SOLVER && !CVODE_USE_SPARSE_SOLVER
+
 #include <sundials/sundials_math.h>
 
 #define ONE  RCONST(1.0)
@@ -11,8 +12,6 @@
  * Dense solver structure accessibility macros:
  * -----------------------------------------------------------------
  */
-
-//#define EIGSOL(S)		  ( ((SUNLinearSolverContent_Dense_Eigen)S)->lu )
 
 inline PartialPivLUExtended< OdeMatrixReal >& EIGSOL(SUNLinearSolver S) {
 	return reinterpret_cast<SUNLinearSolverContent_Dense_Eigen>(S->content)->lu;
@@ -96,7 +95,6 @@ int SUNLinSolSetup_Dense_Eigen(SUNLinearSolver S, SUNMatrix A)
 	}
 
 	EIGSOL(S).compute_optimized(EIGMAT(A));
-	//EIGSOL(S).compute(EIGMAT(A));
 
 #if 0
 	std::cout << EIGMAT(A) << std::endl << std::endl;
