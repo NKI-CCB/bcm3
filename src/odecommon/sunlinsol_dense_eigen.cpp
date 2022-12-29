@@ -13,7 +13,7 @@
  * -----------------------------------------------------------------
  */
 
-inline PartialPivLUExtended< OdeMatrixReal >& EIGSOL(SUNLinearSolver S) {
+inline PartialPivLUExtended& EIGSOL(SUNLinearSolver S) {
 	return reinterpret_cast<SUNLinearSolverContent_Dense_Eigen>(S->content)->lu;
 }
 
