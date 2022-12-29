@@ -50,6 +50,12 @@ private:
 	void LogStatistics();
 	void UpdateProgress(Real p, bool force);
 
+	enum class ESwappingScheme {
+		StochasticRandom,
+		StochasticEvenOdd,
+		DeterministicEvenOdd
+	};
+
 	// Target distribution
 	std::shared_ptr<VariableSet> varset;
 	std::shared_ptr<Prior> prior;
@@ -66,7 +72,9 @@ private:
 	std::string output_path;
 	bool output_proposal_adaptation;
 
+	ESwappingScheme swapping_scheme;
 	Real exchange_probability;
+	size_t num_exploration_steps;
 	size_t history_max_samples;
 	size_t adapt_proposal_samples;
 	size_t adapt_proposal_times;
@@ -90,6 +98,7 @@ private:
 	std::atomic<size_t> num_likelihood_evaluations;
 	size_t proposal_adaptations_done;
 	bool proposal_scaling_adaptations_done;
+	bool previous_swap_even;
 
 	std::unique_ptr<TaskManager> task_manager;
 	struct AsyncParams {

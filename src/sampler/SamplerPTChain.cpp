@@ -787,14 +787,13 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 		if (temperature == 1.0) {
 			LOG("Clustered blocking adaptation - unique samples: %u", use_sample_ix.size());
 		}
-		size_t max_samples_for_clustering = sampler->adapt_proposal_max_samples * sampler->num_variables;
-		if (use_sample_ix.size() > max_samples_for_clustering) {
-			while (use_sample_ix.size() > max_samples_for_clustering) {
+		if (use_sample_ix.size() > sampler->adapt_proposal_max_samples) {
+			while (use_sample_ix.size() > sampler->adapt_proposal_max_samples) {
 				unsigned int drop_sample = sampler->async[thread].rng.GetUnsignedInt(use_sample_ix.size()-1);
 				use_sample_ix.erase(use_sample_ix.begin() + drop_sample);
 			}
 			if (temperature == 1.0) {
-				LOG("Clustered blocking adaptation - downsampling to %u samples for spectral clustering", max_samples_for_clustering);
+				LOG("Clustered blocking adaptation - downsampling to %u samples for spectral clustering", sampler->adapt_proposal_max_samples);
 			}
 		}
 	}
