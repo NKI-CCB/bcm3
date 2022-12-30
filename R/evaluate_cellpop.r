@@ -28,17 +28,19 @@ bcm3.cellpop.get.simulated.trajectories <- function(bcm3, experiment, param.valu
   max_cells <- 500
   traj_buffer <- rep(0.0, ns * max_nt * max_cells)
   time_buffer <- rep(0.0, max_nt)
-  res <- .C("bcm3_rbridge_cellpop_get_simulated_trajectories", bcm3$.cpp, as.character(experiment), as.numeric(param.values), traj_buffer, time_buffer, as.integer(0), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
-  if (res[[8]] != 0) {
-    stop(paste("BCM3 C++ bridge error:", res[[8]]))
+  parent_buffer <- as.integer(rep(-1, max_cells))
+  res <- .C("bcm3_rbridge_cellpop_get_simulated_trajectories", bcm3$.cpp, as.character(experiment), as.numeric(param.values), traj_buffer, time_buffer, parent_buffer, as.integer(0), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
+  if (res[[9]] != 0) {
+    stop(paste("BCM3 C++ bridge error:", res[[9]]))
   }
 
-  ntimepoints <- res[[7]]
-  ncells <- res[[6]]
+  ntimepoints <- res[[8]]
+  ncells <- res[[7]]
 
   retval <- list()
   retval$time <- res[[5]][1:ntimepoints]
   retval$cells <- array(res[[4]], c(ns, ntimepoints, ncells))
+  retval$parents <- res[[6]][1:ncells]
   
   dimnames(retval$cells)[[1]] <- 1:ns
   for (i in 1:ns) {

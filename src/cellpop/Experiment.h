@@ -63,6 +63,7 @@ public:
 	inline size_t GetOutputNumCells() const { return std::min(active_cells, simulated_trajectories.size()); }
 	inline const VectorReal& GetOutputTimepoints() const { return output_trajectories_timepoints; }
 	inline const VectorReal& GetSimulatedTrajectory(size_t cell_i, size_t time_i) const { return simulated_trajectories[cell_i][time_i]; }
+	inline size_t GetSimulatedCellParent(size_t cell_i) const { return simulated_cell_parents[cell_i]; }
 	inline size_t GetNumData() const { return data_likelihoods.size(); }
 	inline const DataLikelihoodBase* GetData(size_t i) const { return data_likelihoods[i].get(); }
 

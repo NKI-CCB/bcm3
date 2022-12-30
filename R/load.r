@@ -10,6 +10,7 @@ bcm3.load.results <- function(base_folder, output_folder, prior_file="prior.xml"
   output_file <- H5File$new(paste(model$output_folder, "/", output_filename, sep=""), 'r')
   
   model$posterior <- list()
+  model$posterior$temperatures <- output_file[["samples/temperature"]][]
   model$posterior$samples <- output_file[["samples/variable_values"]][,,]
   if (length(output_file[["samples/log_prior"]]$dims) == 1) {
     ntemps <- dim(model$posterior$samples)[2]
@@ -22,8 +23,11 @@ bcm3.load.results <- function(base_folder, output_folder, prior_file="prior.xml"
     model$posterior$lprior <- output_file[["samples/log_prior"]][,]
     model$posterior$llikelihood <- output_file[["samples/log_likelihood"]][,]
   }
-  #colnames(model$posterior$samples) <- output_file[["samples/variable"]][]
-  model$posterior$temperatures <- output_file[["samples/temperature"]][]
+  model$posterior$lposterior <- model$posterior$lprior + model$posterior$llikelihood
+  model$posterior$fraclposterior <- matrix(NA, nrow(model$posterior$lprior), ncol(model$posterior$lprior))
+  for (i in 1:length(model$posterior$temperatures)) {
+    model$posterior$fraclposterior[i,] <- model$posterior$lprior[i,] + model$posterior$temperatures[i] * model$posterior$llikelihood[i,]
+  }
   
   output_file$close_all()
   

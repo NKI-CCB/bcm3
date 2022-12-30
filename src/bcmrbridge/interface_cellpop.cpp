@@ -91,7 +91,7 @@ void bcm3_rbridge_cellpop_get_species_name(char** bcm3info_ptr, char** experimen
 	*retval = 0;
 }
 
-void bcm3_rbridge_cellpop_get_simulated_trajectories(char** bcm3info_ptr, char** experiment, double* param_values, double* out_values, double* out_timepoints, int* out_num_cells, int* out_num_timepoints, int* retval)
+void bcm3_rbridge_cellpop_get_simulated_trajectories(char** bcm3info_ptr, char** experiment, double* param_values, double* out_values, double* out_timepoints, int* out_parents, int* out_num_cells, int* out_num_timepoints, int* retval)
 {
 	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
 	std::shared_ptr<CellPopulationLikelihood> ll = GetCellPopulationLikelihood(info, retval);
@@ -139,6 +139,7 @@ void bcm3_rbridge_cellpop_get_simulated_trajectories(char** bcm3info_ptr, char**
 				out_values[cell_i * timepoints.size() * num_sim_species + time_i * num_sim_species + j] = x(j);
 			}
 		}
+		out_parents[cell_i] = e->GetSimulatedCellParent(cell_i);
 	}
 
 	*retval = 0;
