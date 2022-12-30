@@ -143,7 +143,7 @@ bcm3.cellpop.get.matched.simulation <- function(bcm3, experiment, param.values) 
   return(retval)
 }
 
-bcm3.cellpop.posterior.predictive.plot <- function(bcm3, experiment_ix, temperature_ix, numppdsamples, pdffilename, pdfwidth, pdfheight, xlim=NULL, use_minutes=T, pch=20)
+bcm3.cellpop.posterior.predictive.plot <- function(bcm3, experiment_ix, temperature_ix, numppdsamples, pdffilename, pdfwidth, pdfheight, xlim=NULL, time_unit="minutes", pch=20)
 {
   model <- bcm3
   sample <- model$posterior$samples[,temperature_ix,dim(model$posterior$samples)[3]]
@@ -202,8 +202,10 @@ bcm3.cellpop.posterior.predictive.plot <- function(bcm3, experiment_ix, temperat
                     xlab="Cells", ylab="NEBD to anaphase time (seconds)", ylim=c(0,6000), pointsize=1.0)
       }
     } else {
-      if (use_minutes) {
+      if (time_unit == "minutes") {
         t <- obsdata[[k]]$time / 60
+      } else if (time_unit == "hours") {
+        t <- obsdata[[k]]$time / 3600
       } else {
         t <- obsdata[[k]]$time
       }
@@ -222,7 +224,9 @@ bcm3.cellpop.posterior.predictive.plot <- function(bcm3, experiment_ix, temperat
         } else {
           use_xlim <- xlim
         }
-        plot(t, obsdata[[k]]$data[,cell_ix,1], pch=pch, ylab=model$likelihood$experiments[[experiment_ix]]$data[[k]]$data_name, xlab="Time (seconds)", xlim=xlim, ylim=ylim)
+        plot(t, obsdata[[k]]$data[,cell_ix,1], pch=pch, ylab=model$likelihood$experiments[[experiment_ix]]$data[[k]]$data_name, xlab="Time (seconds)", xlim=xlim, ylim=ylim, yaxt='n', type='n')
+        axis(2, at=seq(0,1,by=0.5))
+        rug(seq(-0.1,1.1,by=0.1), side=2, ticksize=-0.01)
         ppd_color <- rgb(43,131,186, max=255)
         have_plot <- which(!is.na(lower) & !is.na(upper))
         polygon(c(t[have_plot], rev(t[have_plot])), c(lower[have_plot], rev(upper[have_plot])), col=adjustcolor(ppd_color, alpha.f = 0.4), border=F)
