@@ -10,6 +10,7 @@ DataLikelihoodTimeCourse::DataLikelihoodTimeCourse(size_t parallel_evaluations)
 	: use_population_average(true)
 	, use_log_ratio(false)
 	, include_only_completed_cells(false)
+	, include_only_completed_or_divided_cells(false)
 	, synchronize(ESynchronizeCellTrajectory::None)
 	, fixed_missing_simulation_time_stdev_ix(std::numeric_limits<size_t>::max())
 	, fixed_missing_simulation_time_stdev_non_sampled_ix(std::numeric_limits<size_t>::max())
@@ -36,6 +37,7 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 	use_population_average = xml_node.get<bool>("<xmlattr>.use_population_average", false);
 	use_log_ratio = xml_node.get<bool>("<xmlattr>.use_log_ratio", false);
 	include_only_completed_cells = xml_node.get<bool>("<xmlattr>.include_only_completed_cells", false);
+	include_only_completed_or_divided_cells = xml_node.get<bool>("<xmlattr>.include_only_completed_or_divided_cells", false);
 	missing_simulation_time_stdev_str = xml_node.get<std::string>("<xmlattr>.missing_simulation_time_stdev", "");
 
 	std::string synchronize_str = xml_node.get<std::string>("<xmlattr>.synchronize", "");
@@ -533,7 +535,7 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 	return true;
 }
 
-bool DataLikelihoodTimeCourse::NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t completed_population_size, size_t parallel_evaluation_ix, bool cell_completed)
+bool DataLikelihoodTimeCourse::NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t completed_population_size, size_t parallel_evaluation_ix, bool cell_completed, bool cell_divided)
 {
 	if (species_ix == std::numeric_limits<size_t>::max()) {
 		return true;
@@ -544,7 +546,14 @@ bool DataLikelihoodTimeCourse::NotifySimulatedValue(size_t timepoint_ix, Real x,
 		size_t our_species_ix = our_species_ixs[i];
 
 		if (use_population_average) {
-			if (!include_only_completed_cells  || cell_completed) {
+			bool include_cell = true;
+			if (include_only_completed_cells && !cell_completed) {
+				include_cell = false;
+			}
+			if (include_only_completed_or_divided_cells && !(cell_completed || cell_divided)) {
+				include_cell = false;
+			}
+			if (include_cell) {
 				Real y = x;
 				if (include_only_completed_cells) {
 					y /= completed_population_size;

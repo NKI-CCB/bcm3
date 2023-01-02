@@ -19,7 +19,7 @@ public:
 	virtual void Reset() {}
 	virtual bool Evaluate(const VectorReal& values, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, Real& logp) = 0;
 
-	virtual bool NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t completed_population_size, size_t parallel_evaluation_ix, bool cell_completed) { return true; }
+	virtual bool NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t completed_population_size, size_t parallel_evaluation_ix, bool cell_completed, bool cell_divided) { return true; }
 	virtual void NotifyStartingCells(size_t cell_ix) {}
 	virtual void NotifyParents(size_t parent, size_t child) {}
 	virtual void NotifyDuration(size_t cell_ix, Real duration) {}

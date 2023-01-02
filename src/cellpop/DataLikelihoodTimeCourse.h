@@ -12,7 +12,7 @@ public:
 	virtual bool PostInitialize(const bcm3::VariableSet& varset, const std::vector<std::string>& non_sampled_parameter_names);
 	virtual void Reset();
 	virtual bool Evaluate(const VectorReal& values, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, Real& logp);
-	virtual bool NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t completed_population_size, size_t parallel_evaluation_ix, bool cell_completed);
+	virtual bool NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t completed_population_size, size_t parallel_evaluation_ix, bool cell_completed, bool cell_divided);
 	virtual void NotifyStartingCells(size_t cell_ix);
 	virtual void NotifyParents(size_t parent, size_t child);
 
@@ -29,6 +29,7 @@ private:
 	bool use_population_average;
 	bool use_log_ratio;
 	bool include_only_completed_cells;
+	bool include_only_completed_or_divided_cells;
 	ESynchronizeCellTrajectory synchronize;
 	std::string missing_simulation_time_stdev_str;
 	size_t fixed_missing_simulation_time_stdev_ix;
