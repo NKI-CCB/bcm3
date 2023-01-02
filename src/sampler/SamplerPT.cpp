@@ -16,7 +16,7 @@ SamplerPT::SamplerPT(size_t threads, size_t max_memory_use)
 	, num_exploration_steps(1)
 	, adapt_proposal_samples(5000)
 	, adapt_proposal_times(2)
-	, history_max_samples(200)
+	, history_max_samples(20000)
 	, adapt_proposal_max_samples(2000)
 	, proposal_scaling_learning_rate(0.05)
 	, proposal_scaling_ema_period(5000)
@@ -142,13 +142,11 @@ bool SamplerPT::Initialize()
 	current_temperatures = fixed_temperatures;
 
 	// Calculate the number of samples we can store in history
-	//size_t expected_sample_history = (1.0 + 2.0 / sqrt(adapt_proposal_samples * use_every_nth)) * (1.0 - exchange_probability) * adapt_proposal_samples * use_every_nth;
 	size_t expected_sample_history = adapt_proposal_samples * use_every_nth;
 	size_t history_subsampling = 1;
 	size_t sample_history = expected_sample_history;
-	size_t max_samples_from_settings = history_max_samples * num_variables;
-	if (sample_history > max_samples_from_settings) {
-		history_subsampling = (expected_sample_history + max_samples_from_settings - 1) / max_samples_from_settings;
+	if (sample_history > history_max_samples) {
+		history_subsampling = (expected_sample_history + history_max_samples - 1) / history_max_samples;
 		sample_history = adapt_proposal_samples * use_every_nth / history_subsampling;
 	}
 	if (adapt_proposal_times > 0) {
@@ -320,7 +318,7 @@ void SamplerPT::AddOptionsDescription(boost::program_options::options_descriptio
 		("sampler.proposal_type",						boost::program_options::value<std::string>()->default_value("autoblock"),				"Type of proposal: autoblock, GMM, clustered")
 		("sampler.adapt_proposal_samples",				boost::program_options::value<size_t>()->default_value(500),							"Number of samples after which the proposal distribution should be adapted, 0 for no adaptation.")
 		("sampler.adapt_proposal_times",				boost::program_options::value<size_t>()->default_value(2),								"Number of times the proposal variance should be adapted.")
-		("sampler.history_max_samples",					boost::program_options::value<size_t>()->default_value(200),							"Maximum number of samples, per dimensions, to store in the sample history.")
+		("sampler.history_max_samples",					boost::program_options::value<size_t>()->default_value(20000),							"Maximum number of samples to store in the sample history.")
 		("sampler.adapt_proposal_max_samples",			boost::program_options::value<size_t>()->default_value(2000),							"Maximum number of samples to use in the GMM fitting/spectral clustering.")
 		("sampler.stop_proposal_scaling",				boost::program_options::value<size_t>()->default_value(1500),							"Stop adaptive scaling of the proposal distribution after this many samples.")
 		("sampler.swapping_scheme",						boost::program_options::value<std::string>()->default_value("deterministic_even_odd"),	"Swapping scheme, can be either stochastic_random, stochastic_even_odd or deterministic_even_odd.")
