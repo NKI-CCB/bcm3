@@ -9,8 +9,7 @@
 DataLikelihoodTimeCourse::DataLikelihoodTimeCourse(size_t parallel_evaluations)
 	: use_population_average(true)
 	, use_log_ratio(false)
-	, include_only_completed_cells(false)
-	, include_only_completed_or_divided_cells(false)
+	, include_only_cells_that_went_through_mitosis(false)
 	, synchronize(ESynchronizeCellTrajectory::None)
 	, fixed_missing_simulation_time_stdev_ix(std::numeric_limits<size_t>::max())
 	, fixed_missing_simulation_time_stdev_non_sampled_ix(std::numeric_limits<size_t>::max())
@@ -36,8 +35,7 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 	std::string species_name = xml_node.get<std::string>("<xmlattr>.species_name");
 	use_population_average = xml_node.get<bool>("<xmlattr>.use_population_average", false);
 	use_log_ratio = xml_node.get<bool>("<xmlattr>.use_log_ratio", false);
-	include_only_completed_cells = xml_node.get<bool>("<xmlattr>.include_only_completed_cells", false);
-	include_only_completed_or_divided_cells = xml_node.get<bool>("<xmlattr>.include_only_completed_or_divided_cells", false);
+	include_only_cells_that_went_through_mitosis = xml_node.get<bool>("<xmlattr>.include_only_cells_that_went_through_mitosis", false);
 	missing_simulation_time_stdev_str = xml_node.get<std::string>("<xmlattr>.missing_simulation_time_stdev", "");
 
 	std::string synchronize_str = xml_node.get<std::string>("<xmlattr>.synchronize", "");
@@ -535,7 +533,7 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 	return true;
 }
 
-bool DataLikelihoodTimeCourse::NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t completed_population_size, size_t parallel_evaluation_ix, bool cell_completed, bool cell_divided)
+bool DataLikelihoodTimeCourse::NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t mitotic_population_size, size_t parallel_evaluation_ix, bool entered_mitosis)
 {
 	if (species_ix == std::numeric_limits<size_t>::max()) {
 		return true;
@@ -546,17 +544,10 @@ bool DataLikelihoodTimeCourse::NotifySimulatedValue(size_t timepoint_ix, Real x,
 		size_t our_species_ix = our_species_ixs[i];
 
 		if (use_population_average) {
-			bool include_cell = true;
-			if (include_only_completed_cells && !cell_completed) {
-				include_cell = false;
-			}
-			if (include_only_completed_or_divided_cells && !(cell_completed || cell_divided)) {
-				include_cell = false;
-			}
-			if (include_cell) {
+			if (entered_mitosis || !include_only_cells_that_went_through_mitosis) {
 				Real y = x;
-				if (include_only_completed_cells) {
-					y /= completed_population_size;
+				if (include_only_cells_that_went_through_mitosis) {
+					y /= mitotic_population_size;
 				} else {
 					y /= current_population_size;
 				}

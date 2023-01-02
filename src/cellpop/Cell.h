@@ -20,8 +20,9 @@ public:
 
 	Real GetInterpolatedSpeciesValue(Real time, size_t i, ESynchronizeCellTrajectory synchronize);
 	void RestartInterpolationIteration();
-	bool CellAliveAtTime(Real time, ESynchronizeCellTrajectory synchronize);
-	inline bool CellCompleted() { return completed; }
+	bool CellAliveAtTime(Real time, ESynchronizeCellTrajectory synchronize) const;
+	inline bool CellCompleted() const { return completed; }
+	inline bool EnteredMitosis() const { return !std::isnan(nuclear_envelope_breakdown_time); }
 	inline Real GetCVodeSteps() const { return cvode_steps; }
 	inline Real GetCVodeMinStepSize() const { return min_step_size;	}
 	Real GetDuration(EPhaseDuration duration) const;

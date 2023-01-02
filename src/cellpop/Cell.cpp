@@ -433,7 +433,7 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 			}
 		}
 
-		if (divide || die) {
+		if (die || (experiment->divide_cells && divide)) {
 			completed = true;
 			break;
 		}
@@ -547,7 +547,7 @@ void Cell::RestartInterpolationIteration()
 	interpolation_time = std::numeric_limits<Real>::quiet_NaN();
 }
 
-bool Cell::CellAliveAtTime(Real time, ESynchronizeCellTrajectory synchronize)
+bool Cell::CellAliveAtTime(Real time, ESynchronizeCellTrajectory synchronize) const
 {
 	if (cvode_steps == 0) {
 		return false;

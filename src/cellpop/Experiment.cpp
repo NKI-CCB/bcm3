@@ -46,6 +46,7 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, cell_model(0)
 	, initial_number_of_cells(0)
 	, max_number_of_cells(0)
+	, divide_cells(true)
 	, fixed_entry_time(0.0)
 	, trailing_simulation_time(0.0)
 	, derivative_dll(NULL)
@@ -207,11 +208,11 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 				const SimulationTimepoints& st = simulation_timepoints[ti];
 				if (st.species_ix != std::numeric_limits<size_t>::max() && (int)st.synchronize == synchronize_i) {
 					size_t population_size = CountCellsAtTime(st.time, st.synchronize, false);
-					size_t completed_population_size = CountCellsAtTime(st.time, st.synchronize, true);
+					size_t mitotic_population_size = CountCellsAtTime(st.time, st.synchronize, true);
 					for (size_t i = 0; i < active_cells; i++) {
 						Real x = cells[i]->GetInterpolatedSpeciesValue(st.time, st.species_ix, st.synchronize);
 						if (x == x) {
-							data_likelihoods[st.data_likelihood_ix]->NotifySimulatedValue(st.time_ix, x, st.species_ix, i, population_size, completed_population_size, 0, cells[i]->CellCompleted(), i >= initial_number_of_cells);
+							data_likelihoods[st.data_likelihood_ix]->NotifySimulatedValue(st.time_ix, x, st.species_ix, i, population_size, mitotic_population_size, 0, cells[i]->EnteredMitosis());
 						}
 					}
 				}
@@ -314,6 +315,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 
 	initial_number_of_cells = xml_node.get<size_t>("<xmlattr>.num_cells", 1);
 	max_number_of_cells = xml_node.get<size_t>("<xmlattr>.max_cells", 20);
+	divide_cells = xml_node.get<bool>("<xmlattr>.divide_cells", true);
 	trailing_simulation_time = xml_node.get<Real>("<xmlattr>.trailing_simulation_time", 0.0);
 
 	// Load the species/parameter setting
@@ -928,7 +930,7 @@ bool Experiment::SimulateCell(size_t i, Real target_time, size_t eval_thread)
 		return false;
 	}
 
-	if (divide && achieved_time < target_time) {
+	if (divide_cells && divide && achieved_time < target_time) {
 		size_t cell1, cell2;
 		// This is the only place where the number of active cells is increased; the readers don't need to lock it
 		{
@@ -1043,12 +1045,16 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 	}
 }
 
-size_t Experiment::CountCellsAtTime(Real time, ESynchronizeCellTrajectory synchronize, bool count_only_completed)
+size_t Experiment::CountCellsAtTime(Real time, ESynchronizeCellTrajectory synchronize, bool count_only_mitotic)
 {
 	size_t count = 0;
 	for (size_t i = 0; i < active_cells; i++) {
 		if (cells[i]->CellAliveAtTime(time, synchronize)) {
-			if (!count_only_completed || cells[i]->CellCompleted()) {
+			if (count_only_mitotic) {
+				if (cells[i]->EnteredMitosis()) {
+					count++;
+				}
+			} else {
 				count++;
 			}
 		}

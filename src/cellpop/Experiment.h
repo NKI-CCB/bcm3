@@ -75,7 +75,7 @@ protected:
 	bool ParallelSimulation(Real target_time);
 	bool SimulateCell(size_t i, Real target_time, size_t eval_thread);
 	size_t AddNewCell(Real time, Cell* parent, const VectorReal& transformed_values, bool entry_time_variable, int child_ix);
-	size_t CountCellsAtTime(Real time, ESynchronizeCellTrajectory synchronize, bool count_only_completed);
+	size_t CountCellsAtTime(Real time, ESynchronizeCellTrajectory synchronize, bool count_only_mitotic);
 
 	void StartAuxThreads();
 	bool WaitAuxThreads();
@@ -96,6 +96,7 @@ protected:
 	std::vector< std::unique_ptr<DataLikelihoodBase> > data_likelihoods;
 	size_t initial_number_of_cells;
 	size_t max_number_of_cells;
+	bool divide_cells;
 	size_t entry_time_varix;
 	Real fixed_entry_time;
 	Real trailing_simulation_time;
