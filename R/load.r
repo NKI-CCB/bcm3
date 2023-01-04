@@ -24,9 +24,9 @@ bcm3.load.results <- function(base_folder, output_folder, prior_file="prior.xml"
     model$posterior$llikelihood <- output_file[["samples/log_likelihood"]][,]
   }
   model$posterior$lposterior <- model$posterior$lprior + model$posterior$llikelihood
-  model$posterior$fraclposterior <- matrix(NA, nrow(model$posterior$lprior), ncol(model$posterior$lprior))
+  model$posterior$lfracposterior <- matrix(NA, nrow(model$posterior$lprior), ncol(model$posterior$lprior))
   for (i in 1:length(model$posterior$temperatures)) {
-    model$posterior$fraclposterior[i,] <- model$posterior$lprior[i,] + model$posterior$temperatures[i] * model$posterior$llikelihood[i,]
+    model$posterior$lfracposterior[i,] <- model$posterior$lprior[i,] + model$posterior$temperatures[i] * model$posterior$llikelihood[i,]
   }
   
   output_file$close_all()
