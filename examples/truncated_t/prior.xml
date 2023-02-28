@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<variableset>
+  <variable name="x1"   distribution="uniform" lower="-2.0" upper="5.0"/>
+  <variable name="x2"   distribution="uniform" lower="-2.0" upper="5.0"/>
+  <variable name="x3"   distribution="uniform" lower="-2.0" upper="5.0"/>
+</variableset>

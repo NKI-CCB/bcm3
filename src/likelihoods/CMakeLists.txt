@@ -12,6 +12,8 @@ target_sources(likelihoods
 	TestLikelihoodBanana.cpp
 	TestLikelihoodCircular.h
 	TestLikelihoodCircular.cpp
+    TestLikelihoodTruncatedT.h
+    TestLikelihoodTruncatedT.cpp
 )
 
 target_link_libraries(likelihoods

@@ -47,16 +47,21 @@ bool ParseMatrixFromString(const std::string& str, Eigen::Matrix<T, -1, -1>& mat
 
 	matrix.resize(rows.size(), row.size());
 
-	for (size_t i = 0; i < rows.size(); i++) {
-		bcm3::tokenize(rows[i], row, ",");
-		if (row.size() != matrix.cols()) {
-			LOGERROR("Inconsistent matrix");
-			return false;
+	try {
+		for (size_t i = 0; i < rows.size(); i++) {
+			bcm3::tokenize(rows[i], row, ",");
+			if (row.size() != matrix.cols()) {
+				LOGERROR("Inconsistent matrix");
+				return false;
+			}
+			for (size_t j = 0; j < row.size(); j++) {
+				T value = boost::lexical_cast<T>(row[j]);
+				matrix(i, j) = value;
+			}
 		}
-		for (size_t j = 0; j < row.size(); j++) {
-			T value = boost::lexical_cast<T>(row[j]);
-			matrix(i, j) = value;
-		}
+	} catch (const boost::bad_lexical_cast& e) {
+		LOGERROR("Could not cast string to a Real value: %s", e.what());
+		return false;
 	}
 	return true;
 }
