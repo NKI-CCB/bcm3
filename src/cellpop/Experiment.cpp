@@ -153,12 +153,14 @@ bool Experiment::PostInitialize()
 		cell_variabilities[i]->PostInitialize(varset, non_sampled_parameter_names, cell_model);
 	}
 
-	// Generate code for the model/variable combination
-	std::string codegen_name = model_filename;
-	codegen_name.at(codegen_name.find_last_of('.')) = '_';
-	codegen_name += "_" + varset->GetVarsetName() + "_" + Name + "_codegen/";
-	if (!GenerateAndCompileSolverCode(codegen_name)) {
-		return false;
+	if (Cell::use_generated_code) {
+		// Generate code for the model/variable combination
+		std::string codegen_name = model_filename;
+		codegen_name.at(codegen_name.find_last_of('.')) = '_';
+		codegen_name += "_" + varset->GetVarsetName() + "_" + Name + "_codegen/";
+		if (!GenerateAndCompileSolverCode(codegen_name)) {
+			return false;
+		}
 	}
 
 	// Allocate space for cells

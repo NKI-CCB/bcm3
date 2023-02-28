@@ -32,6 +32,7 @@ public:
 	static size_t total_num_simulations;
 	static size_t cvode_max_steps_reached;
 	static size_t cvode_min_timestep_reached;
+	static const bool use_generated_code;
 
 private:
 	void SetMutations();
