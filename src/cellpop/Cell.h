@@ -14,7 +14,7 @@ public:
 
 	bool SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, Real time);
 	bool SetInitialConditionsFromOtherCell(const Cell* other);
-	bool Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool apply_entry_time_variability, bool calculate_synchronization_point);
+	bool Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_point);
 
 	bool Simulate(Real end_time, bool &die, bool &divide, Real& achieved_time);
 

@@ -8,6 +8,7 @@ VariabilityDescription::VariabilityDescription()
 	, fixed_range_value(std::numeric_limits<Real>::quiet_NaN())
 	, range_ix(std::numeric_limits<size_t>::max())
 	, non_sampled_range_ix(std::numeric_limits<size_t>::max())
+	, only_initial_cells(false)
 {
 
 }
@@ -78,47 +79,53 @@ bool VariabilityDescription::PostInitialize(std::shared_ptr<const bcm3::Variable
 	return true;
 }
 
-bool VariabilityDescription::ApplyVariabilityEntryTime(Real& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
+bool VariabilityDescription::ApplyVariabilityEntryTime(Real& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
 {
 	if (entry_time) {
 		// This variability description applies to entry time
 		Real sobol_sample = sobol_sequence[sobol_sequence_ix++];
-		Real range = GetRangeValue(transformed_values, non_sampled_parameters);
-		Real q = DistributionQuantile(sobol_sample, range);
-		ApplyType(value, q);
+		if (!only_initial_cells || is_initial_cell) {
+			Real range = GetRangeValue(transformed_values, non_sampled_parameters);
+			Real q = DistributionQuantile(sobol_sample, range);
+			ApplyType(value, q);
+		}
 		return true;
 	} else {
 		return false;
 	}
 }
 
-bool VariabilityDescription::ApplyVariabilityParameter(const std::string& parameter, OdeReal& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
+bool VariabilityDescription::ApplyVariabilityParameter(const std::string& parameter, OdeReal& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
 {
 	if (!parameter_name.empty() && parameter == parameter_name) {
 		// This variability description applies to this parameter
 		Real sobol_sample = sobol_sequence[sobol_sequence_ix++];
-		Real range = GetRangeValue(transformed_values, non_sampled_parameters);
-		Real q = DistributionQuantile(sobol_sample, range);
-		Real real_value = (Real)value;
-		ApplyType(real_value, q);
-		value = (OdeReal)real_value;
+		if (!only_initial_cells || is_initial_cell) {
+			Real range = GetRangeValue(transformed_values, non_sampled_parameters);
+			Real q = DistributionQuantile(sobol_sample, range);
+			Real real_value = (Real)value;
+			ApplyType(real_value, q);
+			value = (OdeReal)real_value;
+		}
 		return true;
 	} else {
 		return false;
 	}
 }
 
-bool VariabilityDescription::ApplyVariabilitySpecies(const std::string& species, OdeReal& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
+bool VariabilityDescription::ApplyVariabilitySpecies(const std::string& species, OdeReal& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
 {
 	if (!species_name.empty() && species == species_name) {
 		// This variability description applies to this species
 		Real sobol_sample = sobol_sequence[sobol_sequence_ix++];
-		Real range = GetRangeValue(transformed_values, non_sampled_parameters);
-		Real q = DistributionQuantile(sobol_sample, range);
-		Real real_value = (Real)value;
-		ApplyType(real_value, q);
-		real_value = fabs(real_value);
-		value = (OdeReal)real_value;
+		if (!only_initial_cells || is_initial_cell) {
+			Real range = GetRangeValue(transformed_values, non_sampled_parameters);
+			Real q = DistributionQuantile(sobol_sample, range);
+			Real real_value = (Real)value;
+			ApplyType(real_value, q);
+			real_value = fabs(real_value);
+			value = (OdeReal)real_value;
+		}
 		return true;
 	} else {
 		return false;
@@ -145,6 +152,12 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 		return false;
 	}
 
+	if (entry_time) {
+		only_initial_cells = xml_node.get<bool>("<xmlattr>.only_initial_cells", true);
+	} else {
+		only_initial_cells = xml_node.get<bool>("<xmlattr>.only_initial_cells", false);
+	}
+
 	std::string type_str = xml_node.get<std::string>("<xmlattr>.type");
 	if (type_str == "additive") {
 		type = EType::Additive;
@@ -162,7 +175,7 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 	if (distribution_str == "normal") {
 		distribution = EDistribution::Normal;
 	} else if (distribution_str == "half_normal") {
-			distribution = EDistribution::HalfNormal;
+		distribution = EDistribution::HalfNormal;
 	} else if (distribution_str == "bernoulli") {
 		distribution = EDistribution::Bernoulli;
 	} else if (distribution_str == "uniform") {
