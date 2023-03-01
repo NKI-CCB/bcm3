@@ -1,6 +1,8 @@
 #include "Utils.h"
 #include "SBMLRatelaws.h"
 
+#define USE_INTEGER_HILL_OPTIMIZATIONS 1
+
 inline Real michaelis_menten_function(Real kcat, Real KM, Real e, Real s)
 {
 	if (s < 0) return -kcat * e * s / (-KM + s);
@@ -721,7 +723,7 @@ std::string SBMLRatelawElementFunctionExp::GenerateDerivative(size_t species_ix)
 Real SBMLRatelawElementFunctionLog::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 1);
-	return exp(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
+	return log(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
 }
 
 std::string SBMLRatelawElementFunctionLog::GenerateEquation()
@@ -795,13 +797,16 @@ std::string SBMLRatelawElementFunctionPow::GenerateDerivative(size_t species_ix)
 Real SBMLRatelawElementFunctionHill::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 3);
-	return bcm3::hill_function(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters), children[1]->Evaluate(species, constant_species, parameters, non_sampled_parameters), children[2]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
+	return bcm3::hill_function(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters),
+							   children[1]->Evaluate(species, constant_species, parameters, non_sampled_parameters),
+							   children[2]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
 }
 
 std::string SBMLRatelawElementFunctionHill::GenerateEquation()
 {
 	std::string result;
 	std::string n = children[2]->GenerateEquation();
+#if USE_INTEGER_HILL_OPTIMIZATIONS
 	if (n == "1.000000" || n == "1.000000f") {
 		result = "hill_function_fixedn1(";
 		result += children[0]->GenerateEquation();
@@ -839,6 +844,7 @@ std::string SBMLRatelawElementFunctionHill::GenerateEquation()
 		result += children[1]->GenerateEquation();
 		result += ")";
 	} else {
+#endif
 		result = "hill_function(";
 		result += children[0]->GenerateEquation();
 		result += ",";
@@ -846,7 +852,9 @@ std::string SBMLRatelawElementFunctionHill::GenerateEquation()
 		result += ",";
 		result += children[2]->GenerateEquation();
 		result += ")";
+#if USE_INTEGER_HILL_OPTIMIZATIONS
 	}
+#endif
 	return result;
 }
 
@@ -857,6 +865,7 @@ std::string SBMLRatelawElementFunctionHill::GenerateDerivative(size_t species_ix
 	SBMLRatelawElementLookupSpecies* lookup_species = dynamic_cast<SBMLRatelawElementLookupSpecies*>(children[0].get());
 	if (lookup_species && lookup_species->ix == species_ix) {
 		std::string n = children[2]->GenerateEquation();
+#if USE_INTEGER_HILL_OPTIMIZATIONS
 		if (n == "1.000000" || n == "1.000000f") {
 			result = "hill_function_derivative_fixedn1(";
 			result += children[0]->GenerateEquation();
@@ -864,6 +873,7 @@ std::string SBMLRatelawElementFunctionHill::GenerateDerivative(size_t species_ix
 			result += children[1]->GenerateEquation();
 			result += ")";
 		} else {
+#endif
 			result = "hill_function_derivative(";
 			result += children[0]->GenerateEquation();
 			result += ",";
@@ -871,13 +881,16 @@ std::string SBMLRatelawElementFunctionHill::GenerateDerivative(size_t species_ix
 			result += ",";
 			result += n;
 			result += ")";
+#if USE_INTEGER_HILL_OPTIMIZATIONS
 		}
+#endif
 	} else {
 		for (size_t i = 0; i < children.size(); i++) {
 			std::string res = children[i]->GenerateDerivative(species_ix);
 			if (!res.empty()) {
 				if (i == 0) {
 					std::string n = children[2]->GenerateEquation();
+#if USE_INTEGER_HILL_OPTIMIZATIONS
 					if (n == "1.000000" || n == "1.000000f") {
 						result = "hill_function_derivative_fixedn1(";
 						result += children[0]->GenerateEquation();
@@ -887,6 +900,7 @@ std::string SBMLRatelawElementFunctionHill::GenerateDerivative(size_t species_ix
 						result += res;
 						result += ")";
 					} else {
+#endif
 						result = "hill_function_derivative(";
 						result += children[0]->GenerateEquation();
 						result += ",";
@@ -896,7 +910,9 @@ std::string SBMLRatelawElementFunctionHill::GenerateDerivative(size_t species_ix
 						result += ")*(";
 						result += res;
 						result += ")";
+#if USE_INTEGER_HILL_OPTIMIZATIONS
 					}
+#endif
 				} else {
 					LOGERROR("Not implemented");
 				}
@@ -908,7 +924,7 @@ std::string SBMLRatelawElementFunctionHill::GenerateDerivative(size_t species_ix
 
 Real SBMLRatelawElementFunctionMM::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
-	ASSERT(children.size() == 3);
+	ASSERT(children.size() == 4);
 	return michaelis_menten_function(
 		children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters),
 		children[1]->Evaluate(species, constant_species, parameters, non_sampled_parameters),

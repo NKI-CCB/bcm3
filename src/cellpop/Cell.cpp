@@ -7,11 +7,10 @@
 #include <sunnonlinsol/sunnonlinsol_newton.h>
 #include "../../dependencies/cvode-5.3.0/src/cvode/cvode_impl.h"
 
-#define USE_GENERATED_CODE 1
-
 size_t Cell::total_num_simulations = 0;
 size_t Cell::cvode_max_steps_reached = 0;
 size_t Cell::cvode_min_timestep_reached = 0;
+const bool Cell::use_generated_code = 1;
 static const int max_cvode_steps = 5000;
 
 Cell::CVodeTimepoint::CVodeTimepoint()
@@ -29,105 +28,25 @@ static void static_cvode_err_fn(int error_code, const char *module, const char *
 //	LOGERROR("CVODE error %d in module %s, function %s: %s", error_code, module, function, msg);
 }
 
-bool tmp = false;
 int Cell::static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data)
 {
 	Cell* cell = reinterpret_cast<Cell*>(user_data);
 	cell->SetTreatmentConcentration(t);
-#if USE_GENERATED_CODE
-	cell->derivative(NV_DATA_S(ydot), NV_DATA_S(y), cell->constant_species_y.data(), cell->cell_specific_transformed_variables.data(), cell->cell_specific_non_sampled_transformed_variables.data());
-#else
-	cell->model->CalculateDerivativePublic(t, NV_DATA_S(y), NV_DATA_S(ydot), cell->constant_species_y.data(), cell->cell_specific_transformed_variables.data());
-#endif
-
-#if 0
-	if (t == 0.0 && !tmp) {
-		for (int i = 0; i < NV_LENGTH_S(y); i++) {
-			LOG("u0[%d] = %.20g;", i, NV_Ith_S(y, i));
-		}
-		for (int i = 0; i < cell->cell_specific_transformed_variables.size(); i++) {
-			LOG("params[%d] = %.20g;", i, cell->cell_specific_transformed_variables(i));
-		}
-		for (int i = 0; i < cell->constant_species_y.size(); i++) {
-			LOG("constant_species[%d] = %.20g;", i, cell->constant_species_y(i));
-		}
-		for (int i = 0; i < NV_LENGTH_S(y); i++) {
-			LOG("du[%d] = %.20g;", i, NV_Ith_S(ydot, i));
-		}
-		tmp = true;
+	if (Cell::use_generated_code) {
+		cell->derivative(NV_DATA_S(ydot), NV_DATA_S(y), cell->constant_species_y.data(), cell->cell_specific_transformed_variables.data(), cell->cell_specific_non_sampled_transformed_variables.data());
+	} else {
+		cell->model->CalculateDerivativePublic(t, NV_DATA_S(y), NV_DATA_S(ydot), cell->constant_species_y.data(), cell->cell_specific_transformed_variables.data(), cell->cell_specific_non_sampled_transformed_variables.data());
 	}
-	for (size_t i = 0; i < NV_LENGTH_S(ydot); i++) {
-		if (std::isnan(NV_Ith_S(ydot, i))) {
-			int a;
-			a = 9;
-		}
-		if (NV_Ith_S(ydot, i) != 0.0 && !std::isnormal(NV_Ith_S(ydot, i))) {
-			int a;
-			a = 9;
-		}
-		if (NV_Ith_S(y, i) != 0.0 && !std::isnormal(NV_Ith_S(y, i))) {
-			int a;
-			a = 9;
-		}
-		if (NV_Ith_S(y, i) <= -1e-4 && NV_Ith_S(ydot, i) < 0.0) {
-			int a;
-			a = 9;
-		}
-	}
-#endif
-
 	return 0;
 }
 
-#if USE_GENERATED_CODE
-static int tmpvar = 0;
-bool tmp2 = false;
 int Cell::static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3)
 {
 	Cell* cell = reinterpret_cast<Cell*>(user_data);
 	cell->SetTreatmentConcentration(t);
-	//return solver->cvode_jac_fn(t, NV_DATA_S(y), NV_DATA_S(fy), Jac->cols);
 	cell->jacobian(Jac, NV_DATA_S(y), cell->constant_species_y.data(), cell->cell_specific_transformed_variables.data(), cell->cell_specific_non_sampled_transformed_variables.data());
-
-#if 0
-	if (!tmp2) {
-		for (int i = 0; i < NV_LENGTH_S(y); i++) {
-			LOG("u0[%d] = %.20g;", i, NV_Ith_S(y, i));
-		}
-		for (int i = 0; i < cell->cell_specific_transformed_variables.size(); i++) {
-			LOG("params[%d] = %.20g;", i, cell->cell_specific_transformed_variables(i));
-		}
-		for (int i = 0; i < cell->constant_species_y.size(); i++) {
-			LOG("constant_species[%d] = %.20g;", i, cell->constant_species_y(i));
-		}
-		for (int i = 0; i < 13; i++) {
-			for (int j = 0; j < 13; j++) {
-				if (SM_ELEMENT_D(Jac, i, j) != 0.0) {
-					LOG("out[%d,%d] = %.20g;", i, j, SM_ELEMENT_D(Jac, i, j));
-				}
-			}
-		}
-		tmp2 = true;
-	}
-	//if (tmpvar == 0) {
-		printf("%d\n", tmpvar);
-		for (size_t i = 0; i < NV_LENGTH_S(y); i++) {
-			for (size_t j = 0; j < NV_LENGTH_S(y); j++) {
-				printf("%12g,", SM_ELEMENT_D(Jac, i, j));
-				//			if (SM_ELEMENT_D(Jac, i, j) != SM_ELEMENT_D(Jac, i, j)) {
-				//				int a;
-				//				a = 9;
-				//			}
-			}
-			printf("\n");
-		}
-		tmpvar++;
-	//}
-#endif
-
 	return 0;
 }
-#endif
 
 Cell::Cell(const SBMLModel* model, const Experiment* experiment)
 	: model(model)
@@ -317,35 +236,15 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	//SUNNonlinSolSetInfoFile_Newton(NLS, infofp);
 	CVodeSetNonlinearSolver(cvode_mem, NLS);
 
-#if USE_GENERATED_CODE
-	CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
-	CVodeSetMaxStepsBetweenJac(cvode_mem, 10);
-#endif
+	if (Cell::use_generated_code) {
+		CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
+		CVodeSetMaxStepsBetweenJac(cvode_mem, 10);
+	}
 
 	total_num_simulations++;
 
 	return true;
 }
-
-#if 0
-bool Cell::SetSpecies(const std::map<size_t, Real>& set_species_map)
-{
-	for (std::map<size_t, Real>::const_iterator ssmi = set_species_map.begin(); ssmi != set_species_map.end(); ++ssmi) {
-		NV_Ith_S(cvode_y, ssmi->first) = ssmi->second;
-	}
-	CVodeReInit(cvode_mem, current_simulation_time, cvode_y);
-	return true;
-}
-
-bool Cell::SetSpecies(size_t i, Real value, bool reinit)
-{
-	NV_Ith_S(cvode_y, i) = value;
-	if (reinit) {
-		CVodeReInit(cvode_mem, current_simulation_time, cvode_y);
-	}
-	return true;
-}
-#endif
 
 bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 {

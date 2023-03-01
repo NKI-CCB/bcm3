@@ -7,6 +7,7 @@
 #include "LikelihoodPopPKTrajectory.h"
 #include "TestLikelihoodBanana.h"
 #include "TestLikelihoodCircular.h"
+#include "TestLikelihoodTruncatedT.h"
 
 #include <boost/property_tree/xml_parser.hpp>
 
@@ -41,6 +42,8 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 			ll = std::make_shared<TestLikelihoodBanana>(sampling_threads, evaluation_threads);
 		} else if (type == "circular") {
 			ll = std::make_shared<TestLikelihoodCircular>(sampling_threads, evaluation_threads);
+		} else if (type == "truncated_t") {
+			ll = std::make_shared<TestLikelihoodTruncatedT>(sampling_threads, evaluation_threads);
 		} else {
 			LOGERROR("Unknown likelihood type \"%s\"", type.c_str());
 		}

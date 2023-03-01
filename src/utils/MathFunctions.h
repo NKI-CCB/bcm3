@@ -18,22 +18,11 @@ inline Real dlogit(Real x) { return 1.0 / (x - x*x); }
 inline Real logit_scale(Real x, Real a, Real b) { return log((a-x)/(x-b)); }
 inline Real dlogit_scale(Real x, Real a, Real b) { return (b-a)/((a-x)*(x-b)); }
 
-inline Real hill_function(Real x, Real n, Real k)
+inline Real hill_function(Real x, Real k, Real n)
 {
 	Real xn = pow(x, n);
-	return xn / (k + xn);
-}
-
-inline Real hill_function(Real x, Real n, Real k, Real max)
-{
-	Real xn = pow(x, n);
-	return max * xn / (k + xn);
-}
-
-inline Real hill_function_derivative(Real x, Real n, Real k, Real max)
-{
-	Real xn = pow(x, n);
-	return max * k * n * xn / (x * square(k + xn));
+	Real kn = pow(k, n);
+	return xn / (kn + xn);
 }
 
 inline float rsqrt(float x)
