@@ -1,7 +1,7 @@
 #include "Utils.h"
 #include "LinearAlgebraSelector.h"
 
-#if CVODE_USE_SPARSE_SOLVER
+#if CVODE_USE_EIGEN_SOLVER && CVODE_USE_SPARSE_SOLVER
 
 #include <sundials/sundials_math.h>
 
