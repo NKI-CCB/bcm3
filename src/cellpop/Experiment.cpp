@@ -438,8 +438,15 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	}
 
 	// Allocate space to store the trajectories
-	Real simulation_begin_time = simulation_timepoints.begin()->time;
-	Real simulation_end_time = simulation_timepoints.rbegin()->time + trailing_simulation_time;
+	Real simulation_begin_time;
+	Real simulation_end_time;
+	if (!simulation_timepoints.empty()) {
+		simulation_begin_time = simulation_timepoints.begin()->time;
+		simulation_end_time = simulation_timepoints.rbegin()->time + trailing_simulation_time;
+	} else {
+		simulation_begin_time = 0;
+		simulation_end_time = trailing_simulation_time;
+	}
 	output_trajectories_timepoints.resize(output_trajectory_num_timepoints);
 	for (size_t i = 0; i < output_trajectories_timepoints.size(); i++) {
 		output_trajectories_timepoints(i) = simulation_begin_time + (simulation_end_time - simulation_begin_time) * i / (Real)(output_trajectory_num_timepoints - 1);
@@ -860,7 +867,12 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 	}
 
 	const Real dt = 120.0;
-	Real simulation_end_time = simulation_timepoints.rbegin()->time + trailing_simulation_time;
+	Real simulation_end_time;
+	if (!simulation_timepoints.empty()) {
+		simulation_end_time = simulation_timepoints.rbegin()->time + trailing_simulation_time;
+	} else {
+		simulation_end_time = trailing_simulation_time;
+	}
 	Real minimum_start_time = std::numeric_limits<Real>::infinity();
 
 	if (initial_number_of_cells > 1) {
