@@ -45,7 +45,7 @@ Real pmvnormal(const VectorReal& x, const VectorReal& mu, const MatrixReal& sigm
 	return 0.0;
 }
 
-VectorReal dmvnormal(const MatrixReal& x, const VectorReal& mu, const MatrixReal& sigma, bool return_log)
+VectorReal dmvnormal_array(const MatrixReal& x, const VectorReal& mu, const MatrixReal& sigma, bool return_log)
 {
 	ASSERT(x.cols() == mu.size());
 	ASSERT(mu.size() == sigma.rows());
@@ -78,7 +78,7 @@ VectorReal dmvnormal(const MatrixReal& x, const VectorReal& mu, const MatrixReal
 	}
 }
 
-VectorReal pmvnormal(const MatrixReal& x, const VectorReal& mu, const MatrixReal& sigma, bool return_log)
+VectorReal pmvnormal_array(const MatrixReal& x, const VectorReal& mu, const MatrixReal& sigma, bool return_log)
 {
 	ASSERT(x.size() == mu.size());
 	ASSERT(mu.size() == sigma.rows());

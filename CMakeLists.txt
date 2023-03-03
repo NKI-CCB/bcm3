@@ -7,7 +7,7 @@ if(CMAKE_HOST_WIN32)
     set(Boost_USE_STATIC_LIBS		ON)
     set(Boost_USE_STATIC_RUNTIME	OFF)
 endif(CMAKE_HOST_WIN32)
-find_package(Boost REQUIRED COMPONENTS program_options filesystem system date_time chrono)
+find_package(Boost REQUIRED COMPONENTS program_options filesystem system date_time chrono unit_test_framework)
 
 # bthijssen: I tried to make these work with find_package, but didn't manage to find a way that works
 # on Windows with either prebuilt netCDF/libsbml or custom ones. So for now it is required to manually
@@ -43,3 +43,7 @@ add_subdirectory(src/sampler)
 add_subdirectory(src/sbml)
 add_subdirectory(src/stats)
 add_subdirectory(src/utils)
+
+enable_testing()
+
+add_subdirectory(tests/stats)
