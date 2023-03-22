@@ -18,13 +18,6 @@ inline Real dlogit(Real x) { return 1.0 / (x - x*x); }
 inline Real logit_scale(Real x, Real a, Real b) { return log((a-x)/(x-b)); }
 inline Real dlogit_scale(Real x, Real a, Real b) { return (b-a)/((a-x)*(x-b)); }
 
-inline Real hill_function(Real x, Real k, Real n)
-{
-	Real xn = pow(x, n);
-	Real kn = pow(k, n);
-	return xn / (kn + xn);
-}
-
 inline float rsqrt(float x)
 {
 	// Based on http://www.hlnum.org/english/doc/frsqrt/frsqrt.html

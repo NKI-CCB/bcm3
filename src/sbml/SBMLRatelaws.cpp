@@ -3,6 +3,13 @@
 
 #define USE_INTEGER_HILL_OPTIMIZATIONS 1
 
+inline Real hill_function(Real x, Real k, Real n)
+{
+	Real xn = pow(x, n);
+	Real kn = pow(k, n);
+	return xn / (kn + xn);
+}
+
 inline Real michaelis_menten_function(Real kcat, Real KM, Real e, Real s)
 {
 	if (s < 0) return -kcat * e * s / (-KM + s);
@@ -797,9 +804,9 @@ std::string SBMLRatelawElementFunctionPow::GenerateDerivative(size_t species_ix)
 Real SBMLRatelawElementFunctionHill::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
 {
 	ASSERT(children.size() == 3);
-	return bcm3::hill_function(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters),
-							   children[1]->Evaluate(species, constant_species, parameters, non_sampled_parameters),
-							   children[2]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
+	return hill_function(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters),
+						 children[1]->Evaluate(species, constant_species, parameters, non_sampled_parameters),
+						 children[2]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
 }
 
 std::string SBMLRatelawElementFunctionHill::GenerateEquation()
