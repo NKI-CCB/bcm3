@@ -150,6 +150,9 @@ int predict(const po::variables_map& vm)
 	std::string predict_input_fn;
 	std::string predict_output_fn;
 
+	size_t specific_temperature;
+	size_t skip_n;
+
 	try {
 		size_t evaluation_threads = vm["evaluation_threads"].as<size_t>();
 		varset = std::make_shared<bcm3::VariableSet>();
@@ -167,6 +170,9 @@ int predict(const po::variables_map& vm)
 		if (!likelihood) {
 			return -4;
 		}
+
+		specific_temperature = vm["predict.specific_temperature"].as<size_t>();
+		skip_n = vm["predict.skip_n"].as<size_t>();
 
 		std::string output_path = vm["output.folder"].as<std::string>();
 		predict_input_fn = vm["predict.input"].as<std::string>();
@@ -235,28 +241,30 @@ int predict(const po::variables_map& vm)
 
 	unsigned int num_likelihood_evaluations = 0;
 	for (int j = 0; j < temperatures.size(); j++) {
-		printf("Temperature %d (%.6g)...\n", j, temperatures(j));
-		printf("  Sample     ");
-		for (size_t i = total_samples / 2; i < total_samples; i++) {
-			printf("\b\b\b\b%4zd", i);
-			fflush(stdout);
+		if (specific_temperature == std::numeric_limits<size_t>::max() || (int)specific_temperature == j) {
+			printf("Temperature %d (%.6g)...\n", j, temperatures(j));
+			printf("  Sample     ");
+			for (size_t i = total_samples / 2; i < total_samples; i += skip_n + 1) {
+				printf("\b\b\b\b%4zd", i);
+				fflush(stdout);
 
-			VectorReal sample;
-			if (!sample_file.GetValuesDim3("samples", "variable_values", i, j, 0, num_variables, sample)) {
-				return -12;
+				VectorReal sample;
+				if (!sample_file.GetValuesDim3("samples", "variable_values", i, j, 0, num_variables, sample)) {
+					return -12;
+				}
+
+				Real llh = 0.0;
+				result = likelihood->EvaluateLogProbability(0, sample, llh);
+				if (result) {
+				} else {
+					llh = std::numeric_limits<Real>::quiet_NaN();
+				}
+				num_likelihood_evaluations++;
+
+				output_file.PutValue("predictions", "log_likelihood", i, j, llh);
 			}
-
-			Real llh = 0.0;
-			result = likelihood->EvaluateLogProbability(0, sample, llh);
-			if (result) {
-			} else {
-				llh = std::numeric_limits<Real>::quiet_NaN();
-			}
-			num_likelihood_evaluations++;
-
-			output_file.PutValue("predictions", "log_likelihood", i, j, llh);
+			printf("\n");
 		}
-		printf("\n");
 	}
 
 	double prediction_time = timer.GetElapsedSeconds();
@@ -285,16 +293,18 @@ int main(int argc, char* argv[])
 
 		po::options_description config_options("Configuration", 120);
 		config_options.add_options()
-			("sampling_threads,j",		po::value<size_t>()->default_value(0),						"number of sampling threads to use; set to 0 for using all available hardware concurrency")
-			("evaluation_threads,k",	po::value<size_t>()->default_value(1),						"number of threads to use during each likelihood evaluation")
-			("prior",					po::value<std::string>()->default_value("prior.xml"),		"File describing the priors for the parameters/initial conditions")
-			("likelihood",				po::value<std::string>()->default_value("likelihood.xml"),	"File describing the likelihood functions")
-			("learning_rate,e",			po::value<Real>()->default_value(1.0),						"Learning rate between 0 and 1 - raises the likelihood function to this power.")
-			("output.folder",			po::value<std::string>()->default_value("output"),			"Folder in which output files will be generated, subfolder of the model directory.")
-			("predict",																				"Make a prediction for the function described in the likelihood file, given a set of output samples.")
-			("predict.input",			po::value<std::string>()->default_value("output.nc"),		"This should point to the output.nc file of a previous inference.")
-			("predict.output",			po::value<std::string>()->default_value("prediction.nc"),	"Prediction output will be written to this file (in the output folder).")
-			("progress_update_time",	po::value<Real>()->default_value(0.5),						"Update the progress counter every x seconds.")
+			("sampling_threads,j",				po::value<size_t>()->default_value(0),									"number of sampling threads to use; set to 0 for using all available hardware concurrency")
+			("evaluation_threads,k",			po::value<size_t>()->default_value(1),									"number of threads to use during each likelihood evaluation")
+			("prior",							po::value<std::string>()->default_value("prior.xml"),					"File describing the priors for the parameters/initial conditions")
+			("likelihood",						po::value<std::string>()->default_value("likelihood.xml"),				"File describing the likelihood functions")
+			("learning_rate,e",					po::value<Real>()->default_value(1.0),									"Learning rate between 0 and 1 - raises the likelihood function to this power.")
+			("output.folder",					po::value<std::string>()->default_value("output"),						"Folder in which output files will be generated, subfolder of the model directory.")
+			("predict",																									"Make a prediction for the function described in the likelihood file, given a set of output samples.")
+			("predict.input",					po::value<std::string>()->default_value("output.nc"),					"This should point to the output.nc file of a previous inference.")
+			("predict.output",					po::value<std::string>()->default_value("prediction.nc"),				"Prediction output will be written to this file (in the output folder).")
+			("predict.skip_n",					po::value<size_t>()->default_value(0),									"Prediction output will only make output for every n+1 sample.")
+			("predict.specific_temperature",	po::value<size_t>()->default_value(std::numeric_limits<size_t>::max()),	"Prediction output will only make output for every this specific temperature.")
+			("progress_update_time",			po::value<Real>()->default_value(0.5),									"Update the progress counter every x seconds.")
 			;
 #if 0
 			("predict", "Make a prediction for the function described in the likelihood file, given a set of output samples.")
