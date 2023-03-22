@@ -1,6 +1,7 @@
 #include "Utils.h"
 #include "checks.h"
 #include "mvt.h"
+#include "ProbabilityDistributions.h"
 
 #include <boost/math/special_functions/erf.hpp>
 #include <unsupported/Eigen/FFT>
@@ -113,6 +114,93 @@ void CholeskyPermuteReorder(const MatrixReal& sigma, const VectorReal& a, const 
             y[k] = (ap[k] + bp[k]) / 2.0;
         }
     }
+}
+
+Real dmvt(const VectorReal& x, const VectorReal& mu, const MatrixReal& sigma, Real nu, bool return_log)
+{
+	ASSERT(x.size() == mu.size());
+	ASSERT(mu.size() == sigma.rows());
+	ASSERT(mu.size() == sigma.cols());
+	ASSERT(is_positive_semi_definite(sigma));
+	ASSERT(nu > 0.0);
+
+	const int p = mu.size();
+
+	if (p == 1) {
+		if (return_log) {
+			return LogPdfT(x(0), mu(0), sigma(0, 0), nu);
+		} else {
+			return PdfT(x(0), mu(0), sigma(0, 0), nu);
+		}
+	} else {
+		Eigen::LLT<MatrixReal> llt;
+		llt.compute(sigma);
+		ASSERT(llt.info() == Eigen::Success);
+
+		Real det = 0.0;
+		for (int i = 0; i < p; i++) {
+			det += log(llt.matrixL()(i, i));
+		}
+
+		Real logC = std::lgamma(0.5 * (p + nu)) - (std::lgamma(0.5 * nu) + det + 0.5 * p * log(M_PI * nu));
+
+		VectorReal v = x - mu;
+		llt.matrixL().solveInPlace(v);
+		Real logp = logC - 0.5 * (p + nu) * log1p(v.dot(v) / nu);
+
+		if (return_log) {
+			return logp;
+		} else {
+			return exp(logp);
+		}
+	}
+}
+
+Real pmvt(const VectorReal& x, const VectorReal& mu, const MatrixReal& sigma, Real nu, bool return_log)
+{
+	ASSERT(x.size() == mu.size());
+	ASSERT(mu.size() == sigma.rows());
+	ASSERT(mu.size() == sigma.cols());
+	ASSERT(is_positive_semi_definite(sigma));
+	ASSERT(nu > 0.0);
+
+	if (x.size() == 1) {
+		Real p = CdfT(x(0), mu(0), sigma(0, 0), nu);
+		if (return_log) {
+			return log(p);
+		} else {
+			return p;
+		}
+	} else {
+		ASSERT(false);
+		return std::numeric_limits<Real>::quiet_NaN();
+	}
+}
+
+VectorReal dmvt_array(const MatrixReal& x, const VectorReal& mu, const MatrixReal& sigma, Real nu, bool return_log)
+{
+	ASSERT(x.size() == mu.size());
+	ASSERT(mu.size() == sigma.rows());
+	ASSERT(mu.size() == sigma.cols());
+	ASSERT(is_positive_semi_definite(sigma));
+	ASSERT(nu > 0.0);
+
+	ASSERT(false);
+	VectorReal logp(x.rows());
+	return logp;
+}
+
+VectorReal pmvt_array(const MatrixReal& x, const VectorReal& mu, const MatrixReal& sigma, Real nu, bool return_log)
+{
+	ASSERT(x.size() == mu.size());
+	ASSERT(mu.size() == sigma.rows());
+	ASSERT(mu.size() == sigma.cols());
+	ASSERT(is_positive_semi_definite(sigma));
+	ASSERT(nu > 0.0);
+
+	ASSERT(false);
+	VectorReal logp(x.rows());
+	return logp;
 }
 
 }

@@ -2,7 +2,9 @@ add_executable(test_stats)
 
 target_sources(test_stats
   PRIVATE
+    init_boost_test.cpp
     mvn.cpp
+    mvt.cpp
 )
 
 target_include_directories(test_stats PRIVATE ${BOOST_INCLUDE_DIRS})
