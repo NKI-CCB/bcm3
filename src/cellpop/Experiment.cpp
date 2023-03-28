@@ -755,8 +755,8 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 
 	f.open(output_folder + "CMakeLists.txt", std::fstream::out);
 	if (f.is_open()) {
-		f << "project(generated_derivatives CXX)\n";
 		f << "cmake_minimum_required(VERSION 3.16)\n";
+		f << "project(generated_derivatives CXX)\n";
 		f << "\n";
 		f << "if(CMAKE_HOST_UNIX)\n";
 		f << "	set(CMAKE_BUILD_TYPE Release)\n";
@@ -787,18 +787,29 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 			int result = system(("cd " + output_folder + " & \"" + vcvarsfn + "\" & cmake -G \"Visual Studio 15 2017 Win64\" . & msbuild generated_derivatives.sln /p:Configuration=Release").c_str());
 #endif
 		} else {
-			std::string vcvarsfn = "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat";
+			vcvarsfn = "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat";
 			FILE *file = fopen(vcvarsfn.c_str(), "r");
 			if (file) {
 				fclose(file);
 #if BUILD_DEBUG
-				int result = system(("cd " + output_folder + " & \"" + vcvarsfn + "\" & cmake . & msbuild generated_derivatives.sln /p:Configuration=Debug").c_str());
+				int result = system(("cd " + output_folder + " & \"" + vcvarsfn + "\" & cmake -G \"Visual Studio 16 2019\" . & msbuild generated_derivatives.sln /p:Configuration=Debug").c_str());
 #else
-				int result = system(("cd " + output_folder + " & \"" + vcvarsfn + "\" & cmake . & msbuild generated_derivatives.sln /p:Configuration=Release").c_str());
+				int result = system(("cd " + output_folder + " & \"" + vcvarsfn + "\" & cmake -G \"Visual Studio 16 2019\" . & msbuild generated_derivatives.sln /p:Configuration=Release").c_str());
 #endif
-			} else  {
-				LOGERROR("Not sure where to find vcvars64.bat for compiling the code...");
-				return false;
+			} else {
+				vcvarsfn = "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat";
+				FILE* file = fopen(vcvarsfn.c_str(), "r");
+				if (file) {
+					fclose(file);
+#if BUILD_DEBUG
+					int result = system(("cd " + output_folder + " & \"" + vcvarsfn + "\" & cmake -G \"Visual Studio 17 2022\" . & msbuild generated_derivatives.sln /p:Configuration=Debug").c_str());
+#else
+					int result = system(("cd " + output_folder + " & \"" + vcvarsfn + "\" & cmake -G \"Visual Studio 17 2022\" . & msbuild generated_derivatives.sln /p:Configuration=Release").c_str());
+#endif
+				} else {
+					LOGERROR("Not sure where to find vcvars64.bat for compiling the code...");
+					return false;
+				}
 			}
 		}
 #else
