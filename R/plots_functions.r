@@ -237,7 +237,7 @@ plot_bivariate_variable_distribution <- function(model, parix1, parix2, hscale=1
 {
   library(ComplexHeatmap)
   library(ks)
-  library(viridis)
+  library(pals)
   library(MASS)
   library(circlize)
   library(mvtnorm)
@@ -276,7 +276,7 @@ plot_bivariate_variable_distribution <- function(model, parix1, parix2, hscale=1
   }
   
   Heatmap(t(z), row_order=20:1, cluster_rows = F, cluster_columns = F,
-          col=colorRamp2(seq(probrange[1], probrange[2], len=20), viridis_pal()(20)),
+          col=colorRamp2(seq(probrange[1], probrange[2], len=20), viridis(20)),
           column_title=model$variables[parix1],
           column_title_side="bottom",
           row_title=model$variables[parix2],
@@ -424,21 +424,24 @@ plot_variable_distribution_impl <- function(samples, varattrs, xlab="", ylim=NUL
     ylim <- c(0, maxy)
   }
   
-  cols <- brewer.set1(3)
-  
+  prior_color <- "#00beff"
+  posterior_color <- "#b51d14"
+  prior_color <- "#ddb310"
+  posterior_color <- "#4053d3"
+
   if (plot) {
-    plot(priorx, priory, col=cols[3], main=name, xlab=xlab, ylab="Probability density", type="l", xlim=c(minx, maxx), ylim=ylim, lwd=2);
+    plot(priorx, priory, col=prior_color, main=name, xlab=xlab, ylab="Probability density", type="l", xlim=c(minx, maxx), ylim=ylim, lwd=2);
     
     if(!is.na(lbound)) {
-      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, priory[1]), col=cols[3], lwd=2)
-      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, d$y[1]), col=cols[1], lwd=2)
+      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, priory[1]), col=prior_color, lwd=2)
+      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, d$y[1]), col=posterior_color, lwd=2)
     }
     if(!is.na(ubound)) {
-      lines(c(ubound, ubound, ubound + 1e6), c(tail(priory, 1), 0, 0), col=cols[3], lwd=2)
-      lines(c(ubound, ubound, ubound + 1e6), c(tail(d$y, 1), 0, 0), col=cols[1], lwd=2)
+      lines(c(ubound, ubound, ubound + 1e6), c(tail(priory, 1), 0, 0), col=prior_color, lwd=2)
+      lines(c(ubound, ubound, ubound + 1e6), c(tail(d$y, 1), 0, 0), col=posterior_color, lwd=2)
     }
     
-    lines(d$x, d$y, col=cols[1], lwd=2)
+    lines(d$x, d$y, col=posterior_color, lwd=2)
   } else {
     result <- list()
     result$xlim <- c(minx, maxx)
