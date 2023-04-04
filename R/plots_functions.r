@@ -2,6 +2,11 @@ library(crch)
 library(extraDistr, warn.conflicts = F)
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/stats.r", sep=""))
 
+.prior_color <- "#4053d3"
+.posterior_color <- "#ddb310"
+.posterior_predictive_color <- "#00b25d"
+.posterior_predictive_color_alpha <- "#00b25d64"
+
 # Plot prior and posterior distribution for a given variable
 # You can specify either a variable name or a variable index
 plot_variable_distribution <- function(model, var_ix=NULL, var_name=NULL, temperature_ix=NULL, sample_ix=NULL, xlab="", ylim=NULL, plot=T, adjust=1)
@@ -19,7 +24,9 @@ plot_variable_distribution <- function(model, var_ix=NULL, var_name=NULL, temper
     
     varattrs <- model$prior$variable_attrs[[var_ix]]
     res <- plot_variable_distribution_impl(model$posterior$samples[var_ix, temperature_ix, sample_ix], varattrs, xlab, ylim, plot=plot, adjust=adjust)
-    return(res)
+    if(!is.null(res)) {
+      return(res)
+    }
   } else {
     stop("Either a variable index or a variable name has to be specified")
   }
@@ -155,43 +162,24 @@ ppd_barplot <- function(model, variable_samples, data, labels, sd_var_ix=NULL, s
     uy <- quantile(predy, probs=bounds[2], na.rm=T)
     iqrly <- quantile(predy, probs=0.25, na.rm=T)
     iqruy <- quantile(predy, probs=0.75, na.rm=T)
-    polygon(c(lx,lx,ux,ux), c(max(ly, ylim[1]),min(uy,ylim[2]),min(uy, ylim[2]),max(ly, ylim[1])), col=rgb(43,131,186, 0.4*255, max=255), border=F)
-    lines(c(lx,ux), c(ly,ly), col=bound_color)
-    lines(c(lx,ux), c(uy,uy), col=bound_color)
-    #lines(c(xpos[i], xpos[i]), c(ly,iqrly), col=bound_color_alpha, lty=3, lwd=1)
-    #lines(c(xpos[i], xpos[i]), c(iqruy,uy), col=bound_color_alpha, lty=3, lwd=1)
-    #polygon(c(lx,lx,ux,ux), c(max(iqrly, ylim[1]),min(iqruy,ylim[2]),min(iqruy, ylim[2]),max(iqrly, ylim[1])), col=bound_color_alpha, border=F)
-
-    # ly <- quantile(predy, probs=0.025, na.rm=T)
-    # uy <- quantile(predy, probs=0.975, na.rm=T)
-    # polygon(c(lx,lx,ux,ux), c(max(ly, ylim[1]),min(uy,ylim[2]),min(uy, ylim[2]),max(ly, ylim[1])), col=rgb(43,131,186, 0.2*255, max=255), border=F)
-    # lines(c(lx,ux), c(ly,ly), col=bound_color)
-    # lines(c(lx,ux), c(uy,uy), col=bound_color)
-    # ly <- quantile(predy, probs=0.1, na.rm=T)
-    # uy <- quantile(predy, probs=0.9, na.rm=T)
-    # polygon(c(lx,lx,ux,ux), c(max(ly, ylim[1]),min(uy,ylim[2]),min(uy, ylim[2]),max(ly, ylim[1])), col=rgb(43,131,186, 0.2*255, max=255), border=F)
-    # ly <- quantile(predy, probs=0.25, na.rm=T)
-    # uy <- quantile(predy, probs=0.75, na.rm=T)
-    # polygon(c(lx,lx,ux,ux), c(max(ly, ylim[1]),min(uy,ylim[2]),min(uy, ylim[2]),max(ly, ylim[1])), col=rgb(43,131,186, 0.2*255, max=255), border=F)
+    polygon(c(lx,lx,ux,ux), c(max(ly, ylim[1]),min(uy,ylim[2]),min(uy, ylim[2]),max(ly, ylim[1])), col=.posterior_predictive_color_alpha, border=F)
+    lines(c(lx,ux), c(ly,ly), col=.posterior_predictive_color)
+    lines(c(lx,ux), c(uy,uy), col=.posterior_predictive_color)
 
     # Data
     if (is.null(nrow(data))) {
-      points(xpos[i], data[i], pch=19, cex = pointsize)
+      points(xpos[i], data[i], pch=20, cex = pointsize)
     } else {
-      points(rep(xpos[i],nrow(data)), data[,i], pch=19, cex = pointsize)
+      points(rep(xpos[i],nrow(data)), data[,i], pch=20, cex = pointsize)
     }
   }
   return(xpos)
 }
 
 # Posterior predictive distribution as a lineplot
-ppd_lineplot <- function(x.data, y.data, x.samples, y.samples, bounds=c(0.05, 0.95), xlim=NULL, ylim=NULL, bound.color=NULL, data.color='black', data_plot_type = 'p', median_line = T, ...) {
-  if (is.null(bound.color)) {
-    bound.color <- rgb(43,131,186, max=255)
-  }
-  color_conv <- col2rgb(bound.color)
-  bound_color_alpha <- rgb(color_conv[1],color_conv[2],color_conv[3], 0.4*255, max=255)
-  
+ppd_lineplot <- function(x.data, y.data, x.samples, y.samples, bounds=c(0.05, 0.95), xlim=NULL, ylim=NULL, data.color='black', data_plot_type = 'p', median_line = T, ...)
+{
+
   if (bounds[2] < bounds[1]) {
     bounds <- rev(bounds)
   }
@@ -217,13 +205,13 @@ ppd_lineplot <- function(x.data, y.data, x.samples, y.samples, bounds=c(0.05, 0.
   
   poly_point_ix <- which(!is.na(my))
   
-  plot(1, type="n", xlim=xlim, ylim=ylim, col=bound.color, ...)
+  plot(1, type="n", xlim=xlim, ylim=ylim, col=.posterior_predictive_color, ...)
   if (median_line) {
     lines(x.samples[poly_point_ix], my[poly_point_ix], lwd=2)
   }
-  polygon(c(x.samples[poly_point_ix], rev(x.samples[poly_point_ix])), c(ly[poly_point_ix],rev(uy[poly_point_ix])), col=bound_color_alpha, border=F)
-  lines(x.samples, ly, col=bound.color)
-  lines(x.samples, uy, col=bound.color)
+  polygon(c(x.samples[poly_point_ix], rev(x.samples[poly_point_ix])), c(ly[poly_point_ix],rev(uy[poly_point_ix])), col=.posterior_predictive_color_alpha, border=F)
+  lines(x.samples, ly, col=.posterior_predictive_color)
+  lines(x.samples, uy, col=.posterior_predictive_color)
   if (is.null(nrow(y.data))) {
     points(x.data, y.data, type=data_plot_type, pch=19, col=data.color)
   } else {
@@ -423,25 +411,20 @@ plot_variable_distribution_impl <- function(samples, varattrs, xlab="", ylim=NUL
   if (is.null(ylim)) {
     ylim <- c(0, maxy)
   }
-  
-  prior_color <- "#00beff"
-  posterior_color <- "#b51d14"
-  prior_color <- "#ddb310"
-  posterior_color <- "#4053d3"
 
   if (plot) {
-    plot(priorx, priory, col=prior_color, main=name, xlab=xlab, ylab="Probability density", type="l", xlim=c(minx, maxx), ylim=ylim, lwd=2);
+    plot(priorx, priory, col=.prior_color, main=name, xlab=xlab, ylab="Probability density", type="l", xlim=c(minx, maxx), ylim=ylim, lwd=3);
     
     if(!is.na(lbound)) {
-      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, priory[1]), col=prior_color, lwd=2)
-      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, d$y[1]), col=posterior_color, lwd=2)
+      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, priory[1]), col=.prior_color, lwd=3)
+      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, d$y[1]), col=.posterior_color, lwd=3)
     }
     if(!is.na(ubound)) {
-      lines(c(ubound, ubound, ubound + 1e6), c(tail(priory, 1), 0, 0), col=prior_color, lwd=2)
-      lines(c(ubound, ubound, ubound + 1e6), c(tail(d$y, 1), 0, 0), col=posterior_color, lwd=2)
+      lines(c(ubound, ubound, ubound + 1e6), c(tail(priory, 1), 0, 0), col=.prior_color, lwd=3)
+      lines(c(ubound, ubound, ubound + 1e6), c(tail(d$y, 1), 0, 0), col=.posterior_color, lwd=3)
     }
     
-    lines(d$x, d$y, col=posterior_color, lwd=2)
+    lines(d$x, d$y, col=.posterior_color, lwd=3)
   } else {
     result <- list()
     result$xlim <- c(minx, maxx)
@@ -539,7 +522,7 @@ plot_variable_prior_impl <- function(varattrs, xlab="", ylim=NULL, plot=T)
   }
   
   if (plot) {
-    plot(priorx, priory, col="blue", main=name, xlab=xlab, ylab="Probability density", type="l", xlim=c(minx, maxx), ylim=ylim, lwd=2);
+    plot(priorx, priory, col=.prior_color, main=name, xlab=xlab, ylab="Probability density", type="l", xlim=c(minx, maxx), ylim=ylim, lwd=2);
   } else {
     result <- list()
     result$xlim <- c(minx, maxx)
