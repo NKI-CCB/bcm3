@@ -291,7 +291,7 @@ load_binary <- function(filename, numvar) {
   return(data);
 }
 
-plot_variable_distribution_impl <- function(samples, varattrs, xlab="", ylim=NULL, plot=T, adjust=1)
+plot_variable_distribution_impl <- function(samples, varattrs, xlab="", ylim=NULL, plot=T, adjust=1, lwd=2)
 {
   name = varattrs["name"];
   
@@ -413,18 +413,18 @@ plot_variable_distribution_impl <- function(samples, varattrs, xlab="", ylim=NUL
   }
 
   if (plot) {
-    plot(priorx, priory, col=.prior_color, main=name, xlab=xlab, ylab="Probability density", type="l", xlim=c(minx, maxx), ylim=ylim, lwd=3);
+    plot(priorx, priory, col=.prior_color, main=name, xlab=xlab, ylab="Probability density", type="l", xlim=c(minx, maxx), ylim=ylim, lwd=lwd);
     
     if(!is.na(lbound)) {
-      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, priory[1]), col=.prior_color, lwd=3)
-      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, d$y[1]), col=.posterior_color, lwd=3)
+      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, priory[1]), col=.prior_color, lwd=lwd)
+      lines(c(lbound - 1e6, lbound, lbound), c(0, 0, d$y[1]), col=.posterior_color, lwd=lwd)
     }
     if(!is.na(ubound)) {
-      lines(c(ubound, ubound, ubound + 1e6), c(tail(priory, 1), 0, 0), col=.prior_color, lwd=3)
-      lines(c(ubound, ubound, ubound + 1e6), c(tail(d$y, 1), 0, 0), col=.posterior_color, lwd=3)
+      lines(c(ubound, ubound, ubound + 1e6), c(tail(priory, 1), 0, 0), col=.prior_color, lwd=lwd)
+      lines(c(ubound, ubound, ubound + 1e6), c(tail(d$y, 1), 0, 0), col=.posterior_color, lwd=lwd)
     }
     
-    lines(d$x, d$y, col=.posterior_color, lwd=3)
+    lines(d$x, d$y, col=.posterior_color, lwd=lwd)
   } else {
     result <- list()
     result$xlim <- c(minx, maxx)
