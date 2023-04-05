@@ -5,7 +5,7 @@
 #ifdef __ARM_ARCH
 #define USE_SSE2 0
 #else
-#define USE_SSE2 0
+#define USE_SSE2 1
 #endif
 
 static const OdeReal MIN_DT = 1e-3;
