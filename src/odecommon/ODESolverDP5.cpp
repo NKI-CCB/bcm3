@@ -1,8 +1,9 @@
 #include "Utils.h"
 #include "ODESolverDP5.h"
 #include <new>
+#include <xmmintrin.h>
 
-#define TMP_USE_SSE 1
+#define USE_SSE2 1
 
 static const OdeReal MIN_DT = 1e-3;
 static const int ATTEMPTS = 5;
@@ -236,7 +237,7 @@ void ODESolverDP5::set_y(size_t i, OdeReal y)
 
 OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 {
-#if TMP_USE_SSE
+#if USE_SSE2
 	__m128d* k1p = (__m128d*)k[0];
 	__m128d* k2p = (__m128d*)k[1];
 	__m128d* k3p = (__m128d*)k[2];
@@ -251,20 +252,20 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 #endif
 
 	// K2
-#if TMP_USE_SSE
+#if USE_SSE2
 	__m128d f = _mm_mul_pd(cur_dt_sse, _mm_set1_pd(0.2));
 	for (size_t i = 0; i < iters; i++) {
 		ytmpp[i] = _mm_add_pd(ynp[i], _mm_mul_pd(f, k1p[i]));
 	}
 #else
-	for (size_t i = 0; i < dimensions; i++) {
+	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (OdeReal)0.2 * k1[i];
 	}
 #endif
 	derivative(t + (OdeReal)0.2 * cur_dt, ytmp, k[1], user_data);
 
 	// K3
-#if TMP_USE_SSE
+#if USE_SSE2
 	for (size_t i = 0; i < iters; i++) {
 		__m128d t;
 		t =					_mm_mul_pd(_mm_set1_pd(0.075), k1p[i]);
@@ -272,7 +273,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 		ytmpp[i] = _mm_add_pd(ynp[i], _mm_mul_pd(cur_dt_sse, t));
 	}
 #else
-	for (size_t i = 0; i < dimensions; i++) {
+	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
 			+ (OdeReal)0.075 * k1[i]
 			+ (OdeReal)0.225 * k2[i]);
@@ -281,7 +282,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 	derivative(t + (OdeReal)0.3 * cur_dt, ytmp, k[2], user_data);
 
 	// K4
-#if TMP_USE_SSE
+#if USE_SSE2
 	for (size_t i = 0; i < iters; i++) {
 		__m128d t;
 		t =					_mm_mul_pd(_mm_set1_pd( 0.97777777777777777777777777777778), k1p[i]);
@@ -290,7 +291,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 		ytmpp[i] = _mm_add_pd(ynp[i], _mm_mul_pd(cur_dt_sse, t));
 	}
 #else
-	for (size_t i = 0; i < dimensions; i++) {
+	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
 			+ (OdeReal)0.97777777777777777777777777777778 * k1[i]
 			- (OdeReal)3.7333333333333333333333333333333  * k2[i]
@@ -300,7 +301,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 	derivative(t + (OdeReal)0.8 * cur_dt, ytmp, k[3], user_data);
 
 	// K5
-#if TMP_USE_SSE
+#if USE_SSE2
 	for (size_t i = 0; i < iters; i++) {
 		__m128d t;
 		t =					_mm_mul_pd(_mm_set1_pd(  2.9525986892242036274958085657674 ), k1p[i]);
@@ -310,7 +311,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 		ytmpp[i] = _mm_add_pd(ynp[i], _mm_mul_pd(cur_dt_sse, t));
 	}
 #else
-	for (size_t i = 0; i < dimensions; i++) {
+	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
 			+ (OdeReal)2.9525986892242036274958085657674  * k1[i]
 			- (OdeReal)11.595793324188385916780978509374  * k2[i]
@@ -321,7 +322,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 	derivative(t + (OdeReal)0.88888888888888888888888888888889 * cur_dt, ytmp, k[4], user_data);
 
 	// K6
-#if TMP_USE_SSE
+#if USE_SSE2
 	for (size_t i = 0; i < iters; i++) {
 		__m128d t;
 		t =					_mm_mul_pd(_mm_set1_pd(  2.8462752525252525252525252525253 ), k1p[i]);
@@ -332,7 +333,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 		ytmpp[i] = _mm_add_pd(ynp[i], _mm_mul_pd(cur_dt_sse, t));
 	}
 #else
-	for (size_t i = 0; i < dimensions; i++) {
+	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
 			+ (OdeReal)2.8462752525252525252525252525253  * k1[i]
 			- (OdeReal)10.757575757575757575757575757576  * k2[i]
@@ -344,7 +345,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 	derivative(t + cur_dt, ytmp, k[5], user_data);
 
 	// 5th order accurate
-#if TMP_USE_SSE
+#if USE_SSE2
 	for (size_t i = 0; i < iters; i++) {
 		__m128d t;
 		t =					_mm_mul_pd(_mm_set1_pd( 0.09114583333333333333333333333333), k1p[i]);
@@ -355,7 +356,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 		ytmpp[i] = _mm_add_pd(ynp[i], _mm_mul_pd(cur_dt_sse, t));
 	}
 #else
-	for (size_t i = 0; i < dimensions; i++) {
+	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
 			+ (OdeReal)0.09114583333333333333333333333333 * k1[i]
 			+ (OdeReal)0.44923629829290206648697214734951 * k3[i]

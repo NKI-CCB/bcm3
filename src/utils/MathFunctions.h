@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/math/special_functions/log1p.hpp>
+#include <xmmintrin.h>
 
 namespace bcm3 {
 
