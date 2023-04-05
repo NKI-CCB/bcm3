@@ -1,9 +1,12 @@
 #include "Utils.h"
 #include "ODESolverDP5.h"
 #include <new>
-#include <xmmintrin.h>
 
-#define USE_SSE2 1
+#ifdef __ARM_ARCH
+#define USE_SSE2 0
+#else
+#define USE_SSE2 0
+#endif
 
 static const OdeReal MIN_DT = 1e-3;
 static const int ATTEMPTS = 5;
@@ -259,7 +262,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 	}
 #else
 	for (size_t i = 0; i < N; i++) {
-		ytmp[i] = yn[i] + cur_dt * (OdeReal)0.2 * k1[i];
+		ytmp[i] = yn[i] + cur_dt * (OdeReal)0.2 * k[0][i];
 	}
 #endif
 	derivative(t + (OdeReal)0.2 * cur_dt, ytmp, k[1], user_data);
@@ -275,8 +278,8 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 #else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
-			+ (OdeReal)0.075 * k1[i]
-			+ (OdeReal)0.225 * k2[i]);
+			+ (OdeReal)0.075 * k[0][i]
+			+ (OdeReal)0.225 * k[1][i]);
 	}
 #endif
 	derivative(t + (OdeReal)0.3 * cur_dt, ytmp, k[2], user_data);
@@ -293,9 +296,9 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 #else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
-			+ (OdeReal)0.97777777777777777777777777777778 * k1[i]
-			- (OdeReal)3.7333333333333333333333333333333  * k2[i]
-			+ (OdeReal)3.5555555555555555555555555555556  * k3[i]);
+			+ (OdeReal)0.97777777777777777777777777777778 * k[0][i]
+			- (OdeReal)3.7333333333333333333333333333333  * k[1][i]
+			+ (OdeReal)3.5555555555555555555555555555556  * k[2][i]);
 	}
 #endif
 	derivative(t + (OdeReal)0.8 * cur_dt, ytmp, k[3], user_data);
@@ -313,10 +316,10 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 #else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
-			+ (OdeReal)2.9525986892242036274958085657674  * k1[i]
-			- (OdeReal)11.595793324188385916780978509374  * k2[i]
-			+ (OdeReal)9.8228928516994360615759792714525  * k3[i]
-			- (OdeReal)0.29080932784636488340192043895748 * k4[i]);
+			+ (OdeReal)2.9525986892242036274958085657674  * k[0][i]
+			- (OdeReal)11.595793324188385916780978509374  * k[1][i]
+			+ (OdeReal)9.8228928516994360615759792714525  * k[2][i]
+			- (OdeReal)0.29080932784636488340192043895748 * k[3][i]);
 	}
 #endif
 	derivative(t + (OdeReal)0.88888888888888888888888888888889 * cur_dt, ytmp, k[4], user_data);
@@ -335,11 +338,11 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 #else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
-			+ (OdeReal)2.8462752525252525252525252525253  * k1[i]
-			- (OdeReal)10.757575757575757575757575757576  * k2[i]
-			+ (OdeReal)8.9064227177434724604535925290642  * k3[i]
-			+ (OdeReal)0.27840909090909090909090909090909 * k4[i]
-			- (OdeReal)0.27353130360205831903945111492281 * k5[i]);
+			+ (OdeReal)2.8462752525252525252525252525253  * k[0][i]
+			- (OdeReal)10.757575757575757575757575757576  * k[1][i]
+			+ (OdeReal)8.9064227177434724604535925290642  * k[2][i]
+			+ (OdeReal)0.27840909090909090909090909090909 * k[3][i]
+			- (OdeReal)0.27353130360205831903945111492281 * k[4][i]);
 	}
 #endif
 	derivative(t + cur_dt, ytmp, k[5], user_data);
@@ -358,11 +361,11 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 #else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
-			+ (OdeReal)0.09114583333333333333333333333333 * k1[i]
-			+ (OdeReal)0.44923629829290206648697214734951 * k3[i]
-			+ (OdeReal)0.65104166666666666666666666666667 * k4[i]
-			- (OdeReal)0.32237617924528301886792452830189 * k5[i]
-			+ (OdeReal)0.13095238095238095238095238095238 * k6[i]);
+			+ (OdeReal)0.09114583333333333333333333333333 * k[0][i]
+			+ (OdeReal)0.44923629829290206648697214734951 * k[2][i]
+			+ (OdeReal)0.65104166666666666666666666666667 * k[3][i]
+			- (OdeReal)0.32237617924528301886792452830189 * k[4][i]
+			+ (OdeReal)0.13095238095238095238095238095238 * k[5][i]);
 	}
 #endif
 

@@ -19,14 +19,17 @@ BCM3 is actively used on both Linux and Windows; and works with GCC and Visual S
 
 #### Dependencies:
 The following dependencies are required:
-- cmake
-- Boost C++ libraries
-- NetCDF
-- hdf5
-- libsbml (It should be straightforward to remove this dependency if you don't need it, by disabling the modules 'sbml', 'cellpop' and 'fISA')
-- (Eigen and SUNDIALS are used, but versions of these libraries are included as part of BCM3 and do not need to be installed separately)
+- [cmake](https://cmake.org/)
+- [Boost C++ libraries](https://www.boost.org/)
+- [NetCDF](https://www.unidata.ucar.edu/software/netcdf/)
+- [hdf5](https://www.hdfgroup.org/solutions/hdf5/)
+- [libsbml](https://synonym.caltech.edu/software/libsbml/) (It is possible to remove this dependency if you don't need it, by disabling the modules 'sbml', 'cellpop' and 'fISA')
+- ([Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) and [SUNDIALS](https://computing.llnl.gov/projects/sundials) are used, but versions of these libraries are included as part of BCM3 and do not need to be installed separately)
 
-On Linux, these dependencies can be easily installed through the package manager; use the -dev packages (e.g. libboost-dev). On Windows, pre-compiled versions may work, or you may need to build the dependencies from source.
+On Linux, these dependencies can be installed through the package manager; you will need the -dev packages (e.g. libboost-dev). On Windows, pre-compiled versions may work, or you may need to build the dependencies from source.
+
+For using the R interface and plotting functions, the following R packages are needed:
+- XML, hdf5r, extraDistr, crch, pracma
 
 #### Installation steps
 1) Copy "external_dependency_locations_template.txt" to "external_dependency_locations.txt", and modify the paths as necessary. (I find this easier to work with than cmake variables)
@@ -66,17 +69,16 @@ and various plotting functions are provided in
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/plots_functions.r", sep=""))
 ```
 
-The C++-defined likelihood can also be accessed from R, for example for generating simulations with modified parameter values easily from within R. This requires an R<->C++ bridge to be implemented for the likelihood function; these bridges are provided for cellpop, PopPK and fISA.
-The R<->C++ bridges are somewhat crude and makeshift, and have little argument checking. They may crash your R session if not used exactly right; please use with caution.
+The C++-defined likelihood can also be accessed from R, for example for generating simulations with modified parameter values easily from within R. This requires an R<->C++ bridge which has to be implemented for the likelihood. Such R<->C++ bridges are provided for cellpop, PopPK and fISA. The R<->C++ bridges are somewhat crude and makeshift, and have little argument checking. They may crash your R session if not used exactly right; please use with caution.
 
 #### Creating a custom likelihood
 To use BCM3 with your own computational model/likelihood:
 - Make a class that derives from bcm3::Likelihood and implements the function EvaluateLogProbability.
 - Add the class to LikelihoodFactory::CreateLikelihood.
-- In the likelihood.xml file, you can specify the name of your likelihood, such that the factory will create a class instance. You can add configuration, etc in the likelihood.xml as needed (see the existing likelihood classes for examples).
+- In the likelihood.xml file, you can specify the name of your likelihood, such that the factory will create a class instance. You can add configuration/hyperparameters in the likelihood.xml as needed (see the existing likelihood classes for examples).
 
 ## Author information
 BCM3 was developed by Bram Thijssen; contact: b.thijssen -at- nki -dot- nl
 
-If you find BCM3 useful, I'd love to hear about it. If you use it in a scientific publication, a citation would be appreciated:
+If you find BCM3 useful, I'd love to hear about it. If you use BCM3 in a scientific publication, a citation would be appreciated:
 > Bram Thijssen, Tjeerd M. H. Dijkstra, Tom Heskes & Lodewyk F. A. Wessels. BCM: toolkit for Bayesian analysis of Computational Models using samplers. BMC Systems Biology, 2016. https://doi.org/10.1186/s12918-016-0339-3

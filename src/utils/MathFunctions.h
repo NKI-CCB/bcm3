@@ -21,16 +21,23 @@ inline Real dlogit_scale(Real x, Real a, Real b) { return (b-a)/((a-x)*(x-b)); }
 
 inline float rsqrt(float x)
 {
+#ifdef __ARM_ARCH
+	return 1.0f / sqrtf(x);
+#else
 	// Based on http://www.hlnum.org/english/doc/frsqrt/frsqrt.html
 	__m128 f = _mm_set_ss(x);
 	f = _mm_rsqrt_ss(f);
 	float r = _mm_cvtss_f32(f);
 	r *= ((3.0f - r * r * x) * 0.5f);
 	return r;
+#endif
 }
 
 inline double rsqrt(double x)
 {
+#ifdef __ARM_ARCH
+	return 1.0 / sqrt(x);
+#else
 	// Based on http://www.hlnum.org/english/doc/frsqrt/frsqrt.html
 	__m128 f = _mm_set_ss((float)x);
 	f = _mm_rsqrt_ss(f);
@@ -38,6 +45,7 @@ inline double rsqrt(double x)
 	r *= ((3.0 - r * r * x) * 0.5);
 	r *= ((3.0 - r * r * x) * 0.5);
 	return r;
+#endif
 }
 
 inline float logsumf(float loga, float logb)
