@@ -1,6 +1,11 @@
 #include "Utils.h"
 #include "RNG.h"
 
+#if PLATFORM_MACOSX
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 #if 1
 
 namespace bcm3 {
