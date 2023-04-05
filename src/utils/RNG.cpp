@@ -6,7 +6,9 @@
 #include <mach/mach.h>
 #endif
 
-#if 1
+#define USE_RANLUXPP 0
+
+#if !USE_RANLUXPP
 
 namespace bcm3 {
 

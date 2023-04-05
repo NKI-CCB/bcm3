@@ -15,7 +15,7 @@ BCM3 includes several likelihoods:
 ## Installing BCM3
 
 #### Platforms
-BCM3 is actively used on both Linux and Windows; and works with GCC and Visual Studio (community edition or other). It may also work on MacOS, but that hasn't been tested recently.
+BCM3 should work on Windows, Linux and Mac; with Visual Studio, GCC or clang. For Visual Studio the community edition is sufficient.
 
 #### Dependencies:
 The following dependencies are required:
@@ -23,20 +23,22 @@ The following dependencies are required:
 - [Boost C++ libraries](https://www.boost.org/)
 - [NetCDF](https://www.unidata.ucar.edu/software/netcdf/)
 - [hdf5](https://www.hdfgroup.org/solutions/hdf5/)
-- [libsbml](https://synonym.caltech.edu/software/libsbml/) (It is possible to remove this dependency if you don't need it, by disabling the modules 'sbml', 'cellpop' and 'fISA')
+- [libsbml](https://synonym.caltech.edu/software/libsbml/) (You can remove this dependency by disabling the modules 'sbml', 'cellpop' and 'fISA')
 - ([Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) and [SUNDIALS](https://computing.llnl.gov/projects/sundials) are used, but versions of these libraries are included as part of BCM3 and do not need to be installed separately)
 
-On Linux, these dependencies can be installed through the package manager; you will need the -dev packages (e.g. libboost-dev). On Windows, pre-compiled versions may work, or you may need to build the dependencies from source.
+On Linux, these dependencies can be installed through the package manager; you will need the -dev packages for the C++ library (libboost-dev, libsbml-dev, libnetcdf-dev, libhdf5-dev).
+On Windows, pre-compiled versions may work, or you may need to build the dependencies from source.
+On Mac, it may be possible to install the dependencies with Homebrew.
 
 For using the R interface and plotting functions, the following R packages are needed:
 - XML, hdf5r, extraDistr, crch, pracma
 
 #### Installation steps
-1) Copy "external_dependency_locations_template.txt" to "external_dependency_locations.txt", and modify the paths as necessary. (I find this easier to work with than cmake variables)
+1) Copy "external_dependency_locations_template.txt" to "external_dependency_locations.txt", and modify the paths as necessary. (I find this easier to work with than using cmake variables or cmake's FindPackage functionality. If you used Homebrew to install the dependencies on Mac, you may also need to add the relevant locations to your LIBRARY_PATH.)
 2) Create an environment variable BCM3_ROOT that points to the root folder of BCM3
 3) Create a folder "build"
 4) Run `cmake ..` within the build folder (from command line or with the CMake GUI)
-5) Build the generated makefile/project file (with `make` on Linux, or by building the solution in Visual Studio. In Visual Studio, be sure to use the Release build for production runs.)
+5) Build the generated makefile/project file (with `make` on Linux/Mac, or by building the solution in Visual Studio. In Visual Studio, be sure to use the Release build for production runs.)
 
 ## Using BCM3
 
