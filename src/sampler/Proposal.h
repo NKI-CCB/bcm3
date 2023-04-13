@@ -23,7 +23,7 @@ namespace bcm3 {
 		MatrixReal Transform(const MatrixReal& samples);
 		VectorReal ReverseTransform(const VectorReal& sample);
 		Real ReflectOnBounds(Real x, Real lb, Real ub);
-		Real GetPriorVariance(std::shared_ptr<Prior> prior, ptrdiff_t variable_index);
+		Real GetPriorVariance(std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, ptrdiff_t i);
 
 		virtual void InitializeImpl(const MatrixReal& history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices) {}
 		virtual void GetNewSampleImpl(const VectorReal& current_position, VectorReal& new_position, Real& log_mh_ratio, RNG& rng) = 0;

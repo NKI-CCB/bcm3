@@ -21,7 +21,7 @@ namespace bcm3 {
 		if (history.rows() < 2) {
 			covariance = MatrixReal::Identity(num_variables, num_variables);
 			for (size_t j = 0; j < variable_indices.size(); j++) {
-				covariance(j,j) = GetPriorVariance(prior, variable_indices[j]);
+				covariance(j,j) = GetPriorVariance(prior, variable_indices, j);
 			}
 		} else {
 			covariance = cov(history);
@@ -32,7 +32,7 @@ namespace bcm3 {
 
 			// Make sure the diagonal is always at least a small positive value
 			for (size_t j = 0; j < variable_indices.size(); j++) {
-				Real prior_var = GetPriorVariance(prior, variable_indices[j]);
+				Real prior_var = GetPriorVariance(prior, variable_indices, j);
 				covariance(j, j) = std::max(covariance(j, j), 1e-6 * prior_var);
 			}
 		}

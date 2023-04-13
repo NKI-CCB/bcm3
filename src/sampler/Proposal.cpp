@@ -278,12 +278,35 @@ namespace bcm3 {
 		return x;
 	}
 
-	Real Proposal::GetPriorVariance(std::shared_ptr<Prior> prior, ptrdiff_t variable_index)
+	Real Proposal::GetPriorVariance(std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, ptrdiff_t i)
 	{
-		Real var;
-		prior->EvaluateMarginalVariance(variable_index, var);
+		Real var = std::numeric_limits<Real>::quiet_NaN();
 		if (transform_to_unbounded) {
-			// TODO - transform prior variance
+			switch (variable_transforms[i]) {
+			case ETransforms::None:
+				prior->EvaluateMarginalVariance(variable_indices[i], var);
+				break;
+
+			case ETransforms::Log:
+				ASSERT(false);
+				var = 1.0;
+				break;
+
+			case ETransforms::NegativeLog:
+				ASSERT(false);
+				var = 1.0;
+				break;
+
+			case ETransforms::Logit:
+				// Assume it's a uniform prior distribution for now; in which case the variance of the logit transformed variable is the variance of the logistic distribution
+				var = M_PI * M_PI / 3.0;
+				break;
+
+			default:
+				LOGERROR("Invalid variable transform");
+			}
+		} else {
+			prior->EvaluateMarginalVariance(variable_indices[i], var);
 		}
 		return var;
 	}
