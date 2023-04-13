@@ -9,6 +9,8 @@ SamplerPT::SamplerPT(size_t threads, size_t max_memory_use)
 	, num_samples(25000)
 	, use_every_nth(1)
 	, num_variables(0)
+	, blocking_strategy("one_block")
+	, proposal_type("global_covariance")
 	, rngseed(0)
 	, output_proposal_adaptation(false)
 	, swapping_scheme(ESwappingScheme::StochasticEvenOdd)
@@ -73,6 +75,7 @@ bool SamplerPT::LoadSettings(const boost::program_options::variables_map& vm)
 	try {
 		num_samples = vm["sampler.num_samples"].as<size_t>();
 		use_every_nth = vm["sampler.use_every_nth"].as<size_t>();
+		blocking_strategy = vm["sampler.blocking_strategy"].as<std::string>();
 		proposal_type = vm["sampler.proposal_type"].as<std::string>();
 		history_max_samples = vm["sampler.history_max_samples"].as<size_t>();
 		adapt_proposal_samples = vm["sampler.adapt_proposal_samples"].as<size_t>();
@@ -315,7 +318,8 @@ void SamplerPT::AddOptionsDescription(boost::program_options::options_descriptio
 		("sampler.num_samples",							boost::program_options::value<size_t>()->default_value(2500),							"Number of samples to produce, after the burnin period.")
 		("sampler.use_every_nth",						boost::program_options::value<size_t>()->default_value(1),								"Subsampling, a value of 10 means that every 10th sample is used and the 9 samples in between are discarded.")
 		("sampler.num_chains",							boost::program_options::value<size_t>()->default_value(6),								"Number of fixed temperature chains")
-		("sampler.proposal_type",						boost::program_options::value<std::string>()->default_value("autoblock"),				"Type of proposal: autoblock, GMM, clustered")
+		("sampler.blocking_strategy",					boost::program_options::value<std::string>()->default_value("autoblock"),				"Blocking strateg: one_block, no_blocking, Turek")
+		("sampler.proposal_type",						boost::program_options::value<std::string>()->default_value("global_covariance"),		"Type of proposal: global_covariance")
 		("sampler.adapt_proposal_samples",				boost::program_options::value<size_t>()->default_value(500),							"Number of samples after which the proposal distribution should be adapted, 0 for no adaptation.")
 		("sampler.adapt_proposal_times",				boost::program_options::value<size_t>()->default_value(2),								"Number of times the proposal variance should be adapted.")
 		("sampler.history_max_samples",					boost::program_options::value<size_t>()->default_value(20000),							"Maximum number of samples to store in the sample history.")

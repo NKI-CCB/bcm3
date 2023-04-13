@@ -16,12 +16,26 @@ target_sources(sampler
     ProgressIndicator.cpp
     ProgressIndicatorConsole.h
     ProgressIndicatorConsole.cpp
+    Proposal.h
+    Proposal.cpp
+    ProposalGlobalCovariance.h
+    ProposalGlobalCovariance.cpp
+    BlockingStrategy.h
+    BlockingStrategy.cpp
+    BlockingStrategyNoBlocking.h
+    BlockingStrategyNoBlocking.cpp
+    BlockingStrategyOneBlock.h
+    BlockingStrategyOneBlock.cpp
+    BlockingStrategyTurek.h
+    BlockingStrategyTurek.cpp
     SampleHandlerNetCDF.h
     SampleHandlerNetCDF.cpp
     SampleHandlerStoreMaxAPosteriori.h
     SampleHandlerStoreMaxAPosteriori.cpp
     SampleHandlerTSV.h
     SampleHandlerTSV.cpp
+    SampleHistory.h
+    SampleHistory.cpp
     SamplerPT.h
     SamplerPT.cpp
     SamplerPTChain.h

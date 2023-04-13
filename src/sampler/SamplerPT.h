@@ -67,6 +67,7 @@ private:
 	size_t num_samples;
 	size_t use_every_nth;
 	size_t num_variables;
+	std::string blocking_strategy;
 	std::string proposal_type;
 	unsigned long long rngseed;
 	std::string output_path;
