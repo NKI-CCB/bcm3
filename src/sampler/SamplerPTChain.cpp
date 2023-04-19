@@ -39,7 +39,7 @@ SamplerPTChain::SamplerPTChain(SamplerPT* sampler)
 	, sample_history_n(0)
 	, sample_history_n_s(0)
 	, sample_history_subsampling(1)
-	, current_cluster_assignment(0)
+	, current_cluster_assignment(-1)
 	, adaptation_iter(0)
 	, async_task(0)
 	, async_burnin(false)
@@ -236,7 +236,7 @@ bool SamplerPTChain::FindStartingPosition()
 		return false;
 	} else {
 		if (proposal_type == ProposalType::ClusteredBlocked) {
-			current_cluster_assignment = 0;
+			current_cluster_assignment = -1;
 		}
 
 		return true;
@@ -360,6 +360,11 @@ bool SamplerPTChain::MutateMove(size_t thread)
 
 		case ProposalType::ClusteredBlocked:
 		{
+			// Check that cluster assignment is up to date
+			if (current_cluster_assignment == -1) {
+				current_cluster_assignment = GetSampleCluster(current_var_values);
+			}
+
 			// Sample each block separately
 			Cluster& c = clustered_blocking_blocks[current_cluster_assignment];
 			for (size_t i = 0; i < c.blocks.size(); i++) {
@@ -506,7 +511,8 @@ bool SamplerPTChain::ExchangeMove(SamplerPTChain& other)
 		std::swap(chain1.current_var_values, chain2.current_var_values);
 		std::swap(chain1.llh, chain2.llh);
 		std::swap(chain1.lprior, chain2.lprior);
-		std::swap(chain1.current_cluster_assignment, chain2.current_cluster_assignment);
+		chain1.current_cluster_assignment = -1;
+		chain2.current_cluster_assignment = -1;
 		chain1.lpowerposterior = proposed_lpowerposterior1;
 		chain2.lpowerposterior = proposed_lpowerposterior2;
 	}
@@ -1003,7 +1009,7 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 		}
 	}
 
-	current_cluster_assignment = GetSampleCluster(current_var_values);
+	current_cluster_assignment = -1;
 
 	if (output_update_info) {
 		update_info_output.Close();
@@ -1014,11 +1020,12 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 
 ptrdiff_t SamplerPTChain::GetSampleCluster(const VectorReal& x)
 {
-	ptrdiff_t n = clustered_blocking_scaled_samples.rows();
-	if (n <= 0) {
-		ASSERT(clustered_blocking_blocks.size() == 1);
+	if (clustered_blocking_blocks.size() == 1) {
 		return 0;
 	}
+
+	ptrdiff_t n = clustered_blocking_scaled_samples.rows();
+	ASSERT(n > 0); // Should never happen, as we would have only 1 cluster if we don't have any clustered samples
 
 	int nearest_neighbours_needed = std::max(sampler->clustered_blocking_nn, sampler->clustered_blocking_nn2);
 	std::vector<ptrdiff_t> nearest_neighbors(nearest_neighbours_needed);
