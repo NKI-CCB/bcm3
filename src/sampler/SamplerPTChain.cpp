@@ -366,7 +366,7 @@ bool SamplerPTChain::MutateMove(size_t thread)
 				Block& b = c.blocks[i];
 
 				UpdateScale(b.scale, b.current_acceptance_rate_ema, rng);
-				Real use_scale = b.scale;// *GetTDistScaleFactor(rng);
+				Real use_scale = b.scale *GetTDistScaleFactor(rng);
 
 				// Propose new parameters
 				VectorReal new_values = current_var_values;
@@ -506,6 +506,7 @@ bool SamplerPTChain::ExchangeMove(SamplerPTChain& other)
 		std::swap(chain1.current_var_values, chain2.current_var_values);
 		std::swap(chain1.llh, chain2.llh);
 		std::swap(chain1.lprior, chain2.lprior);
+		std::swap(chain1.current_cluster_assignment, chain2.current_cluster_assignment);
 		chain1.lpowerposterior = proposed_lpowerposterior1;
 		chain2.lpowerposterior = proposed_lpowerposterior2;
 	}
