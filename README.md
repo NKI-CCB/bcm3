@@ -35,7 +35,7 @@ For using the R interface and plotting functions, the following R packages are n
 
 #### Installation steps
 1) Copy "external_dependency_locations_template.txt" to "external_dependency_locations.txt", and modify the paths as necessary. (I find this easier to work with than using cmake variables or cmake's FindPackage functionality. If you used Homebrew to install the dependencies on Mac, you may also need to add the relevant locations to your LIBRARY_PATH.)
-2) Create an environment variable BCM3_ROOT that points to the root folder of BCM3
+2) Create an environment variable BCM3_ROOT that points to the root folder of BCM3. (For Mac users, the environment variable might not be active inside R; in that case you might need to add a call to Sys.setenv() to set the BCM3_ROOT variable within R before calling BCM3's R scripts.)
 3) Create a folder "build"
 4) Run `cmake ..` within the build folder (from command line or with the CMake GUI)
 5) Build the generated makefile/project file (with `make` on Linux/Mac, or by building the solution in Visual Studio. In Visual Studio, be sure to use the Release build for production runs.)
