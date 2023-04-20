@@ -9,6 +9,7 @@
 #include "VectorUtils.h"
 
 #include <fstream>
+#include <boost/filesystem.hpp>
 
 namespace bcm3 {
 
@@ -528,6 +529,38 @@ void SamplerPTChain::LogStatistics() const
 		temperature,
 		accepted_mutate / (Real)attempted_mutate,
 		accepted_exchange / (Real)attempted_exchange);
+
+#if 0
+	if (temperature == 1.0) {
+		size_t use_samples = 200;
+		if (assigned_clusters.size() > use_samples) {
+			size_t use_n = assigned_clusters.size() / use_samples;
+
+			MatrixReal values(use_samples, sampler->num_variables);
+			MatrixReal dists(use_samples, 8);
+			MatrixReal Bs(use_samples, clustered_blocking_scaled_samples.rows());
+			VectorReal clusters(use_samples);
+			for (ptrdiff_t i = 0; i < use_samples; i++) {
+				values.row(i) = std::get<0>(assigned_clusters[i * use_n]);
+				Bs.row(i) = std::get<1>(assigned_clusters[i * use_n]);
+				dists.row(i) = std::get<2>(assigned_clusters[i * use_n]);
+				clusters(i) = std::get<3>(assigned_clusters[i * use_n]);
+			}
+			NetCDFBundler temp;
+			std::string fn = sampler->output_path + "assigned_clusters.nc";
+			if (boost::filesystem::exists(fn)) {
+				boost::filesystem::remove(fn);
+			}
+			temp.Open(fn);
+			temp.AddGroup("group");
+			temp.AddMatrix("group", "values", values);
+			temp.AddMatrix("group", "B", Bs);
+			temp.AddVector("group", "clusters", clusters);
+			temp.AddMatrix("group", "nearest_neighbors_dists", dists);
+			temp.Close();
+		}
+	}
+#endif
 }
 
 void SamplerPTChain::LogProposalInfo() const
@@ -1010,6 +1043,7 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 	}
 
 	current_cluster_assignment = -1;
+	//assigned_clusters.clear();
 
 	if (output_update_info) {
 		update_info_output.Close();
@@ -1029,12 +1063,13 @@ ptrdiff_t SamplerPTChain::GetSampleCluster(const VectorReal& x)
 
 	int nearest_neighbours_needed = std::max(sampler->clustered_blocking_nn, sampler->clustered_blocking_nn2);
 	std::vector<ptrdiff_t> nearest_neighbors(nearest_neighbours_needed);
-	std::vector<Real> nearest_neighbors_dists(nearest_neighbours_needed, std::numeric_limits<Real>::infinity());
+	VectorReal nearest_neighbors_dists = VectorReal::Constant(nearest_neighbours_needed, std::numeric_limits<Real>::infinity());
 	
 	VectorReal y = x.cwiseQuotient(clustered_blocking_variable_scaling);
 	VectorReal dists(n);
 	for (ptrdiff_t i = 0; i < n; i++) {
-		get_cluster_buffer = clustered_blocking_scaled_samples.row(i).array() - y.array();
+		get_cluster_buffer = clustered_blocking_scaled_samples.row(i);
+		get_cluster_buffer -= y;
 		Real dist = get_cluster_buffer.dot(get_cluster_buffer);
 		dists(i) = dist;
 		for (int j = 0; j < nearest_neighbours_needed; j++) {
@@ -1042,17 +1077,19 @@ ptrdiff_t SamplerPTChain::GetSampleCluster(const VectorReal& x)
 				// Move the rest backward
 				for (int k = nearest_neighbours_needed - 1; k > j; k--) {
 					nearest_neighbors[k] = nearest_neighbors[k - 1];
-					nearest_neighbors_dists[k] = nearest_neighbors_dists[k - 1];
+					nearest_neighbors_dists(k) = nearest_neighbors_dists(k - 1);
 				}
 
 				// Insert this point
 				nearest_neighbors[j] = i;
-				nearest_neighbors_dists[j] = dist;
+				nearest_neighbors_dists(j) = dist;
+				break;
 			}
 		}
 	}
 
-	Real scale = sqrt(nearest_neighbors_dists[sampler->clustered_blocking_nn-1]);
+	// The nearest neighbors list now does not include self, so do not add 1 like was done during adaptation
+	Real scale = sqrt(nearest_neighbors_dists[sampler->clustered_blocking_nn]);
 
 	VectorReal B = VectorReal::Zero(n);
 	for (ptrdiff_t si = 0; si < n; si++) {
@@ -1061,9 +1098,7 @@ ptrdiff_t SamplerPTChain::GetSampleCluster(const VectorReal& x)
 			cnns += (Real)clustered_blocking_nearest_neighbors_bitset[si][nearest_neighbors[i]];
 		}
 
-		//B(si) = exp(-dists(si) / (scale * clustered_blocking_sample_scale(si) * (cnns + 1.0)));
-		Real val = -dists(si) / (scale * clustered_blocking_sample_scale(si) * (cnns + 1.0));
-		B(si) = exp(val);
+		B(si) = exp(-dists(si) / (scale * clustered_blocking_sample_scale(si) * (cnns + 1.0)));
 	}
 
 	VectorReal f = B.transpose() * clustered_blocking_spectral_decomposition;
@@ -1079,6 +1114,8 @@ ptrdiff_t SamplerPTChain::GetSampleCluster(const VectorReal& x)
 			max_ix = i;
 		}
 	}
+
+	//assigned_clusters.push_back(std::make_tuple(x, B, nearest_neighbors_dists, max_ix));
 
 	return max_ix;
 }
