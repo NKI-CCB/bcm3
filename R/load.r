@@ -11,7 +11,7 @@ bcm3.load.results <- function(base_folder, output_folder, prior_file="prior.xml"
   
   model$posterior <- list()
   model$posterior$temperatures <- output_file[["samples/temperature"]][]
-  model$posterior$samples <- output_file[["samples/variable_values"]][,,]
+  model$posterior$samples <- output_file[["samples/variable_values"]][,,,drop=F]
   if (length(output_file[["samples/log_prior"]]$dims) == 1) {
     ntemps <- dim(model$posterior$samples)[2]
     nsamples <- dim(model$posterior$samples)[3]
@@ -20,8 +20,8 @@ bcm3.load.results <- function(base_folder, output_folder, prior_file="prior.xml"
     model$posterior$lprior[ntemps,] <- output_file[["samples/log_prior"]][]
     model$posterior$llikelihood[ntemps,] <- output_file[["samples/log_likelihood"]][]
   } else {
-    model$posterior$lprior <- output_file[["samples/log_prior"]][,]
-    model$posterior$llikelihood <- output_file[["samples/log_likelihood"]][,]
+    model$posterior$lprior <- output_file[["samples/log_prior"]][,,drop=F]
+    model$posterior$llikelihood <- output_file[["samples/log_likelihood"]][,,drop=F]
   }
   model$posterior$lposterior <- model$posterior$lprior + model$posterior$llikelihood
   model$posterior$lfracposterior <- matrix(NA, nrow(model$posterior$lprior), ncol(model$posterior$lprior))
