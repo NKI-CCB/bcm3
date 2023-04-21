@@ -14,8 +14,13 @@ bool TestLikelihoodCircular::Initialize(std::shared_ptr<const bcm3::VariableSet>
 {
 	this->varset = varset;
 
+	Real offset = std::numeric_limits<Real>::quiet_NaN();
+
 	try {
 		dimension = likelihood_node.get<size_t>("<xmlattr>.dimension");
+		r = likelihood_node.get<Real>("<xmlattr>.radius", 2.0);
+		offset = likelihood_node.get<Real>("<xmlattr>.offset", 3.5);
+		w = likelihood_node.get<Real>("<xmlattr>.width", 0.1);
 	} catch (boost::property_tree::ptree_error& e) {
 		LOGERROR("Error parsing likelihood file: %s", e.what());
 		return false;
@@ -28,10 +33,8 @@ bool TestLikelihoodCircular::Initialize(std::shared_ptr<const bcm3::VariableSet>
 
 	mu1.setZero(dimension);
 	mu2.setZero(dimension);
-	mu1(0) = -3.5;
-	mu2(0) = 3.5;
-	r = 2.0;
-	w = 0.1;
+	mu1(0) = -offset;
+	mu2(0) = offset;
 
 	return true;
 }
