@@ -110,8 +110,6 @@ private:
 	size_t adaptation_iter;
 	VectorReal get_cluster_buffer;
 
-	//std::vector< std::tuple<VectorReal, VectorReal, VectorReal, ptrdiff_t> > assigned_clusters;
-
 	// For parallelization
 	uint64 async_task;
 	bool async_burnin;

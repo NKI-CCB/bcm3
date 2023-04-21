@@ -529,38 +529,6 @@ void SamplerPTChain::LogStatistics() const
 		temperature,
 		accepted_mutate / (Real)attempted_mutate,
 		accepted_exchange / (Real)attempted_exchange);
-
-#if 0
-	if (temperature == 1.0) {
-		size_t use_samples = 200;
-		if (assigned_clusters.size() > use_samples) {
-			size_t use_n = assigned_clusters.size() / use_samples;
-
-			MatrixReal values(use_samples, sampler->num_variables);
-			MatrixReal dists(use_samples, 8);
-			MatrixReal Bs(use_samples, clustered_blocking_scaled_samples.rows());
-			VectorReal clusters(use_samples);
-			for (ptrdiff_t i = 0; i < use_samples; i++) {
-				values.row(i) = std::get<0>(assigned_clusters[i * use_n]);
-				Bs.row(i) = std::get<1>(assigned_clusters[i * use_n]);
-				dists.row(i) = std::get<2>(assigned_clusters[i * use_n]);
-				clusters(i) = std::get<3>(assigned_clusters[i * use_n]);
-			}
-			NetCDFBundler temp;
-			std::string fn = sampler->output_path + "assigned_clusters.nc";
-			if (boost::filesystem::exists(fn)) {
-				boost::filesystem::remove(fn);
-			}
-			temp.Open(fn);
-			temp.AddGroup("group");
-			temp.AddMatrix("group", "values", values);
-			temp.AddMatrix("group", "B", Bs);
-			temp.AddVector("group", "clusters", clusters);
-			temp.AddMatrix("group", "nearest_neighbors_dists", dists);
-			temp.Close();
-		}
-	}
-#endif
 }
 
 void SamplerPTChain::LogProposalInfo() const
@@ -1043,7 +1011,6 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 	}
 
 	current_cluster_assignment = -1;
-	//assigned_clusters.clear();
 
 	if (output_update_info) {
 		update_info_output.Close();
@@ -1106,7 +1073,6 @@ ptrdiff_t SamplerPTChain::GetSampleCluster(const VectorReal& x)
 	Real max_dist = -std::numeric_limits<Real>::infinity();
 	ptrdiff_t max_ix = 0;
 	for (ptrdiff_t i = 0; i < sampler->clustered_blocking_n_clusters; i++) {
-		//VectorReal v = f.transpose() - clustered_blocking_kmeans_centroids.row(i);
 		Real d = f.dot(clustered_blocking_kmeans_centroids.row(i));
 
 		if (d > max_dist) {
@@ -1114,8 +1080,6 @@ ptrdiff_t SamplerPTChain::GetSampleCluster(const VectorReal& x)
 			max_ix = i;
 		}
 	}
-
-	//assigned_clusters.push_back(std::make_tuple(x, B, nearest_neighbors_dists, max_ix));
 
 	return max_ix;
 }
