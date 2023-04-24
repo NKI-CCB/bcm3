@@ -7,6 +7,7 @@ namespace bcm3 {
 class GMM
 {
 public:
+	bool Set(const std::vector<VectorReal>& means, const std::vector<MatrixReal>& covariances, VectorReal weights);
 	bool Fit(const Eigen::MatrixXf& samples, size_t num_samples, size_t num_components, RNG& rng);
 
 	Real LogPdf(const VectorReal& x);

@@ -5,6 +5,7 @@
 #include "VariableSet.h"
 #include "SampleHandlerStoreMaxAPosteriori.h"
 #include "SamplerPT.h"
+#include "NetCDFDataFile.h"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>

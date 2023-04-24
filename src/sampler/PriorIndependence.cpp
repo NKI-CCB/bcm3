@@ -87,6 +87,8 @@ bool PriorIndependence::EvaluateLogPDF(size_t threadix, const VectorReal& values
 
 bool PriorIndependence::Sample(VectorReal& values, RNG* rng) const
 {
+	values.resize(Variables.size());
+
 	for (size_t i = 0; i < Variables.size(); i++) {
 		ASSERT(Variables[i]);
 

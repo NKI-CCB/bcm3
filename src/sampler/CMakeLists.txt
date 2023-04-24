@@ -16,12 +16,20 @@ target_sources(sampler
     ProgressIndicator.cpp
     ProgressIndicatorConsole.h
     ProgressIndicatorConsole.cpp
+    SampleHandler.h
+    SampleHandler.cpp
     SampleHandlerNetCDF.h
     SampleHandlerNetCDF.cpp
     SampleHandlerStoreMaxAPosteriori.h
     SampleHandlerStoreMaxAPosteriori.cpp
     SampleHandlerTSV.h
     SampleHandlerTSV.cpp
+    Sampler.h
+    Sampler.cpp
+    SamplerFactory.h
+    SamplerFactory.cpp
+    SamplerIS.h
+    SamplerIS.cpp
     SamplerPT.h
     SamplerPT.cpp
     SamplerPTChain.h
@@ -40,6 +48,7 @@ target_include_directories(sampler
 target_link_libraries(sampler
   PUBLIC
     utils
+    stats
 )
 
 set_target_properties(sampler PROPERTIES DEBUG_POSTFIX d)

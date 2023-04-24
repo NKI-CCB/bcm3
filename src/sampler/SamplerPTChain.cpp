@@ -126,21 +126,38 @@ bool SamplerPTChain::Initialize(size_t history_size, size_t history_subsampling)
 		case ProposalType::GMM:
 		{
 			// Start with vector sampler
-			sampler_blocks.resize(1);
-			sampler_blocks[0].variable_indices.resize(sampler->num_variables);
-			sampler_blocks[0].covariance_decomp.setConstant(sampler->num_variables, sampler->num_variables, 0);
-			MatrixReal cov(sampler->num_variables, sampler->num_variables);
+			VectorReal mean(sampler->num_variables);
+			MatrixReal covariance(sampler->num_variables, sampler->num_variables);
+
+			covariance.setZero();
 			for (size_t i = 0; i < sampler->num_variables; i++) {
+				Real prior_mean;
+				if (!sampler->prior->EvaluateMarginalMean(i, prior_mean)) {
+					// TODO - somehow come up with something reasonable?
+					prior_mean = 0.0;
+				}
+
 				Real prior_var;
 				if (!sampler->prior->EvaluateMarginalVariance(i, prior_var)) {
 					// TODO - somehow come up with something reasonable?
 					prior_var = 1.0;
 				}
-				sampler_blocks[0].variable_indices[i] = (int)i;
-				sampler_blocks[0].covariance_decomp(i, i) = sqrt(prior_var);
+
+				mean(i) = prior_mean;
+				covariance(i, i) = prior_var;
 			}
-			sampler_blocks[0].scale = 1.0 / (Real)sampler->num_variables;
-			sampler_blocks[0].current_acceptance_rate_ema = sampler->target_acceptance_rate;
+
+			std::vector<VectorReal> means(1, mean);
+			std::vector<MatrixReal> covs(1, covariance);
+			VectorReal weights;
+			weights.setConstant(1, 1);
+
+			gmm_proposal = std::make_shared<GMM>();
+			if (!gmm_proposal->Set(means, covs, weights)) {
+				return false;
+			}
+			scales.setConstant(1, 1.0 / (Real)sampler->num_variables);
+			acceptance_rate_ema.setConstant(1, sampler->target_acceptance_rate);
 			break;
 		}
 
@@ -626,7 +643,7 @@ bool SamplerPTChain::AdaptProposalGMM(size_t thread)
 		ess(i) = (Real)n_history_samples / (1.0 + 2.0 * rho_t);
 	}
 	Real min_ess = ess.minCoeff();
-	if (temperature == sampler->current_temperatures.tail(1)(0)) {
+	if (temperature == sampler->temperatures.tail(1)(0)) {
 		LOG("Fitting GMMs...");
 		LOG("Number of samples in history: %u", n_history_samples);
 		LOG("Minimum effective sample size: %g", min_ess);
@@ -639,11 +656,11 @@ bool SamplerPTChain::AdaptProposalGMM(size_t thread)
 	for (size_t i = 0; i < 7; i++) {
 		std::shared_ptr<GMM> gmm = std::make_shared<GMM>();
 		if (min_ess < num_components[i] * sampler->num_variables * 2) {
-			if (temperature == sampler->current_temperatures.tail(1)(0)) {
+			if (temperature == sampler->temperatures.tail(1)(0)) {
 				LOG("GMM num_components=%2d - not enough effective samples", num_components[i], gmm->GetAIC());
 			}
 		} else if (gmm->Fit(sample_history, n_history_samples, num_components[i], rng)) {
-			if (temperature == sampler->current_temperatures.tail(1)(0)) {
+			if (temperature == sampler->temperatures.tail(1)(0)) {
 				LOG("GMM num_components=%2d - AIC=%.6g", num_components[i], gmm->GetAIC());
 
 #if 0
@@ -662,7 +679,7 @@ bool SamplerPTChain::AdaptProposalGMM(size_t thread)
 				best_aic = gmm->GetAIC();
 			}
 		} else {
-			if (temperature == sampler->current_temperatures.tail(1)(0)) {
+			if (temperature == sampler->temperatures.tail(1)(0)) {
 				LOG("GMM num_components=%2d failed", i + 1);
 			}
 		}
@@ -749,7 +766,7 @@ bool SamplerPTChain::AdaptProposalClusteredBlocked(size_t thread)
 	NetCDFBundler update_info_output;
 	bool output_update_info = false;
 	std::string output_update_info_group = std::string("info") + std::to_string(adaptation_iter);
-	if (sampler->output_proposal_adaptation && temperature == sampler->current_temperatures.tail(1)(0)) {
+	if (sampler->output_proposal_adaptation && temperature == sampler->temperatures.tail(1)(0)) {
 		if (update_info_output.Open(sampler->output_path + "sampler_adaptation.nc")) {
 			update_info_output.AddGroup(output_update_info_group);
 			output_update_info = true;

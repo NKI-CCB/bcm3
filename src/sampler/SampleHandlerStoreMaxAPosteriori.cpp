@@ -17,7 +17,7 @@ SampleHandlerStoreMaxAPosteriori::~SampleHandlerStoreMaxAPosteriori()
 {
 }
 
-void SampleHandlerStoreMaxAPosteriori::ReceiveSample(const VectorReal& values, Real lprior, Real llh, Real temperature)
+void SampleHandlerStoreMaxAPosteriori::ReceiveSample(const VectorReal& values, Real lprior, Real llh, Real temperature, Real weight)
 {
 	// Use sample regardless of temperature
 	Real lposterior = lprior + llh;

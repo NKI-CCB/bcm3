@@ -12,6 +12,11 @@ bcm3.load.results <- function(base_folder, output_folder, prior_file="prior.xml"
   model$posterior <- list()
   model$posterior$temperatures <- output_file[["samples/temperature"]][]
   model$posterior$samples <- output_file[["samples/variable_values"]][,,,drop=F]
+  if ("weights" %in% names(output_file[["samples"]])) {
+    model$posterior$weights <- output_file[["samples/weights"]][,,drop=F]
+  } else {
+    model$posterior$weights <- matrix(1, dim(model$posterior$samples)[2], dim(model$posterior$samples)[3])
+  }
   if (length(output_file[["samples/log_prior"]]$dims) == 1) {
     ntemps <- dim(model$posterior$samples)[2]
     nsamples <- dim(model$posterior$samples)[3]

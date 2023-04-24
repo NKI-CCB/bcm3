@@ -1,4 +1,5 @@
 library(crch)
+library(kde1d)
 library(extraDistr, warn.conflicts = F)
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/stats.r", sep=""))
 
@@ -23,7 +24,9 @@ plot_variable_distribution <- function(model, var_ix=NULL, var_name=NULL, temper
     }
     
     varattrs <- model$prior$variable_attrs[[var_ix]]
-    res <- plot_variable_distribution_impl(model$posterior$samples[var_ix, temperature_ix, sample_ix], varattrs, xlab, ylim, plot=plot, adjust=adjust)
+    res <- plot_variable_distribution_impl(model$posterior$samples[var_ix, temperature_ix, sample_ix], 
+                                           model$posterior$weights[temperature_ix, sample_ix],
+                                           varattrs, xlab, ylim, plot=plot, adjust=adjust)
     if(!is.null(res)) {
       return(res)
     }
@@ -291,7 +294,7 @@ load_binary <- function(filename, numvar) {
   return(data);
 }
 
-plot_variable_distribution_impl <- function(samples, varattrs, xlab="", ylim=NULL, plot=T, adjust=1, lwd=2)
+plot_variable_distribution_impl <- function(samples, weights, varattrs, xlab="", ylim=NULL, plot=T, adjust=1, lwd=2)
 {
   name = varattrs["name"];
   
@@ -380,31 +383,29 @@ plot_variable_distribution_impl <- function(samples, varattrs, xlab="", ylim=NUL
     }
   }
   
-  hmax <- 10 * sd(samples)
+  # Select bandwidth
+  bw <- h.select(samples, weights=weights, method="cv")
   
   # If necessary, reflect samples around bounds and add the reflection to the sample, to get a more reasonable KDE near the bounds
   factor <- 1
   density_samples <- samples
+  density_weights <- weights
   if (!is.na(lbound)) {
     reflected <- lbound - (samples - lbound)
     density_samples <- c(density_samples, reflected)
+    density_weights <- c(density_weights, weights)
     factor <- factor + 1
   }
   if (!is.na(ubound)) {
     reflected <- ubound + (ubound - samples)
     density_samples <- c(density_samples, reflected)
+    density_weights <- c(density_weights, weights)
     factor <- factor + 1
   }
-  
-  # Calculate KDE bandwidth
-  if (hmax > 0) {
-    bw <- bw.SJ(density_samples)
-  } else {
-    bw <- 1
-  }
+  density_weights <- density_weights / sum(density_weights)
   
   # Calculate density
-  d <- density(density_samples, bw=bw*adjust, from=minx, to=maxx);
+  d <- density(density_samples, bw=bw*adjust, weights=density_weights, from=minx, to=maxx);
   d$y <- d$y * factor
   
   maxy <- max(d$y, priory);

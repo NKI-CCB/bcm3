@@ -4,7 +4,7 @@
 #include "ProgressIndicatorConsole.h"
 #include "VariableSet.h"
 #include "SampleHandlerNetCDF.h"
-#include "SamplerPT.h"
+#include "SamplerFactory.h"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -17,7 +17,7 @@ int run(const po::variables_map& vm)
 	std::shared_ptr<bcm3::Prior> prior;
 	std::shared_ptr<bcm3::Likelihood> likelihood;
 	std::vector< std::shared_ptr<bcm3::Likelihood> > parallel_likelihoods;
-	std::shared_ptr<bcm3::SamplerPT> sampler;
+	std::shared_ptr<bcm3::Sampler> sampler;
 	std::shared_ptr<bcm3::SampleHandlerNetCDF> output;
 	std::string output_path;
 	double progress_update_time = 0.5;
@@ -76,8 +76,7 @@ int run(const po::variables_map& vm)
 		bcm3::logger->LogTime();
 
 		// Create the sampler
-		sampler = std::make_shared<bcm3::SamplerPT>(numthreads, 2ul * 1024 * 1024 * 1024);
-		sampler->LoadSettings(vm);
+		sampler = bcm3::SamplerFactory::Create(vm, numthreads, 2ul * 1024 * 1024 * 1024);
 		sampler->SetVariableSet(varset);
 		sampler->SetPrior(prior);
 
@@ -317,7 +316,7 @@ int main(int argc, char* argv[])
 			;
 		//bcm::SamplerFactory::AddOptionsDescription(config_options);
 #endif
-		bcm3::SamplerPT::AddOptionsDescription(config_options);
+		bcm3::SamplerFactory::AddOptionsDescription(config_options);
 		bcm3::LikelihoodFactory::AddOptionsDescription(config_options);
 		po::options_description cmdline_only_options("Command-line only options", 120);
 		cmdline_only_options.add_options()
