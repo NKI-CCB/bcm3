@@ -31,7 +31,7 @@ On Windows, pre-compiled versions may work, or you may need to build the depende
 On Mac, it may be possible to install the dependencies with Homebrew.
 
 For using the R interface and plotting functions, the following R packages are needed:
-- XML, hdf5r, extraDistr, crch, pracma, kde1d
+- XML, hdf5r, extraDistr, crch, pracma, sm
 
 #### Installation steps
 1) Copy "external_dependency_locations_template.txt" to "external_dependency_locations.txt", and modify the paths as necessary. (I find this easier to work with than using cmake variables or cmake's FindPackage functionality. If you used Homebrew to install the dependencies on Mac, you may also need to add the relevant locations to your LIBRARY_PATH.)

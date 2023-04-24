@@ -1,5 +1,5 @@
 library(crch)
-library(kde1d)
+library(sm)
 library(extraDistr, warn.conflicts = F)
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/stats.r", sep=""))
 
