@@ -166,6 +166,13 @@ bool SamplerPTChain::Initialize(size_t history_size, size_t history_subsampling)
 			return false;
 	}
 
+	if (sampler->output_proposal_adaptation && temperature == sampler->temperatures.tail(1)(0)) {
+		std::string proposal_output_fn = sampler->output_path + "sampler_adaptation.nc";
+		if (boost::filesystem::exists(proposal_output_fn)) {
+			boost::filesystem::remove(proposal_output_fn);
+		}
+	}
+
 	return true;
 }
 
@@ -655,11 +662,11 @@ bool SamplerPTChain::AdaptProposalGMM(size_t thread)
 	static const size_t num_components[7] = { 1, 2, 3, 5, 8, 13, 21 };
 	for (size_t i = 0; i < 7; i++) {
 		std::shared_ptr<GMM> gmm = std::make_shared<GMM>();
-		if (min_ess < num_components[i] * sampler->num_variables * 2) {
+		if (min_ess < num_components[i] * (1 + sampler->num_variables * 3)) {
 			if (temperature == sampler->temperatures.tail(1)(0)) {
 				LOG("GMM num_components=%2d - not enough effective samples", num_components[i], gmm->GetAIC());
 			}
-		} else if (gmm->Fit(sample_history, n_history_samples, num_components[i], rng)) {
+		} else if (gmm->Fit(sample_history, n_history_samples, num_components[i], rng, n_history_samples / min_ess)) {
 			if (temperature == sampler->temperatures.tail(1)(0)) {
 				LOG("GMM num_components=%2d - AIC=%.6g", num_components[i], gmm->GetAIC());
 
@@ -674,7 +681,7 @@ bool SamplerPTChain::AdaptProposalGMM(size_t thread)
 #endif
 			}
 
-			if (gmm->GetAIC() < best_aic) {
+			if (gmm->GetAIC() < best_aic - 2 * (n_history_samples / min_ess)) {
 				gmm_proposal = gmm;
 				best_aic = gmm->GetAIC();
 			}
@@ -689,8 +696,27 @@ bool SamplerPTChain::AdaptProposalGMM(size_t thread)
 		// Start sampling at a scale of 1
 		scales.setOnes(gmm_proposal->GetNumComponents());
 		acceptance_rate_ema.setConstant(gmm_proposal->GetNumComponents(), sampler->target_acceptance_rate);
+
+		NetCDFBundler update_info_output;
+		bool output_update_info = false;
+		std::string output_update_info_group = std::string("info") + std::to_string(adaptation_iter);
+		if (sampler->output_proposal_adaptation && temperature == sampler->temperatures.tail(1)(0)) {
+			if (update_info_output.Open(sampler->output_path + "sampler_adaptation.nc")) {
+				update_info_output.AddGroup(output_update_info_group);
+				output_update_info = true;
+			}
+		}
+		if (output_update_info) {
+			update_info_output.AddVector(output_update_info_group, "gmm_weights", gmm_proposal->GetWeights());
+			for (ptrdiff_t i = 0; i < gmm_proposal->GetNumComponents(); i++) {
+				update_info_output.AddVector(output_update_info_group, "cluster" + std::to_string(i) + std::string("_mean"), gmm_proposal->GetMean(i));
+				update_info_output.AddMatrix(output_update_info_group, "cluster" + std::to_string(i) + std::string("_covariance"), gmm_proposal->GetCovariance(i));
+			}
+			update_info_output.Close();
+		}
 	}
 
+	adaptation_iter++;
 	return true;
 }
 

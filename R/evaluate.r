@@ -14,6 +14,9 @@ bcm3.init.cpp <- function(bcm3, clparam = "", threads = NA) {
   if (is.na(threads)) {
     threads <- as.integer(-1)
   }
+  if (!is.character(clparam)) {
+    stop("clparam should be a character object")
+  }
   
   res <- .C("bcm3_rbridge_init", "", bcm3$base_folder, bcm3$prior$file_name, bcm3$likelihood$file_name, clparam, as.integer(threads), as.integer(0), PACKAGE="bcmrbridge")
   if (res[[7]] != 0) {

@@ -38,10 +38,10 @@ namespace bcm3 {
 		return true;
 	}
 
-	bool GMM::Fit(const Eigen::MatrixXf& samples, size_t num_samples, size_t num_components, RNG& rng)
+	bool GMM::Fit(const Eigen::MatrixXf& samples, size_t num_samples, size_t num_components, RNG& rng, Real ess_factor)
 	{
 		const size_t maxsteps = 100;
-		const Real logl_epsilon = 1e-2;
+		const Real logl_epsilon = 1e-5;
 		size_t D = samples.rows();
 
 		Real logl;
@@ -50,7 +50,7 @@ namespace bcm3 {
 		if (num_components == 1) {
 			VectorReal responsibilities = VectorReal::Ones(num_samples);
 			components.resize(1);
-			CalculateMeanCovariance(samples, num_samples, responsibilities, components[0].mean, components[0].covariance);
+			CalculateMeanCovariance(samples, num_samples, responsibilities, components[0].mean, components[0].covariance, ess_factor);
 
 			components[0].covariance_llt.compute(components[0].covariance);
 			if (components[0].covariance_llt.info() != Eigen::Success) {
@@ -84,7 +84,7 @@ namespace bcm3 {
 				return false;
 			}
 			for (size_t i = 0; i < components.size(); i++) {
-				CalculateMeanCovariance(samples, num_samples, responsibilities.col(i), components[i].mean, components[i].covariance);
+				CalculateMeanCovariance(samples, num_samples, responsibilities.col(i), components[i].mean, components[i].covariance, ess_factor);
 			}
 			weights.setConstant(num_components, 1.0 / num_components);
 
@@ -97,21 +97,19 @@ namespace bcm3 {
 					break;
 				}
 
-				//LOG("Logl: %g", logl);
 				if (logl < prev_logl) {
-					// Uhhh, what?? Numerical issues maybe?
+					// Some numerical issues or singularity?
 					converged = true;
 					break;
-				} else if (logl - prev_logl < logl_epsilon) {
+				} else if (logl - prev_logl < logl * logl_epsilon) {
 					converged = true;
 					break;
 				} else {
 					prev_logl = logl;
 				}
 
-				EM_maximization(samples, num_samples, responsibilities);
+				EM_maximization(samples, num_samples, responsibilities, ess_factor);
 			}
-
 		}
 
 		size_t nparam = num_components * (D + D * (D + 1) / 2) + num_components - 1;
@@ -194,7 +192,7 @@ namespace bcm3 {
 		return true;
 	}
 
-	void GMM::CalculateMeanCovariance(const Eigen::MatrixXf& samples, size_t num_samples, const VectorReal& responsibilities, VectorReal& mean, MatrixReal& covariance)
+	void GMM::CalculateMeanCovariance(const Eigen::MatrixXf& samples, size_t num_samples, const VectorReal& responsibilities, VectorReal& mean, MatrixReal& covariance, Real ess_factor)
 	{
 		mean.setZero(samples.rows());
 		covariance.setZero(samples.rows(), samples.rows());
@@ -233,9 +231,9 @@ namespace bcm3 {
 
 		// Get the final covariance estimate
 		covariance /= wsum;
-	
+
 		// Regularization
-		Real n_eff = wsum / 10;
+		Real n_eff = wsum / ess_factor;
 		if (n_eff < samples.rows()) {
 			// Less samples than variables; have to settle for a diagonal matrix
 			VectorReal tmp = covariance.diagonal();
@@ -253,6 +251,7 @@ namespace bcm3 {
 		}
 	}
 
+#if TODO
 	void GMM::CalculateMeanCovarianceNERCOME(const Eigen::MatrixXf& samples, size_t num_samples, const VectorReal& weights, VectorReal& mean, MatrixReal& covariance, RNG& rng)
 	{
 		CalculateMeanCovariance(samples, num_samples, weights, mean, covariance);
@@ -278,7 +277,6 @@ namespace bcm3 {
 		Eigen::SelfAdjointEigenSolver<MatrixReal> eig1;
 		eig1.compute(sigma1);
 
-	#if TODO
 		MatrixReal x2(samples.rows(), ix2.size());
 		VectorReal lambda(samples.rows());
 		for (size_t i = 0; i < samples.rows(); i++) {
@@ -287,14 +285,14 @@ namespace bcm3 {
 			eig1.eigenvectors()
 			x2.col(i) = samples.col(i)
 		}
-	#endif
 	}
+#endif
 
-	void GMM::EM_maximization(const Eigen::MatrixXf& samples, size_t num_samples, const MatrixReal& responsibilities)
+	void GMM::EM_maximization(const Eigen::MatrixXf& samples, size_t num_samples, const MatrixReal& responsibilities, Real ess_factor)
 	{
 		for (size_t i = 0; i < components.size(); i++) {
 			weights(i) = responsibilities.col(i).sum() / (Real)num_samples;
-			CalculateMeanCovariance(samples, num_samples, responsibilities.col(i), components[i].mean, components[i].covariance);
+			CalculateMeanCovariance(samples, num_samples, responsibilities.col(i), components[i].mean, components[i].covariance, ess_factor);
 		}
 	}
 

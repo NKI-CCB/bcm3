@@ -12,6 +12,8 @@ target_sources(likelihoods
 	TestLikelihoodBanana.cpp
 	TestLikelihoodCircular.h
 	TestLikelihoodCircular.cpp
+    TestLikelihoodMultimodalGaussians.h
+    TestLikelihoodMultimodalGaussians.cpp
     TestLikelihoodTruncatedT.h
     TestLikelihoodTruncatedT.cpp
 )

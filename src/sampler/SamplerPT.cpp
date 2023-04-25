@@ -40,6 +40,7 @@ bool SamplerPT::LoadSettings(const boost::program_options::variables_map& vm)
 		proposal_type = vm["sampler.proposal_type"].as<std::string>();
 		history_max_samples = vm["sampler.history_max_samples"].as<size_t>();
 		adapt_proposal_samples = vm["sampler.adapt_proposal_samples"].as<size_t>();
+		stop_proposal_scaling = vm["sampler.stop_proposal_scaling"].as<size_t>();
 		adapt_proposal_times = vm["sampler.adapt_proposal_times"].as<size_t>();
 		adapt_proposal_max_samples = vm["sampler.adapt_proposal_max_samples"].as<size_t>();
 		exchange_probability = vm["sampler.exchange_probability"].as<Real>();
