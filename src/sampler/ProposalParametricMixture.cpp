@@ -78,9 +78,7 @@ namespace bcm3 {
 					bounds(i, 0) = variable_bounds[i].lower;
 					bounds(i, 1) = variable_bounds[i].upper;
 				}
-				update_info_output.AddVector(adaptation_group, "transform_bounds", bounds);
-			} else {
-
+				update_info_output.AddMatrix(adaptation_group, "transform_bounds", bounds);
 			}
 
 			update_info_output.Close();
@@ -149,8 +147,8 @@ namespace bcm3 {
 			// Fit GMMs for increasing number of components and select the one with the lowest AIC
 			Real best_aic = std::numeric_limits<Real>::infinity();
 			gmm.reset();
-			static const size_t num_components[6] = { 1, 2, 3, 5, 8, 13 };
-			for (size_t i = 0; i < 6; i++) {
+			static const size_t num_components[7] = { 1, 2, 3, 4, 5, 8, 13 };
+			for (size_t i = 0; i < 7; i++) {
 				std::shared_ptr<GMM> test_gmm_k = std::make_shared<GMM>();
 				if (min_ess < num_components[i] * (1 + num_variables * 3)) {
 					if (log_info) {
