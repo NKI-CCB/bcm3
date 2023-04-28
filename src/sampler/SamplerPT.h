@@ -32,6 +32,7 @@ namespace bcm3 {
 		};
 
 		// Sampling settings
+		std::string blocking_strategy;
 		std::string proposal_type;
 		bool output_proposal_adaptation;
 
@@ -46,11 +47,6 @@ namespace bcm3 {
 		size_t proposal_scaling_ema_period;
 		size_t stop_proposal_scaling;
 		Real target_acceptance_rate;
-		Real proposal_t_df;
-
-		int clustered_blocking_nn;
-		int clustered_blocking_nn2;
-		int clustered_blocking_n_clusters;
 
 		// Run-time variables
 		std::vector< std::unique_ptr<SamplerPTChain> > chains;

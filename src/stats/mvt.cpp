@@ -47,7 +47,7 @@ void CholeskyPermuteReorder(const MatrixReal& sigma, const VectorReal& a, const 
             if (c(i, i) > std::numeric_limits<Real>::epsilon()) {
                 Real cii = sqrt(std::max(c(i, i), 0.0));
                 if (i > 0) {
-                    // TODO - is this the rigth multiplication?
+                    // TODO - is this the right multiplication?
                     s = c.row(i).segment(0, k - 1) * y.segment(0, k - 1);
                 }
                 Real ai = (ap[i] - s) / cii;

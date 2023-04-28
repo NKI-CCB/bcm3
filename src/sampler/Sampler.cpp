@@ -6,7 +6,7 @@ namespace bcm3 {
 
 	Sampler::Sampler(size_t threads, size_t max_memory_use)
 		: num_threads(threads)
-		, num_samples(25000)
+		, num_samples(12000)
 		, use_every_nth(1)
 		, num_variables(0)
 		, logged_progress(0)

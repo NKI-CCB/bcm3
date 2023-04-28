@@ -38,11 +38,11 @@ namespace bcm3 {
 		return true;
 	}
 
-	bool GMM::Fit(const Eigen::MatrixXf& samples, size_t num_samples, size_t num_components, RNG& rng, Real ess_factor)
+	bool GMM::Fit(const MatrixReal& samples, size_t num_samples, size_t num_components, RNG& rng, Real ess_factor)
 	{
 		const size_t maxsteps = 100;
 		const Real logl_epsilon = 1e-5;
-		size_t D = samples.rows();
+		size_t D = samples.cols();
 
 		Real logl;
 		bool singular = false;
@@ -58,21 +58,21 @@ namespace bcm3 {
 			}
 
 			Real det = 0.0;
-			for (size_t i = 0; i < samples.rows(); i++) {
+			for (size_t i = 0; i < D; i++) {
 				det += log(components[0].covariance_llt.matrixL()(i, i));
 			}
-			components[0].logC = -det - 0.5 * samples.rows() * log(2.0 * M_PI);
+			components[0].logC = -det - 0.5 * D * log(2.0 * M_PI);
 
 			logl = 0.0;
 			for (size_t j = 0; j < num_samples; j++) {
-				Real p = LogPdfMVN(samples.col(j).cast<double>(), components[0].mean, components[0].covariance_llt, components[0].logC);
+				Real p = LogPdfMVN(samples.row(j), components[0].mean, components[0].covariance_llt, components[0].logC);
 				logl += p;
 			}
 			weights = VectorReal::Ones(1);
 
 			converged = true;
 		} else {
-			if (num_samples < 2.0 * samples.rows() * num_components) {
+			if (num_samples < 2.0 * D * num_components) {
 				// Need at least a bit more than p * K samples
 				// Each component needs at least p samples for the regularization of the covariance estimation to work
 				return false;
@@ -145,7 +145,7 @@ namespace bcm3 {
 		return probs / probs.sum();
 	}
 
-	bool GMM::KMeanspp(const Eigen::MatrixXf& samples, size_t num_samples, size_t num_components, RNG& rng, MatrixReal& responsibilities)
+	bool GMM::KMeanspp(const MatrixReal& samples, size_t num_samples, size_t num_components, RNG& rng, MatrixReal& responsibilities)
 	{
 		if (num_components < 2) {
 			return false;
@@ -153,12 +153,12 @@ namespace bcm3 {
 
 		components.resize(num_components);
 		unsigned int ix = rng.GetUnsignedInt((unsigned int)num_components-1);
-		components[0].mean = samples.col(ix).cast<double>();
+		components[0].mean = samples.row(ix);
 	
 		for (size_t i = 1; i < num_components; i++) {
 			VectorReal mindistsq = VectorReal::Constant(num_samples, std::numeric_limits<Real>::max());
 			for (size_t j = 0; j < num_samples; j++) {
-				VectorReal v = samples.col(j).cast<double>();
+				VectorReal v = samples.row(j);
 				for (size_t l = 0; l < i; l++) {
 					VectorReal d = v - components[l].mean;
 					Real distsq = d.dot(d);
@@ -169,14 +169,14 @@ namespace bcm3 {
 			Real total = mindistsq.sum();
 			mindistsq /= total;
 			unsigned int newix = rng.Sample(mindistsq);
-			components[i].mean = samples.col(newix).cast<double>();
+			components[i].mean = samples.row(newix);
 		}
 
 		responsibilities = MatrixReal::Zero(num_samples, num_components);
 		for (size_t i = 0; i < num_samples; i++) {
 			Real mindist = std::numeric_limits<Real>::max();
 			size_t whichmin = std::numeric_limits<size_t>::max();
-			const VectorReal& v = samples.col(i).cast<double>();
+			const VectorReal& v = samples.row(i);
 			for (size_t j = 0; j < num_components; j++) {
 				VectorReal d = v - components[j].mean;
 				Real distsq = d.dot(d);
@@ -192,18 +192,18 @@ namespace bcm3 {
 		return true;
 	}
 
-	void GMM::CalculateMeanCovariance(const Eigen::MatrixXf& samples, size_t num_samples, const VectorReal& responsibilities, VectorReal& mean, MatrixReal& covariance, Real ess_factor)
+	void GMM::CalculateMeanCovariance(const MatrixReal& samples, size_t num_samples, const VectorReal& responsibilities, VectorReal& mean, MatrixReal& covariance, Real ess_factor)
 	{
-		mean.setZero(samples.rows());
-		covariance.setZero(samples.rows(), samples.rows());
+		mean.setZero(samples.cols());
+		covariance.setZero(samples.cols(), samples.cols());
 
-		VectorReal x = VectorReal(samples.rows());
-		VectorReal d = VectorReal(samples.rows());
-		VectorReal d2 = VectorReal(samples.rows());
+		VectorReal x = VectorReal(samples.cols());
+		VectorReal d = VectorReal(samples.cols());
+		VectorReal d2 = VectorReal(samples.cols());
 
 		Real wsum = 0;
 		for (size_t i = 0; i < num_samples; i++) {
-			x = samples.col(i).cast<double>();
+			x = samples.row(i);
 			Real w = responsibilities(i);
 			if (w >= std::numeric_limits<Real>::epsilon()) {
 				wsum += w;
@@ -234,7 +234,7 @@ namespace bcm3 {
 
 		// Regularization
 		Real n_eff = wsum / ess_factor;
-		if (n_eff < samples.rows()) {
+		if (n_eff < samples.cols()) {
 			// Less samples than variables; have to settle for a diagonal matrix
 			VectorReal tmp = covariance.diagonal();
 			covariance = tmp.asDiagonal();
@@ -244,51 +244,14 @@ namespace bcm3 {
 			eig.compute(covariance);
 			VectorReal shrunk_eigval = eig.eigenvalues();
 			for (size_t i = 0; i < shrunk_eigval.size(); i++) {
-				shrunk_eigval((shrunk_eigval.size() - 1) - i) *= n_eff / (n_eff + samples.rows() + 1 - 2 * i);
+				shrunk_eigval((shrunk_eigval.size() - 1) - i) *= n_eff / (n_eff + samples.cols() + 1 - 2 * i);
 			}
 			covariance = eig.eigenvectors() * shrunk_eigval.asDiagonal() * eig.eigenvectors().transpose();
 			covariance.diagonal().array() += 1e-8;
 		}
 	}
 
-#if TODO
-	void GMM::CalculateMeanCovarianceNERCOME(const Eigen::MatrixXf& samples, size_t num_samples, const VectorReal& weights, VectorReal& mean, MatrixReal& covariance, RNG& rng)
-	{
-		CalculateMeanCovariance(samples, num_samples, weights, mean, covariance);
-
-		Eigen::SelfAdjointEigenSolver<MatrixReal> eig;
-		eig.compute(covariance);
-
-		std::vector<size_t> ix1, ix2;
-		VectorReal x1weights = weights;
-		for (size_t i = 0; i < num_samples; i++) {
-			if (rng.GetReal() < 0.5) {
-				ix1.push_back(i);
-			} else {
-				ix2.push_back(i);
-				x1weights(i) = 0.0;
-			}
-		}
-
-		VectorReal mu1;
-		MatrixReal sigma1;
-		CalculateMeanCovariance(samples, num_samples, x1weights, mu1, sigma1);
-
-		Eigen::SelfAdjointEigenSolver<MatrixReal> eig1;
-		eig1.compute(sigma1);
-
-		MatrixReal x2(samples.rows(), ix2.size());
-		VectorReal lambda(samples.rows());
-		for (size_t i = 0; i < samples.rows(); i++) {
-		}
-		for (size_t i = 0; i < ix2.size(); i++) {
-			eig1.eigenvectors()
-			x2.col(i) = samples.col(i)
-		}
-	}
-#endif
-
-	void GMM::EM_maximization(const Eigen::MatrixXf& samples, size_t num_samples, const MatrixReal& responsibilities, Real ess_factor)
+	void GMM::EM_maximization(const MatrixReal& samples, size_t num_samples, const MatrixReal& responsibilities, Real ess_factor)
 	{
 		for (size_t i = 0; i < components.size(); i++) {
 			weights(i) = responsibilities.col(i).sum() / (Real)num_samples;
@@ -296,10 +259,10 @@ namespace bcm3 {
 		}
 	}
 
-	bool GMM::EM_expectation(const Eigen::MatrixXf& samples, size_t num_samples, MatrixReal& responsibilities, Real& logl)
+	bool GMM::EM_expectation(const MatrixReal& samples, size_t num_samples, MatrixReal& responsibilities, Real& logl)
 	{
 		VectorReal sample_logl = VectorReal::Constant(num_samples, -std::numeric_limits<Real>::infinity());
-		VectorReal v = VectorReal(samples.rows());
+		VectorReal v = VectorReal(samples.cols());
 
 		for (size_t i = 0; i < components.size(); i++) {
 			components[i].covariance_llt.compute(components[i].covariance);
@@ -308,16 +271,17 @@ namespace bcm3 {
 			}
 
 			Real det = 0.0;
-			for (size_t j = 0; j < samples.rows(); j++) {
+			for (size_t j = 0; j < samples.cols(); j++) {
 				det += log(components[i].covariance_llt.matrixL()(j, j));
 			}
-			Real logC = -det - 0.5 * samples.rows() * log(2.0 * M_PI);
+			Real logC = -det - 0.5 * samples.cols() * log(2.0 * M_PI);
 			components[i].logC = logC;
 
 			Real log_weight = log(weights(i));
 			for (size_t j = 0; j < num_samples; j++) {
-				//Real p = LogPdfMVN(samples.col(j).cast<double>(), components[i].mean, components[i].covariance_llt, logC) + log(weights(i));
-				v = samples.col(j).cast<double>() - components[i].mean;
+				//Real p = LogPdfMVN(samples.col(j), components[i].mean, components[i].covariance_llt, logC) + log(weights(i));
+				v = samples.row(j);
+				v -= components[i].mean;
 				components[i].covariance_llt.matrixL().solveInPlace(v);
 				Real p = logC - 0.5 * v.dot(v) + log_weight;
 

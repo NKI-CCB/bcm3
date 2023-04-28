@@ -16,6 +16,20 @@ target_sources(sampler
     ProgressIndicator.cpp
     ProgressIndicatorConsole.h
     ProgressIndicatorConsole.cpp
+    Proposal.h
+    Proposal.cpp
+    ProposalGlobalCovariance.h
+    ProposalGlobalCovariance.cpp
+    ProposalParametricMixture.h
+    ProposalParametricMixture.cpp
+    BlockingStrategy.h
+    BlockingStrategy.cpp
+    BlockingStrategyNoBlocking.h
+    BlockingStrategyNoBlocking.cpp
+    BlockingStrategyOneBlock.h
+    BlockingStrategyOneBlock.cpp
+    BlockingStrategyTurek.h
+    BlockingStrategyTurek.cpp
     SampleHandler.h
     SampleHandler.cpp
     SampleHandlerNetCDF.h
@@ -24,6 +38,8 @@ target_sources(sampler
     SampleHandlerStoreMaxAPosteriori.cpp
     SampleHandlerTSV.h
     SampleHandlerTSV.cpp
+    SampleHistory.h
+    SampleHistory.cpp
     Sampler.h
     Sampler.cpp
     SamplerFactory.h
