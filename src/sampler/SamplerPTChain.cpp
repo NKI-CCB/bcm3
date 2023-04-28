@@ -26,6 +26,7 @@ namespace bcm3 {
 		, lprior(-std::numeric_limits<Real>::infinity())
 		, llh(-std::numeric_limits<Real>::infinity())
 		, lpowerposterior(-std::numeric_limits<Real>::infinity())
+		, adaptation_iteration(0)
 		, attempted_mutate(0)
 		, attempted_exchange(0)
 		, accepted_mutate(0)
@@ -105,6 +106,14 @@ namespace bcm3 {
 			variable_blocks[i].variable_indices = blocks[i];
 			variable_blocks[i].proposal = CreateProposalInstance(blocks[i], sampler->async[thread].rng);
 		}
+
+		if (sampler->output_proposal_adaptation && temperature == sampler->temperatures.tail(1)(0)) {
+			std::string proposal_output_fn = sampler->output_path + "sampler_adaptation.nc";
+			for (ptrdiff_t i = 0; i < variable_blocks.size(); i++) {
+				variable_blocks[i].proposal->WriteToFile(proposal_output_fn, std::string("adapt") + std::to_string(adaptation_iteration) + std::string("_block") + std::to_string(i + 1));
+			}
+		}
+		adaptation_iteration++;
 
 		// Discard the sample history up to this point
 		sample_history->Reset();
@@ -331,7 +340,7 @@ namespace bcm3 {
 		}
 
 		bool log_info = (temperature == sampler->temperatures.tail(1)(0)) ? true : false;
-		if (!proposal->Initialize(sample_history, sampler->prior, variable_indices, rng, log_info)) {
+		if (!proposal->Initialize(sample_history, sampler->adapt_proposal_max_history_samples, sampler->proposal_transform_to_unbounded, sampler->prior, variable_indices, rng, log_info)) {
 			LOGERROR("Proposal initialization failed.");
 			proposal.reset();
 		}

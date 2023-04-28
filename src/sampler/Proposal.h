@@ -12,12 +12,13 @@ namespace bcm3 {
 		Proposal();
 		virtual ~Proposal();
 
-		bool Initialize(const std::unique_ptr<SampleHistory>& sample_history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info);
+		bool Initialize(const std::unique_ptr<SampleHistory>& sample_history, size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info);
 		void GetNewSample(const VectorReal& current_position, VectorReal& new_position, Real& log_mh_ratio, RNG& rng);
 
 		virtual void Update(RNG& rng);
 		virtual void NotifyAccepted(bool accepted);
 		virtual void LogInfo() const;
+		virtual void WriteToFile(const std::string& fn, std::string adaptation_group);
 
 	protected:
 		VectorReal Transform(const VectorReal& sample);

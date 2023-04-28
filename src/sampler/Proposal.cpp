@@ -32,11 +32,12 @@ namespace bcm3 {
 	{
 	}
 
-	bool Proposal::Initialize(const std::unique_ptr<SampleHistory>& sample_history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)
+	bool Proposal::Initialize(const std::unique_ptr<SampleHistory>& sample_history, size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)
 	{
 		num_variables = variable_indices.size();
 
 		variable_bounds.resize(num_variables);
+		this->transform_to_unbounded = transform_to_unbounded;
 		if (transform_to_unbounded) {
 			variable_transforms.resize(num_variables);
 		}
@@ -59,6 +60,39 @@ namespace bcm3 {
 		}
 
 		MatrixReal history = sample_history->GetHistory(variable_indices);
+		if (log_info) {
+			LOG("Proposal adaptation - history samples: %zd", history.rows());
+		}
+
+		// If necessary, reduce the history size to the maximum number of samples specified in the configuration
+		if (history.rows() > max_history_samples) {
+			if (log_info) {
+				LOG("Proposal adaptation - downsampling to %zu samples", max_history_samples);
+			}
+
+			std::vector<ptrdiff_t> use_sample_ix;
+
+			// First subsample to get at most n*2-1 samples
+			ptrdiff_t subsample = history.rows() / max_history_samples;
+			if (subsample > 1) {
+				use_sample_ix.resize(history.rows() / subsample);
+				for (ptrdiff_t i = 0; i < use_sample_ix.size(); i++) {
+					use_sample_ix[i] = i * subsample;
+				}
+			} else {
+				use_sample_ix.resize(history.rows());
+				for (ptrdiff_t i = 0; i < use_sample_ix.size(); i++) {
+					use_sample_ix[i] = i;
+				}
+			}
+
+			// Then discard samples at random until we have the required amount
+			while (use_sample_ix.size() > max_history_samples) {
+				unsigned int drop_sample = rng.GetUnsignedInt(use_sample_ix.size() - 1);
+				use_sample_ix.erase(use_sample_ix.begin() + drop_sample);
+			}
+		}
+
 		if (transform_to_unbounded) {
 			history = Transform(history);
 		}
@@ -141,6 +175,10 @@ namespace bcm3 {
 	}
 
 	void Proposal::LogInfo() const
+	{
+	}
+
+	void Proposal::WriteToFile(const std::string& fn, std::string adaptation_group)
 	{
 	}
 

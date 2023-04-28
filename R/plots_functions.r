@@ -384,7 +384,17 @@ plot_variable_distribution_impl <- function(samples, weights, varattrs, xlab="",
   }
   
   # Select bandwidth
-  bw <- h.select(samples, weights=weights, method="cv")
+  bw <- 1
+  if (sd(weights) > 0) {
+    if (length(samples) > 500) {
+      use_samples_for_bw <- tail(order(weights), n=500)
+      bw <- h.select(samples[use_samples_for_bw], weights=weights[use_samples_for_bw], method="cv", nbins=0)
+    } else {
+      bw <- h.select(samples, weights=weights, method="cv", nbins=0)
+    }
+  } else {
+    bw <- h.select(samples, method="cv", nbins=NA)
+  }
   
   # If necessary, reflect samples around bounds and add the reflection to the sample, to get a more reasonable KDE near the bounds
   factor <- 1

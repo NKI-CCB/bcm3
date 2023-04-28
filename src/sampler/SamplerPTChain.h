@@ -55,6 +55,7 @@ namespace bcm3 {
 		Real lprior;
 		Real llh;
 		Real lpowerposterior;
+		int adaptation_iteration;
 
 		size_t attempted_mutate;
 		size_t attempted_exchange;

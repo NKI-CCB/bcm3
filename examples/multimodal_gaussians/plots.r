@@ -1,7 +1,7 @@
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/load.r", sep=""))
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/plots_functions.r", sep=""))
 
-model <- bcm3.load.results(".", "output_t4_n5_e1_clustered")
+model <- bcm3.load.results(".", "output_t4_n5_e1_clust")
 model <- bcm3.load.results(".", "output_t4_n5_e1_gmm")
 
 sample_ix <- (dim(model$posterior$samples)[3]/2+1):(dim(model$posterior$samples)[3])
@@ -9,7 +9,7 @@ temperature_ix <- dim(model$posterior$samples)[2]
 plot(t(model$posterior$samples[c(1,2),temperature_ix,sample_ix]), xlim=c(-10,10), ylim=c(-10,10), col=rgb(0,0,0,0.05), pch=19)
 
 #plot_variable_distribution(model, 1)
-plot_variable_distribution(model, 2)
+plot_variable_distribution(model, 2, ylim=c(0, 0.3))
 
 sum(model$posterior$samples[2,temperature_ix,sample_ix] > 0) / 5000
 

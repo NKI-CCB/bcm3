@@ -1,5 +1,6 @@
 #include "Utils.h"
 #include "GMM.h"
+#include "NetCDFBundler.h"
 #include "Prior.h"
 #include "ProposalParametricMixture.h"
 #include "SummaryStats.h"
@@ -60,6 +61,32 @@ namespace bcm3 {
 		}
 	}
 
+	void ProposalParametricMixture::WriteToFile(const std::string& fn, std::string adaptation_group)
+	{
+		NetCDFBundler update_info_output;
+		if (update_info_output.Open(fn)) {
+			update_info_output.AddGroup(adaptation_group);
+			update_info_output.AddVector(adaptation_group, "gmm_weights", gmm->GetWeights());
+			for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
+				update_info_output.AddVector(adaptation_group, "cluster" + std::to_string(i) + std::string("_mean"), gmm->GetMean(i));
+				update_info_output.AddMatrix(adaptation_group, "cluster" + std::to_string(i) + std::string("_covariance"), gmm->GetCovariance(i));
+			}
+
+			if (transform_to_unbounded) {
+				MatrixReal bounds(variable_bounds.size(), 2);
+				for (ptrdiff_t i = 0; i < variable_bounds.size(); i++) {
+					bounds(i, 0) = variable_bounds[i].lower;
+					bounds(i, 1) = variable_bounds[i].upper;
+				}
+				update_info_output.AddVector(adaptation_group, "transform_bounds", bounds);
+			} else {
+
+			}
+
+			update_info_output.Close();
+		}
+	}
+
 	bool ProposalParametricMixture::InitializeImpl(const MatrixReal& history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)
 	{
 		if (history.rows() < 2) {
@@ -115,16 +142,15 @@ namespace bcm3 {
 			Real min_ess = ess.minCoeff();
 
 			if (log_info) {
-				LOG("Fitting GMM...");
-				LOG("Number of samples in history: %zu", num_history_samples);
-				LOG("Minimum effective sample size: %g", min_ess);
+				LOG("Fitting GMMs...");
+				LOG("Minimum effective sample size: %g out of %zu samples", min_ess, num_history_samples);
 			}
 
 			// Fit GMMs for increasing number of components and select the one with the lowest AIC
 			Real best_aic = std::numeric_limits<Real>::infinity();
 			gmm.reset();
-			static const size_t num_components[7] = { 1, 2, 3, 5, 8, 13, 21 };
-			for (size_t i = 0; i < 7; i++) {
+			static const size_t num_components[6] = { 1, 2, 3, 5, 8, 13 };
+			for (size_t i = 0; i < 6; i++) {
 				std::shared_ptr<GMM> test_gmm_k = std::make_shared<GMM>();
 				if (min_ess < num_components[i] * (1 + num_variables * 3)) {
 					if (log_info) {
@@ -133,16 +159,6 @@ namespace bcm3 {
 				} else if (test_gmm_k->Fit(history, num_history_samples, num_components[i], rng, num_history_samples / min_ess)) {
 					if (log_info) {
 						LOG("GMM num_components=%2zu - AIC=%.6g", num_components[i], test_gmm_k->GetAIC());
-
-#if 0
-						for (size_t j = 0; j < gmm->GetNumComponents(); j++) {
-							Eigen::SelfAdjointEigenSolver<MatrixReal> eig;
-							eig.compute(gmm->GetCovariance(j));
-							std::stringstream sstream;
-							sstream << eig.eigenvalues().transpose();
-							LOG(" Component %u; covariance eigenvalues: %s", j, sstream.str().c_str());
-						}
-#endif
 					}
 
 					if (test_gmm_k->GetAIC() < best_aic - 2 * (num_history_samples / min_ess)) {
@@ -155,26 +171,6 @@ namespace bcm3 {
 					}
 				}
 			}
-
-#if 0
-				NetCDFBundler update_info_output;
-				bool output_update_info = false;
-				std::string output_update_info_group = std::string("info") + std::to_string(adaptation_iter);
-				if (sampler->output_proposal_adaptation && temperature == sampler->temperatures.tail(1)(0)) {
-					if (update_info_output.Open(sampler->output_path + "sampler_adaptation.nc")) {
-						update_info_output.AddGroup(output_update_info_group);
-						output_update_info = true;
-					}
-				}
-				if (output_update_info) {
-					update_info_output.AddVector(output_update_info_group, "gmm_weights", gmm_proposal->GetWeights());
-					for (ptrdiff_t i = 0; i < gmm_proposal->GetNumComponents(); i++) {
-						update_info_output.AddVector(output_update_info_group, "cluster" + std::to_string(i) + std::string("_mean"), gmm_proposal->GetMean(i));
-						update_info_output.AddMatrix(output_update_info_group, "cluster" + std::to_string(i) + std::string("_covariance"), gmm_proposal->GetCovariance(i));
-					}
-					update_info_output.Close();
-				}
-#endif
 		}
 
 		scales.setOnes(gmm->GetNumComponents());
@@ -211,7 +207,7 @@ namespace bcm3 {
 		Real fwd_logp = 0;
 		Real rev_logp = 0;
 		for (size_t i = 0; i < gmm->GetNumComponents(); i++) {
-			VectorReal v = (x - current_position) / (t_scale * scales(i));
+			VectorReal v = (new_position - current_position) / (t_scale * scales(i));
 
 			VectorReal s = gmm->GetCovarianceDecomp(i).matrixL().solve(v);
 			Real p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(fwd_resp(i));

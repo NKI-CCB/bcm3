@@ -9,14 +9,15 @@ namespace bcm3 {
 		: Sampler(threads, max_memory_use)
 		, blocking_strategy("one_block")
 		, proposal_type("global_covariance")
-		, output_proposal_adaptation(false)
+		, proposal_transform_to_unbounded(true)
+		, output_proposal_adaptation(true)
 		, swapping_scheme(ESwappingScheme::StochasticEvenOdd)
 		, exchange_probability(0.5)
 		, num_exploration_steps(1)
 		, adapt_proposal_samples(2000)
 		, adapt_proposal_times(2)
-		, history_max_samples(5000)
-		, adapt_proposal_max_samples(5000)
+		, max_history_size(5000)
+		, adapt_proposal_max_history_samples(5000)
 		, proposal_scaling_learning_rate(0.05)
 		, proposal_scaling_ema_period(2000)
 		, stop_proposal_scaling(6000)
@@ -40,11 +41,12 @@ namespace bcm3 {
 		try {
 			blocking_strategy = vm["ptmhsampler.blocking_strategy"].as<std::string>();
 			proposal_type = vm["ptmhsampler.proposal_type"].as<std::string>();
-			history_max_samples = vm["ptmhsampler.history_max_samples"].as<size_t>();
+			proposal_transform_to_unbounded = vm["ptmhsampler.proposal_transform_to_unbounded"].as<bool>();
+			max_history_size = vm["ptmhsampler.max_history_size"].as<size_t>();
 			adapt_proposal_samples = vm["ptmhsampler.adapt_proposal_samples"].as<size_t>();
 			stop_proposal_scaling = vm["ptmhsampler.stop_proposal_scaling"].as<size_t>();
 			adapt_proposal_times = vm["ptmhsampler.adapt_proposal_times"].as<size_t>();
-			adapt_proposal_max_samples = vm["ptmhsampler.adapt_proposal_max_samples"].as<size_t>();
+			adapt_proposal_max_history_samples = vm["ptmhsampler.adapt_proposal_max_history_samples"].as<size_t>();
 			exchange_probability = vm["ptmhsampler.exchange_probability"].as<Real>();
 			num_exploration_steps = vm["ptmhsampler.num_exploration_steps"].as<size_t>();
 			output_proposal_adaptation = vm["ptmhsampler.output_proposal_adaptation"].as<bool>();
@@ -103,8 +105,8 @@ namespace bcm3 {
 		}
 		size_t history_subsampling = 1;
 		size_t sample_history = expected_sample_history;
-		if (sample_history > history_max_samples) {
-			history_subsampling = (expected_sample_history + history_max_samples - 1) / history_max_samples;
+		if (sample_history > max_history_size) {
+			history_subsampling = (expected_sample_history + max_history_size - 1) / max_history_size;
 			sample_history = expected_sample_history / history_subsampling;
 		}
 		if (adapt_proposal_times > 0) {
@@ -133,20 +135,21 @@ namespace bcm3 {
 	void SamplerPT::AddOptionsDescription(boost::program_options::options_description& pod)
 	{
 		pod.add_options()
-			("ptmhsampler.num_chains",					boost::program_options::value<size_t>()->default_value(6),								"Number of parallel-tempered chains")
-			("ptmhsampler.blocking_strategy",			boost::program_options::value<std::string>()->default_value("one_block"),				"Blocking strateg: one_block, no_blocking, Turek")
-			("ptmhsampler.proposal_type",				boost::program_options::value<std::string>()->default_value("parametric_mixture"),		"Type of proposal: global_covariance, parametric_mixture")
-			("ptmhsampler.adapt_proposal_samples",		boost::program_options::value<size_t>()->default_value(2000),							"Number of samples after which the proposal distribution should be adapted, 0 for no adaptation (after thinning).")
-			("ptmhsampler.adapt_proposal_times",		boost::program_options::value<size_t>()->default_value(2),								"Number of times the proposal variance should be adapted.")
-			("ptmhsampler.history_max_samples",			boost::program_options::value<size_t>()->default_value(5000),							"Maximum number of samples to store in the sample history (before thinning).")
-			("ptmhsampler.adapt_proposal_max_samples",	boost::program_options::value<size_t>()->default_value(5000),							"Maximum number of samples to use in the GMM fitting/spectral clustering (before thinning).")
-			("ptmhsampler.stop_proposal_scaling",		boost::program_options::value<size_t>()->default_value(6000),							"Stop adaptive scaling of the proposal distribution after this many samples (after thinning).")
-			("ptmhsampler.swapping_scheme",				boost::program_options::value<std::string>()->default_value("deterministic_even_odd"),	"Swapping scheme, can be either stochastic_random, stochastic_even_odd or deterministic_even_odd.")
-			("ptmhsampler.exchange_probability",		boost::program_options::value<Real>()->default_value(0.5),								"Probability of choosing an exchange move instead of a mutate move (only used if swapping_scheme is stochastic).")
-			("ptmhsampler.num_exploration_steps",		boost::program_options::value<size_t>()->default_value(1),								"Number of exploration steps between swaps (only used if swapping_scheme is deterministic).")
-			("ptmhsampler.temperature_schedule_power",	boost::program_options::value<Real>()->default_value(3.0),								"Specifies the rate of the power-law used for the fixed/initial temperature schedule.")
-			("ptmhsampler.temperature_schedule_max",	boost::program_options::value<Real>()->default_value(1.0),								"Specifies the maximum temperature used for the fixed/initial temperature schedule.")
-			("ptmhsampler.output_proposal_adaptation",	boost::program_options::value<bool>()->default_value(false),							"Whether to output information describing the proposal adaptation.")
+			("ptmhsampler.num_chains",							boost::program_options::value<size_t>()->default_value(6),								"Number of parallel-tempered chains")
+			("ptmhsampler.blocking_strategy",					boost::program_options::value<std::string>()->default_value("one_block"),				"Blocking strateg: one_block, no_blocking, Turek")
+			("ptmhsampler.proposal_type",						boost::program_options::value<std::string>()->default_value("parametric_mixture"),		"Type of proposal: global_covariance, parametric_mixture")
+			("ptmhsampler.proposal_transform_to_unbounded",		boost::program_options::value<bool>()->default_value(true),								"Specifies whether to transform variables that have a bounded prior to an unbounded domain before applying the proposal")
+			("ptmhsampler.adapt_proposal_samples",				boost::program_options::value<size_t>()->default_value(2000),							"Number of samples after which the proposal distribution should be adapted, 0 for no adaptation (after thinning).")
+			("ptmhsampler.adapt_proposal_times",				boost::program_options::value<size_t>()->default_value(2),								"Number of times the proposal variance should be adapted.")
+			("ptmhsampler.max_history_size",					boost::program_options::value<size_t>()->default_value(5000),							"Maximum number of samples to store in the sample history (before thinning).")
+			("ptmhsampler.adapt_proposal_max_history_samples",	boost::program_options::value<size_t>()->default_value(5000),							"Maximum number of samples to use in the GMM fitting/spectral clustering (before thinning).")
+			("ptmhsampler.stop_proposal_scaling",				boost::program_options::value<size_t>()->default_value(6000),							"Stop adaptive scaling of the proposal distribution after this many samples (after thinning).")
+			("ptmhsampler.swapping_scheme",						boost::program_options::value<std::string>()->default_value("deterministic_even_odd"),	"Swapping scheme, can be either stochastic_random, stochastic_even_odd or deterministic_even_odd.")
+			("ptmhsampler.exchange_probability",				boost::program_options::value<Real>()->default_value(0.5),								"Probability of choosing an exchange move instead of a mutate move (only used if swapping_scheme is stochastic).")
+			("ptmhsampler.num_exploration_steps",				boost::program_options::value<size_t>()->default_value(1),								"Number of exploration steps between swaps (only used if swapping_scheme is deterministic).")
+			("ptmhsampler.temperature_schedule_power",			boost::program_options::value<Real>()->default_value(3.0),								"Specifies the rate of the power-law used for the fixed/initial temperature schedule.")
+			("ptmhsampler.temperature_schedule_max",			boost::program_options::value<Real>()->default_value(1.0),								"Specifies the maximum temperature used for the fixed/initial temperature schedule.")
+			("ptmhsampler.output_proposal_adaptation",			boost::program_options::value<bool>()->default_value(false),							"Whether to output information describing the proposal adaptation.")
 			;
 	}
 

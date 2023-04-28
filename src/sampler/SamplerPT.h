@@ -34,15 +34,16 @@ namespace bcm3 {
 		// Sampling settings
 		std::string blocking_strategy;
 		std::string proposal_type;
+		bool proposal_transform_to_unbounded;
 		bool output_proposal_adaptation;
 
 		ESwappingScheme swapping_scheme;
 		Real exchange_probability;
 		size_t num_exploration_steps;
-		size_t history_max_samples;
+		size_t max_history_size;
 		size_t adapt_proposal_samples;
 		size_t adapt_proposal_times;
-		size_t adapt_proposal_max_samples;
+		size_t adapt_proposal_max_history_samples;
 		Real proposal_scaling_learning_rate;
 		size_t proposal_scaling_ema_period;
 		size_t stop_proposal_scaling;
