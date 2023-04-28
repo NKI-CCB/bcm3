@@ -19,7 +19,7 @@ namespace bcm3 {
 
 	Proposal::Proposal()
 		: num_variables(0)
-		, transform_to_unbounded(true)
+		, transform_to_unbounded(false)
 		, scaling_ema_period(1000)
 		, scaling_learning_rate(0.05)
 		, target_acceptance_rate(0.23)
@@ -91,6 +91,9 @@ namespace bcm3 {
 				unsigned int drop_sample = rng.GetUnsignedInt(use_sample_ix.size() - 1);
 				use_sample_ix.erase(use_sample_ix.begin() + drop_sample);
 			}
+
+			MatrixReal selected = history(use_sample_ix, Eigen::placeholders::all);
+			history = selected;
 		}
 
 		if (transform_to_unbounded) {

@@ -21,7 +21,7 @@ bool TestLikelihoodMultimodalGaussians::Initialize(std::shared_ptr<const bcm3::V
 	}
 
 	means.resize(2, VectorReal::Zero(2));
-	means[0] << 0, 0;
+	means[0] << -5, -5;
 	means[1] << 5, 5;
 
 	covariances.resize(2, MatrixReal::Identity(2, 2));
@@ -33,8 +33,8 @@ bool TestLikelihoodMultimodalGaussians::Initialize(std::shared_ptr<const bcm3::V
 
 bool TestLikelihoodMultimodalGaussians::EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp)
 {
-	Real logp1 = log(0.25) + bcm3::dmvnormal(values, means[0], covariances[0], true);
-	Real logp2 = log(0.75) + bcm3::dmvnormal(values, means[1], covariances[1], true);
+	Real logp1 = log(0.5) + bcm3::dmvnormal(values, means[0], covariances[0], true);
+	Real logp2 = log(0.5) + bcm3::dmvnormal(values, means[1], covariances[1], true);
 
 	logp = bcm3::logsum(logp1, logp2);
 

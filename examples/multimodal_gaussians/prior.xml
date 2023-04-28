@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <variableset>
-  <variable name="x1"   distribution="uniform" lower="-5.0" upper="10.0"/>
+  <variable name="x1"   distribution="uniform" lower="-10.0" upper="10.0"/>
   <variable name="x2"   distribution="uniform" lower="-10.0" upper="10.0"/>
 </variableset>

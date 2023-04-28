@@ -26,11 +26,11 @@ namespace bcm3 {
 			Real& scale = scales(selected_component);
 			const Real& acceptance_rate_ema = acceptance_rate_emas(selected_component);
 
-			Real learn_rate = 1.0 + rng.GetReal() * scaling_learning_rate;
-			if (acceptance_rate_ema < 0.952381 * target_acceptance_rate) {
+			Real learn_rate = 1.0 + rng.GetReal() * scaling_learning_rate * gmm->GetNumComponents();
+			if (acceptance_rate_ema < target_acceptance_rate / (1.0 - scaling_learning_rate)) {
 				scale /= learn_rate;
 				scale = std::max(scale, (Real)1e-4);
-			} else if (acceptance_rate_ema > 1.05 * target_acceptance_rate) {
+			} else if (acceptance_rate_ema > (1 + scaling_learning_rate) * target_acceptance_rate) {
 				scale *= learn_rate;
 				scale = std::min(scale, (Real)10.0);
 			}
@@ -148,7 +148,7 @@ namespace bcm3 {
 			Real best_aic = std::numeric_limits<Real>::infinity();
 			gmm.reset();
 			static const size_t num_components[7] = { 1, 2, 3, 4, 5, 8, 13 };
-			for (size_t i = 0; i < 7; i++) {
+			for (size_t i = 0; i < 4; i++) {
 				std::shared_ptr<GMM> test_gmm_k = std::make_shared<GMM>();
 				if (min_ess < num_components[i] * (1 + num_variables * 3)) {
 					if (log_info) {
@@ -196,12 +196,14 @@ namespace bcm3 {
 		x = gmm->GetCovarianceDecomp(selected_component).matrixL() * x;
 		new_position = x + current_position;
 
-		for (size_t i = 0; i < num_variables; i++) {
-			ASSERT(!std::isnan(new_position(i)));
+		if (!transform_to_unbounded) {
+			for (size_t i = 0; i < num_variables; i++) {
+				new_position(i) = ReflectOnBounds(new_position(i), variable_bounds[i].lower, variable_bounds[i].upper);
+			}
 		}
 
 		// Calculate Metropolis-Hastings ratio
-		VectorReal rev_resp = gmm->CalculateResponsibilities(x);
+		VectorReal rev_resp = gmm->CalculateResponsibilities(new_position);
 		Real fwd_logp = 0;
 		Real rev_logp = 0;
 		for (size_t i = 0; i < gmm->GetNumComponents(); i++) {
