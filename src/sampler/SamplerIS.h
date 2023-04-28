@@ -18,6 +18,8 @@ namespace bcm3 {
 	private:
 		virtual bool RunImpl();
 		virtual void LogStatistics();
+
+		Real heighest_weight;
 	};
 
 }

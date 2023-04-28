@@ -6,6 +6,7 @@ namespace bcm3 {
 
 	SamplerIS::SamplerIS(size_t threads, size_t max_memory_use)
 		: Sampler(threads, max_memory_use)
+		, heighest_weight(-std::numeric_limits<Real>::infinity())
 	{
 	}
 
@@ -36,6 +37,8 @@ namespace bcm3 {
 			return false;
 		}
 
+		heighest_weight = -std::numeric_limits<Real>::infinity();
+
 		return true;
 	}
 
@@ -50,7 +53,8 @@ namespace bcm3 {
 		LOG("Starting sampling loop...");
 		UpdateProgress(0.0, true);
 		size_t total_samples = num_samples * use_every_nth;
-		for (size_t si = 0; si < total_samples; si++) {
+		ptrdiff_t si = 0;
+		while (si < total_samples) {
 			UpdateProgress(si / (Real)total_samples, false);
 
 			VectorReal sample;
@@ -64,13 +68,18 @@ namespace bcm3 {
 			}
 
 			Real lposterior = lprior + llh;
-			Real lweight = lposterior - lprior;
-			if (lweight > -10) {
-				int a;
-				a = 6;
+			Real lweight = llh;
+			if (lweight > heighest_weight) {
+				heighest_weight = lweight;
 			}
-			for (auto handler : sample_handlers) {
-				handler->ReceiveSample(sample, lprior, llh, 1.0, exp(lweight));
+
+			if (lweight < heighest_weight - 23.02585) {
+				// Weight is less than 1e-10 of other samples found so far; too small to contribute
+			} else {
+				for (auto handler : sample_handlers) {
+					handler->ReceiveSample(sample, lprior, llh, 1.0, exp(lweight));
+				}
+				si++;
 			}
 		}
 
