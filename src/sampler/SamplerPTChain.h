@@ -41,8 +41,6 @@ namespace bcm3 {
 		bool AsyncDoAdaptProposal(void* user, size_t thread);
 		std::unique_ptr<Proposal> CreateProposalInstance(std::vector<ptrdiff_t> variable_indices, RNG& rng);
 		bool TestSample(Real new_lpowerposterior, Real log_mh_ratio, RNG& rng);
-		void AcceptMutate(bool accept, const VectorReal& nv, Real lprior, Real llh, Real lpowerposterior);
-		void AddCurrentSampleToHistory();
 
 		// Settings
 		SamplerPT* sampler;

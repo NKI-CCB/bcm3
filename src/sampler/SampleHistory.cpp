@@ -50,7 +50,7 @@ namespace bcm3 {
 		MatrixReal sample_history_d(n_history_samples, variable_indices.size());
 		if (n_history_samples > 0) {
 			for (ptrdiff_t i = 0; i < variable_indices.size(); i++) {
-				sample_history_d.col(i) = samples.row(variable_indices[i]).cast<Real>();
+				sample_history_d.col(i) = samples.row(variable_indices[i]).segment(0, n_history_samples).cast<Real>();
 			}
 		}
 		return sample_history_d;

@@ -58,6 +58,7 @@ namespace bcm3 {
 		}
 
 		// Retrieve all unique samples
+		used_sample_ix.clear();
 		for (ptrdiff_t i = 0; i < n; i++) {
 			bool duplicate = false;
 			for (ptrdiff_t j = 0; j < i; j++) {
@@ -166,11 +167,6 @@ namespace bcm3 {
 
 		Eigen::SelfAdjointEigenSolver<MatrixReal> eig;
 		eig.compute(L);
-		if (log_info) {
-			for (ptrdiff_t i = 0; i < D.cols(); i++) {
-				LOG("Clustered blocking adaptation - eigenvalue %d: %g", i, eig.eigenvalues()(i));
-			}
-		}
 
 		MatrixReal Y(n, num_clusters);
 		for (int i = 0; i < num_clusters; i++) {

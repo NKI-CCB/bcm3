@@ -16,9 +16,37 @@ namespace bcm3 {
 	{
 	}
 
+	void ProposalGlobalCovariance::GetNewSample(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, RNG& rng)
+	{
+		ASSERT(current_position.size() == num_variables);
+
+		Real t_scale;
+		if (t_dof > 0.0) {
+			Real w = rng.GetGamma(0.5 * t_dof, 0.5 * t_dof);
+			t_scale = bcm3::rsqrt(w);
+		} else {
+			t_scale = 1.0;
+		}
+
+		VectorReal x = rng.GetMultivariateUnitNormal(num_variables);
+		x = covariance_decomp * x;
+		x *= t_scale * adaptive_scale;
+		new_position = current_position + x;
+
+		for (ptrdiff_t i = 0; i < num_variables; i++) {
+			new_position(i) = ReflectOnBounds(new_position(i), variable_bounds[i].lower, variable_bounds[i].upper);
+		}
+	}
+
+	Real ProposalGlobalCovariance::CalculateMHRatio(const VectorReal& current_position, ptrdiff_t curpos_cluster_assignment, const VectorReal& new_position, ptrdiff_t newpos_cluster_assignment)
+	{
+		// Proposal is symmetric
+		return 0.0;
+	}
+
 	void ProposalGlobalCovariance::LogInfo() const
 	{
-		LOG(" Global covariance; scale=%8.5f, condition number=%6g", adaptive_scale, 1.0 / covariance_llt.rcond());
+		LOG("  Global covariance; scale=%8.5f, condition number=%6g", adaptive_scale, 1.0 / covariance_llt.rcond());
 	}
 
 	bool ProposalGlobalCovariance::InitializeImpl(const MatrixReal& history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)
@@ -61,24 +89,6 @@ namespace bcm3 {
 		logC = -det - 0.5 * variable_indices.size() * log(2.0 * M_PI);
 
 		return true;
-	}
-
-	void ProposalGlobalCovariance::GetNewSampleImpl(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, Real& log_mh_ratio, RNG& rng)
-	{
-		Real t_scale;
-		if (t_dof > 0.0) {
-			Real w = rng.GetGamma(0.5 * t_dof, 0.5 * t_dof);
-			t_scale = bcm3::rsqrt(w);
-		} else {
-			t_scale = 1.0;
-		}
-
-		VectorReal x = rng.GetMultivariateUnitNormal(num_variables);
-		x = covariance_decomp * x;
-		x *= t_scale * adaptive_scale;
-		new_position = current_position + x;
-
-		log_mh_ratio = 0.0;
 	}
 
 }

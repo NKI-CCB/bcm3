@@ -18,6 +18,71 @@ namespace bcm3 {
 	{
 	}
 
+	Real Proposal::CalculateMHRatio(const VectorReal& current_position, ptrdiff_t curpos_cluster_assignment, const VectorReal& new_position, ptrdiff_t newpos_cluster_assignment)
+	{
+		return 0.0;
+	}
+
+	void ProposalClusteredCovariance::GetNewSample(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, RNG& rng)
+	{
+		if (history_cluster_assignment == -1) {
+			// There wasn't any history to assign to, in which case we should still have a GMM with 1 component
+			ASSERT(gmm->GetNumComponents() == 1);
+			selected_component = 0;
+		} else {
+			ASSERT(history_cluster_assignment < gmm->GetNumComponents());
+			selected_component = history_cluster_assignment;
+		}
+
+		Real t_scale;
+		if (t_dof > 0.0) {
+			Real w = rng.GetGamma(0.5 * t_dof, 0.5 * t_dof);
+			t_scale = bcm3::rsqrt(w);
+		} else {
+			t_scale = 1.0;
+		}
+
+		// Multivariate normal random value
+		VectorReal x = rng.GetMultivariateUnitNormal(num_variables);
+		x = gmm->GetCovarianceDecomp(selected_component).matrixL() * x;
+		x *= t_scale * scales(selected_component);
+		new_position = x + current_position;
+
+		if (!transform_to_unbounded) {
+			for (ptrdiff_t i = 0; i < num_variables; i++) {
+				new_position(i) = ReflectOnBounds(new_position(i), variable_bounds[i].lower, variable_bounds[i].upper);
+			}
+		}
+	}
+
+	Real ProposalClusteredCovariance::CalculateMHRatio(const VectorReal& current_position, ptrdiff_t curpos_cluster_assignment, const VectorReal& new_position, ptrdiff_t newpos_cluster_assignment)
+	{
+		if (curpos_cluster_assignment == -1) {
+			return 0.0;
+		}
+		ASSERT(curpos_cluster_assignment < gmm->GetNumComponents());
+		ASSERT(newpos_cluster_assignment < gmm->GetNumComponents());
+
+		Real log_mh_ratio;
+		if (newpos_cluster_assignment != curpos_cluster_assignment) {
+			VectorReal v = new_position - current_position;
+			v /= scales(curpos_cluster_assignment);
+			gmm->GetCovarianceDecomp(curpos_cluster_assignment).matrixL().solveInPlace(v);
+			Real log_fwd_p = gmm->GetLogC(curpos_cluster_assignment) - 0.5 * v.dot(v);
+
+			v = current_position - new_position;
+			v /= scales(newpos_cluster_assignment);
+			gmm->GetCovarianceDecomp(newpos_cluster_assignment).matrixL().solveInPlace(v);
+			Real log_bwd_p = gmm->GetLogC(newpos_cluster_assignment) - 0.5 * v.dot(v);
+
+			log_mh_ratio = log_bwd_p - log_fwd_p;
+		} else {
+			// Proposal is symmetrical within cluster
+			log_mh_ratio = 0.0;
+		}
+		return log_mh_ratio;
+	}
+
 	bool ProposalClusteredCovariance::UsesClustering()
 	{
 		return true;
@@ -61,9 +126,9 @@ namespace bcm3 {
 
 	void ProposalClusteredCovariance::LogInfo() const
 	{
-		LOG(" Clustered covariance proposal with %u components", gmm->GetNumComponents());
+		LOG("  Clustered covariance proposal with %u components", gmm->GetNumComponents());
 		for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
-			LOG("  Component %u; scale=%8.5f, weight=%8.5f, condition number=%6g", i + 1, scales(i), gmm->GetWeights()(i), 1.0 / gmm->GetCovarianceDecomp(i).rcond());
+			LOG("   Component %u; scale=%8.5f, weight=%8.5f, condition number=%6g", i + 1, scales(i), gmm->GetWeights()(i), 1.0 / gmm->GetCovarianceDecomp(i).rcond());
 		}
 	}
 
@@ -129,7 +194,7 @@ namespace bcm3 {
 			std::vector<MatrixReal> covs(sample_history_clustering->GetNumClusters(), MatrixReal::Identity(num_variables, num_variables));
 			for (ptrdiff_t ci = 0; ci < sample_history_clustering->GetNumClusters(); ci++) {
 				std::vector<ptrdiff_t> sample_ix = sample_history_clustering->GetSamplesFromCluster(ci);
-				MatrixReal cluster_samples = history(sample_ix, Eigen::placeholders::all);
+				MatrixReal cluster_samples = history(sample_ix, Eigen::all);
 
 				means[ci] = colMean(cluster_samples);
 				covs[ci] = cov(cluster_samples);
@@ -149,73 +214,4 @@ namespace bcm3 {
 		return true;
 	}
 
-	void ProposalClusteredCovariance::GetNewSampleImpl(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, Real& log_mh_ratio, RNG& rng)
-	{
-		if (history_cluster_assignment == -1) {
-			// There wasn't any history to assign to, in which case we should still have a GMM with 1 component
-			ASSERT(gmm->GetNumComponents() == 1);
-			selected_component = 0;
-		} else {
-			ASSERT(history_cluster_assignment < gmm->GetNumComponents());
-			selected_component = history_cluster_assignment;
-		}
-
-		Real t_scale;
-		if (t_dof > 0.0) {
-			Real w = rng.GetGamma(0.5 * t_dof, 0.5 * t_dof);
-			t_scale = bcm3::rsqrt(w);
-		} else {
-			t_scale = 1.0;
-		}
-
-		// Multivariate normal random value
-		VectorReal x = rng.GetMultivariateUnitNormal(num_variables);
-		x = gmm->GetCovarianceDecomp(selected_component).matrixL() * x;
-		x *= t_scale * scales(selected_component);
-		new_position = x + current_position;
-
-		if (!transform_to_unbounded) {
-			for (ptrdiff_t i = 0; i < num_variables; i++) {
-				new_position(i) = ReflectOnBounds(new_position(i), variable_bounds[i].lower, variable_bounds[i].upper);
-			}
-		}
-
-		// Find cluster of proposed point
-#if 0
-		ptrdiff_t new_cluster_assignment = sample_history_clustering->GetSampleCluster(new_position);
-		Real log_mh_ratio;
-		if (new_cluster_assignment != selected_component) {
-			Block& newb = clustered_blocking_blocks[new_cluster_assignment].blocks[i];
-
-			Real log_fwd_p, log_bwd_p;
-			if (b.variable_indices.size() == 1) {
-				int ix = b.variable_indices[0];
-				Real v = new_values(ix) - current_var_values(ix);
-
-				log_fwd_p = b.logC - 0.5 * v * v / square(b.scale * b.sigma);
-				log_bwd_p = newb.logC - 0.5 * v * v / square(newb.scale * newb.sigma);
-			} else {
-				VectorReal v(b.variable_indices.size());
-				for (size_t vi = 0; vi < b.variable_indices.size(); vi++) {
-					v(vi) = new_values(b.variable_indices[vi]) - current_var_values(b.variable_indices[vi]);
-				}
-				v /= b.scale;
-				b.covariance_llt.matrixL().solveInPlace(v);
-				log_fwd_p = b.logC - 0.5 * v.dot(v);
-
-				for (size_t vi = 0; vi < b.variable_indices.size(); vi++) {
-					v(vi) = current_var_values(b.variable_indices[vi]) - new_values(b.variable_indices[vi]);
-				}
-				v /= newb.scale;
-				newb.covariance_llt.matrixL().solveInPlace(v);
-				log_bwd_p = newb.logC - 0.5 * v.dot(v);
-			}
-
-			log_mh_ratio = log_bwd_p - log_fwd_p;
-		} else {
-			// Proposal is symmetrical within cluster
-			log_mh_ratio = 0.0;
-		}
-#endif
-	}
 }

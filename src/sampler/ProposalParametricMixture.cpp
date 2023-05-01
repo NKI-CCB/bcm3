@@ -17,6 +17,93 @@ namespace bcm3 {
 	{
 	}
 
+	void ProposalParametricMixture::GetNewSample(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, RNG& rng)
+	{
+		VectorReal fwd_resp = gmm->CalculateResponsibilities(current_position);
+		selected_component = rng.Sample(fwd_resp);
+
+		Real t_scale;
+		if (t_dof > 0.0) {
+			Real w = rng.GetGamma(0.5 * t_dof, 0.5 * t_dof);
+			t_scale = bcm3::rsqrt(w);
+		} else {
+			t_scale = 1.0;
+		}
+
+		// Propose new parameters
+		VectorReal x = rng.GetMultivariateUnitNormal(num_variables);
+		x = gmm->GetCovarianceDecomp(selected_component).matrixL() * x;
+		x *= t_scale * scales(selected_component);
+		new_position = x + current_position;
+
+#if 0
+		if (gmm->GetNumComponents() > 1) {
+			std::string fn = "gmmtest.nc";
+			if (!boost::filesystem::exists(fn)) {
+				MatrixReal proposed(1000, 2);
+				VectorReal mhratios(1000);
+				for (int j = 0; j < 1000; j++) {
+					VectorReal x = rng.GetMultivariateUnitNormal(num_variables);
+					x *= t_scale * scales(selected_component);
+					x = gmm->GetCovarianceDecomp(selected_component).matrixL() * x;
+					proposed.row(j) = x + current_position;
+
+					// Calculate Metropolis-Hastings ratio
+					VectorReal rev_resp = gmm->CalculateResponsibilities(new_position);
+					Real fwd_logp = -std::numeric_limits<Real>::infinity();
+					Real rev_logp = -std::numeric_limits<Real>::infinity();
+					for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
+						VectorReal v = (new_position - current_position) / (t_scale * scales(i));
+
+						VectorReal s = gmm->GetCovarianceDecomp(i).matrixL().solve(v);
+						Real p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(fwd_resp(i));
+						fwd_logp = bcm3::logsum(fwd_logp, p);
+
+						s = gmm->GetCovarianceDecomp(i).matrixL().solve(-v);
+						p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(rev_resp(i));
+						rev_logp = bcm3::logsum(rev_logp, p);
+					}
+					mhratios(j) = rev_logp - fwd_logp;
+				}
+
+				NetCDFBundler nc;
+				if (nc.Open(fn)) {
+					nc.AddGroup("proposal");
+					nc.AddVector("proposal", "current_position", current_position);
+					nc.AddMatrix("proposal", "samples", proposed);
+					nc.AddVector("proposal", "mh_ratios", mhratios);
+					nc.Close();
+				}
+			}
+		}
+#endif
+
+		for (ptrdiff_t i = 0; i < num_variables; i++) {
+			new_position(i) = ReflectOnBounds(new_position(i), variable_bounds[i].lower, variable_bounds[i].upper);
+		}
+	}
+
+	Real ProposalParametricMixture::CalculateMHRatio(const VectorReal& current_position, ptrdiff_t curpos_cluster_assignment, const VectorReal& new_position, ptrdiff_t newpos_cluster_assignment)
+	{
+		VectorReal fwd_resp = gmm->CalculateResponsibilities(current_position);
+		VectorReal rev_resp = gmm->CalculateResponsibilities(new_position);
+		Real fwd_logp = -std::numeric_limits<Real>::infinity();
+		Real rev_logp = -std::numeric_limits<Real>::infinity();
+		for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
+			VectorReal v = (new_position - current_position) / (scales(i));
+
+			VectorReal s = gmm->GetCovarianceDecomp(i).matrixL().solve(v);
+			Real p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(fwd_resp(i));
+			fwd_logp = bcm3::logsum(fwd_logp, p);
+
+			s = gmm->GetCovarianceDecomp(i).matrixL().solve(-v);
+			p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(rev_resp(i));
+			rev_logp = bcm3::logsum(rev_logp, p);
+		}
+		Real log_mh_ratio = rev_logp - fwd_logp;
+		return log_mh_ratio;
+	}
+
 	void ProposalParametricMixture::Update(RNG& rng)
 	{
 		if (selected_component == -1) {
@@ -55,9 +142,9 @@ namespace bcm3 {
 
 	void ProposalParametricMixture::LogInfo() const
 	{
-		LOG(" GMM proposal with %u components", gmm->GetNumComponents());
+		LOG("  GMM proposal with %u components", gmm->GetNumComponents());
 		for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
-			LOG("  Component %u; scale=%8.5f, weight=%8.5f, condition number=%6g", i + 1, scales(i), gmm->GetWeights()(i), 1.0 / gmm->GetCovarianceDecomp(i).rcond());
+			LOG("    Component %u; scale=%8.5f, weight=%8.5f, condition number=%6g", i + 1, scales(i), gmm->GetWeights()(i), 1.0 / gmm->GetCovarianceDecomp(i).rcond());
 		}
 	}
 
@@ -189,88 +276,4 @@ namespace bcm3 {
 		return true;
 	}
 
-	void ProposalParametricMixture::GetNewSampleImpl(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, Real& log_mh_ratio, RNG& rng)
-	{
-		VectorReal fwd_resp = gmm->CalculateResponsibilities(current_position);
-		selected_component = rng.Sample(fwd_resp);
-
-		Real t_scale;
-		if (t_dof > 0.0) {
-			Real w = rng.GetGamma(0.5 * t_dof, 0.5 * t_dof);
-			t_scale = bcm3::rsqrt(w);
-		} else {
-			t_scale = 1.0;
-		}
-
-		// Propose new parameters
-		VectorReal x = rng.GetMultivariateUnitNormal(num_variables);
-		x = gmm->GetCovarianceDecomp(selected_component).matrixL() * x;
-		x *= t_scale * scales(selected_component);
-		new_position = x + current_position;
-
-#if 0
-		if (gmm->GetNumComponents() > 1) {
-			std::string fn = "gmmtest.nc";
-			if (!boost::filesystem::exists(fn)) {
-				MatrixReal proposed(1000, 2);
-				VectorReal mhratios(1000);
-				for (int j = 0; j < 1000; j++) {
-					VectorReal x = rng.GetMultivariateUnitNormal(num_variables);
-					x *= t_scale * scales(selected_component);
-					x = gmm->GetCovarianceDecomp(selected_component).matrixL() * x;
-					proposed.row(j) = x + current_position;
-
-					// Calculate Metropolis-Hastings ratio
-					VectorReal rev_resp = gmm->CalculateResponsibilities(new_position);
-					Real fwd_logp = -std::numeric_limits<Real>::infinity();
-					Real rev_logp = -std::numeric_limits<Real>::infinity();
-					for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
-						VectorReal v = (new_position - current_position) / (t_scale * scales(i));
-
-						VectorReal s = gmm->GetCovarianceDecomp(i).matrixL().solve(v);
-						Real p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(fwd_resp(i));
-						fwd_logp = bcm3::logsum(fwd_logp, p);
-
-						s = gmm->GetCovarianceDecomp(i).matrixL().solve(-v);
-						p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(rev_resp(i));
-						rev_logp = bcm3::logsum(rev_logp, p);
-					}
-					mhratios(j) = rev_logp - fwd_logp;
-				}
-
-				NetCDFBundler nc;
-				if (nc.Open(fn)) {
-					nc.AddGroup("proposal");
-					nc.AddVector("proposal", "current_position", current_position);
-					nc.AddMatrix("proposal", "samples", proposed);
-					nc.AddVector("proposal", "mh_ratios", mhratios);
-					nc.Close();
-				}
-			}
-		}
-#endif
-
-		if (!transform_to_unbounded) {
-			for (ptrdiff_t i = 0; i < num_variables; i++) {
-				new_position(i) = ReflectOnBounds(new_position(i), variable_bounds[i].lower, variable_bounds[i].upper);
-			}
-		}
-
-		// Calculate Metropolis-Hastings ratio
-		VectorReal rev_resp = gmm->CalculateResponsibilities(new_position);
-		Real fwd_logp = -std::numeric_limits<Real>::infinity();
-		Real rev_logp = -std::numeric_limits<Real>::infinity();
-		for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
-			VectorReal v = (new_position - current_position) / (t_scale * scales(i));
-
-			VectorReal s = gmm->GetCovarianceDecomp(i).matrixL().solve(v);
-			Real p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(fwd_resp(i));
-			fwd_logp = bcm3::logsum(fwd_logp, p);
-
-			s = gmm->GetCovarianceDecomp(i).matrixL().solve(-v);
-			p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(rev_resp(i));
-			rev_logp = bcm3::logsum(rev_logp, p);
-		}
-		log_mh_ratio = rev_logp - fwd_logp;
-	}
 }

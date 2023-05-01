@@ -64,10 +64,11 @@ namespace bcm3 {
 
 		MatrixReal history = sample_history.GetHistory(variable_indices);
 		if (log_info) {
-			LOG("Proposal adaptation - history samples: %zd", history.rows());
+			LOG("  Proposal adaptation - history samples: %zd", history.rows());
 		}
 
 		// If necessary, reduce the history size to the maximum number of samples specified in the configuration
+#if 0
 		if (history.rows() > max_history_samples) {
 			if (log_info) {
 				LOG("Proposal adaptation - downsampling to %zu samples", max_history_samples);
@@ -95,24 +96,31 @@ namespace bcm3 {
 				use_sample_ix.erase(use_sample_ix.begin() + drop_sample);
 			}
 
-			MatrixReal selected = history(use_sample_ix, Eigen::placeholders::all);
+			MatrixReal selected = history(use_sample_ix, Eigen::all);
 			history = selected;
 		}
+#endif
 
+#if 0
 		if (transform_to_unbounded) {
 			history = Transform(history);
 		}
+#else
+		ASSERT(!transform_to_unbounded);
+#endif
 
 		return InitializeImpl(history, prior, variable_indices, rng, log_info);
 	}
 
-	void Proposal::GetNewSample(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, Real& log_mh_ratio, RNG& rng)
+#if 0
+	// Transformation don't seem to add much - deprecate for now
+	void Proposal::GetNewSample(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, RNG& rng)
 	{
 		ASSERT(current_position.size() == num_variables);
 
 		if (transform_to_unbounded) {
 			VectorReal transformed = Transform(current_position);
-			GetNewSampleImpl(transformed, history_cluster_assignment, new_position, log_mh_ratio, rng);
+			GetNewSampleImpl(transformed, history_cluster_assignment, new_position, rng);
 			new_position = ReverseTransform(new_position);
 
 			for (ptrdiff_t i = 0; i < num_variables; i++) {
@@ -150,12 +158,13 @@ namespace bcm3 {
 				}
 			}
 		} else {
-			GetNewSampleImpl(current_position, history_cluster_assignment, new_position, log_mh_ratio, rng);
+			GetNewSampleImpl(current_position, history_cluster_assignment, new_position, rng);
 			for (ptrdiff_t i = 0; i < num_variables; i++) {
 				new_position(i) = ReflectOnBounds(new_position(i), variable_bounds[i].lower, variable_bounds[i].upper);
 			}
 		}
 	}
+#endif
 
 	bool Proposal::UsesClustering()
 	{
@@ -193,6 +202,7 @@ namespace bcm3 {
 	{
 	}
 
+#if 0
 	VectorReal Proposal::Transform(const VectorReal& sample)
 	{
 		ASSERT(sample.size() == variable_transforms.size());
@@ -323,6 +333,7 @@ namespace bcm3 {
 			return sample;
 		}
 	}
+#endif
 
 	Real Proposal::ReflectOnBounds(Real x, Real lb, Real ub)
 	{

@@ -56,7 +56,7 @@ namespace bcm3 {
 			bcm3::TreeCluster(distance, variable_clusters, 0.5);
 
 			// Create blocks based on the clustered variables
-			std::vector< std::vector<ptrdiff_t> > blocks(variable_clusters.size());
+			blocks.resize(variable_clusters.size());
 			for (size_t i = 0; i < variable_clusters.size(); i++) {
 				for (std::set<size_t>::iterator vi = variable_clusters[i].begin(); vi != variable_clusters[i].end(); ++vi) {
 					blocks[i].push_back((int)*vi);

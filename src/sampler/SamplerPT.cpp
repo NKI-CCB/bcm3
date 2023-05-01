@@ -136,13 +136,13 @@ namespace bcm3 {
 	{
 		pod.add_options()
 			("ptmhsampler.num_chains",							boost::program_options::value<size_t>()->default_value(6),								"Number of parallel-tempered chains")
-			("ptmhsampler.blocking_strategy",					boost::program_options::value<std::string>()->default_value("one_block"),				"Blocking strateg: one_block, no_blocking, Turek")
-			("ptmhsampler.proposal_type",						boost::program_options::value<std::string>()->default_value("parametric_mixture"),		"Type of proposal: global_covariance, parametric_mixture")
+			("ptmhsampler.blocking_strategy",					boost::program_options::value<std::string>()->default_value("clustered_autoblock"),		"Blocking strateg: one_block, no_blocking, Turek, clustered_autoblock")
+			("ptmhsampler.proposal_type",						boost::program_options::value<std::string>()->default_value("clustered_covariance"),	"Type of proposal: global_covariance, clustered_covariance, parametric_mixture")
 			("ptmhsampler.proposal_transform_to_unbounded",		boost::program_options::value<bool>()->default_value(false),							"Specifies whether to transform variables that have a bounded prior to an unbounded domain before applying the proposal")
 			("ptmhsampler.adapt_proposal_samples",				boost::program_options::value<size_t>()->default_value(2000),							"Number of samples after which the proposal distribution should be adapted, 0 for no adaptation (after thinning).")
 			("ptmhsampler.adapt_proposal_times",				boost::program_options::value<size_t>()->default_value(2),								"Number of times the proposal variance should be adapted.")
 			("ptmhsampler.max_history_size",					boost::program_options::value<size_t>()->default_value(5000),							"Maximum number of samples to store in the sample history (before thinning).")
-			("ptmhsampler.adapt_proposal_max_history_samples",	boost::program_options::value<size_t>()->default_value(5000),							"Maximum number of samples to use in the GMM fitting/spectral clustering (before thinning).")
+			("ptmhsampler.adapt_proposal_max_history_samples",	boost::program_options::value<size_t>()->default_value(1000),							"Maximum number of samples to use in the GMM fitting/spectral clustering (before thinning).")
 			("ptmhsampler.stop_proposal_scaling",				boost::program_options::value<size_t>()->default_value(6000),							"Stop adaptive scaling of the proposal distribution after this many samples (after thinning).")
 			("ptmhsampler.swapping_scheme",						boost::program_options::value<std::string>()->default_value("deterministic_even_odd"),	"Swapping scheme, can be either stochastic_random, stochastic_even_odd or deterministic_even_odd.")
 			("ptmhsampler.exchange_probability",				boost::program_options::value<Real>()->default_value(0.5),								"Probability of choosing an exchange move instead of a mutate move (only used if swapping_scheme is stochastic).")
@@ -214,7 +214,7 @@ namespace bcm3 {
 					UpdateProgress(si / (Real)total_samples, true);
 
 					LogStatistics();
-					LOG("Updating proposal to empirical variance");
+					LOG("Updating proposal...");
 					bool result = true;
 					for (auto& chain : chains) {
 						chain->AdaptProposalAsync();

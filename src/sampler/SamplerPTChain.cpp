@@ -26,6 +26,7 @@ namespace bcm3 {
 	SamplerPTChain::SamplerPTChain(SamplerPT* sampler)
 		: sampler(sampler)
 		, temperature(std::numeric_limits<Real>::quiet_NaN())
+		, temperature_fixed(true)
 		, lprior(-std::numeric_limits<Real>::infinity())
 		, llh(-std::numeric_limits<Real>::infinity())
 		, lpowerposterior(-std::numeric_limits<Real>::infinity())
@@ -106,6 +107,8 @@ namespace bcm3 {
 
 	bool SamplerPTChain::AdaptProposal(size_t thread)
 	{
+		bool log_info = (temperature == sampler->temperatures.tail(1)(0)) ? true : false;
+
 		// No adaptation necessary for a chain at temperature 0 as samples are just drawn from the prior
 		if (temperature == 0.0) {
 			return true;
@@ -113,7 +116,6 @@ namespace bcm3 {
 
 		// First cluster the history if the blocking strategy or proposal wants it
 		if (sample_history_clustering && adaptation_iteration > 0) {
-			bool log_info = (temperature == sampler->temperatures.tail(1)(0)) ? true : false;
 			size_t discard_first_samples = 0;
 			if (adaptation_iteration == 1) {
 				discard_first_samples = 100;
@@ -125,11 +127,17 @@ namespace bcm3 {
 
 		// Update variable blocks according to the blocking strategy
 		std::vector< std::vector<ptrdiff_t> > blocks = blocking_strategy->GetBlocks(sample_history, sample_history_clustering);
+		if (log_info) {
+			LOG("Blocking strategy returned %zu block(s)", blocks.size());
+		}
 
 		// Update the proposal for every variable block
 		variable_blocks.clear();
 		variable_blocks.resize(blocks.size());
 		for (ptrdiff_t i = 0; i < variable_blocks.size(); i++) {
+			if (log_info) {
+				LOG(" Block %zd", i+1);
+			}
 			variable_blocks[i].variable_indices = blocks[i];
 			variable_blocks[i].proposal = CreateProposalInstance(blocks[i], sampler->async[thread].rng);
 		}
@@ -218,10 +226,9 @@ namespace bcm3 {
 		} else {
 			if (sample_history_clustering) {
 				// Check that cluster assignment is up to date
-				//if (current_cluster_assignment == -1) {
-				// TODO - can store the assignment calculated in the proposal
-				current_cluster_assignment = sample_history_clustering->GetSampleCluster(current_var_values);
-				//}
+				if (current_cluster_assignment == -1) {
+					current_cluster_assignment = sample_history_clustering->GetSampleCluster(current_var_values);
+				}
 			}
 
 			// Sample each block separately
@@ -232,32 +239,49 @@ namespace bcm3 {
 				b.proposal->Update(rng);
 
 				// Retrieve a new sample from the proposal distribution for the variables in this block
-				VectorReal current_position(b.variable_indices.size());
+				VectorReal block_current_position(b.variable_indices.size());
 				for (ptrdiff_t i = 0; i < b.variable_indices.size(); i++) {
-					current_position(i) = current_var_values(b.variable_indices[i]);
+					block_current_position(i) = current_var_values(b.variable_indices[i]);
 				}
 				VectorReal block_new_position;
-				Real log_mh_ratio;
-				b.proposal->GetNewSample(current_position, current_cluster_assignment, block_new_position, log_mh_ratio, rng);
+				b.proposal->GetNewSample(block_current_position, current_cluster_assignment, block_new_position, rng);
 
 				// Construct the full new vector of variable values
-				VectorReal new_position = current_var_values;
+				VectorReal new_var_values = current_var_values;
 				for (ptrdiff_t i = 0; i < b.variable_indices.size(); i++) {
-					new_position(b.variable_indices[i]) = block_new_position(i);
+					new_var_values(b.variable_indices[i]) = block_new_position(i);
 				}
 
 				// Evaluate prior, likelihood & posterior
 				Real new_lprior = -std::numeric_limits<Real>::infinity(), new_llh = -std::numeric_limits<Real>::infinity();
-				if (!sampler->EvaluatePriorLikelihood(thread, new_position, new_lprior, new_llh)) {
+				if (!sampler->EvaluatePriorLikelihood(thread, new_var_values, new_lprior, new_llh)) {
 					return false;
 				}
 				Real new_lpowerposterior = new_lprior + temperature * new_llh;
 
+				// Calculate Metropolis-Hastings ratio
+				ptrdiff_t new_cluster_assignment = -1;
+				if (sample_history_clustering) {
+					new_cluster_assignment = sample_history_clustering->GetSampleCluster(new_var_values);
+				}
+				Real log_mh_ratio = b.proposal->CalculateMHRatio(block_current_position, current_cluster_assignment, block_new_position, new_cluster_assignment);
+
 				bool accept = TestSample(new_lpowerposterior, log_mh_ratio, rng);
-				AcceptMutate(accept, new_position, new_lprior, new_llh, new_lpowerposterior);
+
+				if (accept) {
+					accepted_mutate++;
+
+					current_var_values = new_var_values;
+					current_cluster_assignment = new_cluster_assignment;
+					lprior = new_lprior;
+					llh = new_llh;
+					lpowerposterior = new_lpowerposterior;
+				}
+
 				b.proposal->NotifyAccepted(accept);
 			}
-			AddCurrentSampleToHistory();
+
+			sample_history->AddSample(current_var_values);
 		}
 
 		return true;
@@ -322,8 +346,8 @@ namespace bcm3 {
 			chain2.lpowerposterior = proposed_lpowerposterior2;
 		}
 
-		AddCurrentSampleToHistory();
-		other.AddCurrentSampleToHistory();
+		sample_history->AddSample(current_var_values);
+		other.sample_history->AddSample(current_var_values);
 		return swap;
 	}
 
@@ -346,7 +370,7 @@ namespace bcm3 {
 				ixs += std::string(",") + std::to_string(b.variable_indices[vi]);
 			}
 
-			LOG("  Block %u: %s", i + 1, ixs.c_str());
+			LOG(" Block %u: %s", i + 1, ixs.c_str());
 
 			b.proposal->LogInfo();
 		}
@@ -386,7 +410,7 @@ namespace bcm3 {
 
 		bool log_info = (temperature == sampler->temperatures.tail(1)(0)) ? true : false;
 		if (!proposal->Initialize(*sample_history, sample_history_clustering, sampler->adapt_proposal_max_history_samples, sampler->proposal_transform_to_unbounded, sampler->prior, variable_indices, rng, log_info)) {
-			LOGERROR("Proposal initialization failed.");
+			LOGERROR("  Proposal initialization failed.");
 			proposal.reset();
 		}
 
@@ -410,23 +434,6 @@ namespace bcm3 {
 		} else {
 			return false;
 		}
-	}
-
-	void SamplerPTChain::AcceptMutate(bool accept, const VectorReal& nv, Real lprior, Real llh, Real lpowerposterior)
-	{
-		if (accept) {
-			accepted_mutate++;
-
-			current_var_values = nv;
-			this->lprior = lprior;
-			this->llh = llh;
-			this->lpowerposterior = lpowerposterior;
-		}
-	}
-
-	void SamplerPTChain::AddCurrentSampleToHistory()
-	{
-		sample_history->AddSample(current_var_values);
 	}
 
 }
