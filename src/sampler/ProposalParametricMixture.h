@@ -29,7 +29,6 @@ namespace bcm3 {
 		VectorReal scales;
 		VectorReal acceptance_rate_emas;
 		ptrdiff_t selected_component;
-		int adaptation_iter;
 	};
 
 }

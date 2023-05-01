@@ -1,6 +1,7 @@
 #include "Utils.h"
 #include "checks.h"
 #include "GMM.h"
+#include "mvn.h"
 
 namespace bcm3 {
 
@@ -22,7 +23,7 @@ namespace bcm3 {
 
 			components[i].mean = means[i];
 			components[i].covariance = covariances[i];
-			components[i].covariance_llt.compute(components[0].covariance);
+			components[i].covariance_llt.compute(components[i].covariance);
 			if (components[i].covariance_llt.info() != Eigen::Success) {
 				return false;
 			}
@@ -119,12 +120,12 @@ namespace bcm3 {
 
 	Real GMM::LogPdf(const VectorReal& x)
 	{
-		Real logp = 0;
+		Real logp = -std::numeric_limits<Real>::infinity();
 		for (size_t i = 0; i < components.size(); i++) {
 			VectorReal v = x - components[i].mean;
 			components[i].covariance_llt.matrixL().solveInPlace(v);
-			Real p = components[i].logC - 0.5 * v.dot(v) + log(weights(i));
-			logp = bcm3::logsum(logp, p);
+			Real component_logp = components[i].logC - 0.5 * v.dot(v) + log(weights(i));
+			logp = bcm3::logsum(logp, component_logp);
 		}
 		return logp;
 	}

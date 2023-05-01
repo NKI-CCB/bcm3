@@ -4,6 +4,8 @@ target_sources(stats
   PRIVATE
     checks.h
     checks.cpp
+    GMM.h
+    GMM.cpp
     mvn.h
     mvn.cpp
     mvt.h

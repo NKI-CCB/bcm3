@@ -4,8 +4,6 @@ target_sources(sampler
   PRIVATE
     DataReference.h
     DataReference.cpp
-    GMM.h
-    GMM.cpp
     Likelihood.h
     Likelihood.cpp
     Prior.h

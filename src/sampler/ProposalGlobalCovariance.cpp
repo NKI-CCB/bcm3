@@ -16,6 +16,11 @@ namespace bcm3 {
 	{
 	}
 
+	void ProposalGlobalCovariance::LogInfo() const
+	{
+		LOG(" Global covariance; scale=%8.5f, condition number=%6g", adaptive_scale, 1.0 / covariance_llt.rcond());
+	}
+
 	bool ProposalGlobalCovariance::InitializeImpl(const MatrixReal& history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)
 	{
 		if (history.rows() < 2) {
@@ -25,6 +30,13 @@ namespace bcm3 {
 			}
 		} else {
 			covariance = cov(history);
+
+#if 0
+			std::stringstream str;
+			str << covariance;
+			LOG("Covariance:");
+			LOG("\n%s", str.str().c_str());
+#endif
 
 			for (ptrdiff_t i = 0; i < variable_indices.size(); i++) {
 				ASSERT(!std::isnan(covariance(i,i)));

@@ -56,7 +56,7 @@ namespace bcm3 {
 	void ProposalParametricMixture::LogInfo() const
 	{
 		LOG(" GMM proposal with %u components", gmm->GetNumComponents());
-		for (size_t i = 0; i < gmm->GetNumComponents(); i++) {
+		for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
 			LOG("  Component %u; scale=%8.5f, weight=%8.5f, condition number=%6g", i + 1, scales(i), gmm->GetWeights()(i), 1.0 / gmm->GetCovarianceDecomp(i).rcond());
 		}
 	}
@@ -148,7 +148,7 @@ namespace bcm3 {
 			Real best_aic = std::numeric_limits<Real>::infinity();
 			gmm.reset();
 			static const size_t num_components[7] = { 1, 2, 3, 4, 5, 8, 13 };
-			for (size_t i = 0; i < 4; i++) {
+			for (size_t i = 0; i < 7; i++) {
 				std::shared_ptr<GMM> test_gmm_k = std::make_shared<GMM>();
 				if (min_ess < num_components[i] * (1 + num_variables * 3)) {
 					if (log_info) {
@@ -169,9 +169,21 @@ namespace bcm3 {
 					}
 				}
 			}
+
+#if 0
+			if (log_info) {
+				LOG("Selected GMM with %zu components", gmm->GetNumComponents());
+				for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
+					std::stringstream str;
+					str << gmm->GetCovariance(i);
+					LOG("Covariance component %zd:", i);
+					LOG("\n%s", str.str().c_str());
+				}
+			}
+#endif
 		}
 
-		scales.setOnes(gmm->GetNumComponents());
+		scales.setConstant(gmm->GetNumComponents(), 2.38 / sqrt(num_variables));
 		acceptance_rate_emas.setConstant(gmm->GetNumComponents(), target_acceptance_rate);
 
 		return true;
@@ -192,21 +204,63 @@ namespace bcm3 {
 
 		// Propose new parameters
 		VectorReal x = rng.GetMultivariateUnitNormal(num_variables);
-		x *= t_scale * scales(selected_component);
 		x = gmm->GetCovarianceDecomp(selected_component).matrixL() * x;
+		x *= t_scale * scales(selected_component);
 		new_position = x + current_position;
 
+#if 0
+		if (gmm->GetNumComponents() > 1) {
+			std::string fn = "gmmtest.nc";
+			if (!boost::filesystem::exists(fn)) {
+				MatrixReal proposed(1000, 2);
+				VectorReal mhratios(1000);
+				for (int j = 0; j < 1000; j++) {
+					VectorReal x = rng.GetMultivariateUnitNormal(num_variables);
+					x *= t_scale * scales(selected_component);
+					x = gmm->GetCovarianceDecomp(selected_component).matrixL() * x;
+					proposed.row(j) = x + current_position;
+
+					// Calculate Metropolis-Hastings ratio
+					VectorReal rev_resp = gmm->CalculateResponsibilities(new_position);
+					Real fwd_logp = -std::numeric_limits<Real>::infinity();
+					Real rev_logp = -std::numeric_limits<Real>::infinity();
+					for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
+						VectorReal v = (new_position - current_position) / (t_scale * scales(i));
+
+						VectorReal s = gmm->GetCovarianceDecomp(i).matrixL().solve(v);
+						Real p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(fwd_resp(i));
+						fwd_logp = bcm3::logsum(fwd_logp, p);
+
+						s = gmm->GetCovarianceDecomp(i).matrixL().solve(-v);
+						p = gmm->GetLogC(i) - 0.5 * s.dot(s) + log(rev_resp(i));
+						rev_logp = bcm3::logsum(rev_logp, p);
+					}
+					mhratios(j) = rev_logp - fwd_logp;
+				}
+
+				NetCDFBundler nc;
+				if (nc.Open(fn)) {
+					nc.AddGroup("proposal");
+					nc.AddVector("proposal", "current_position", current_position);
+					nc.AddMatrix("proposal", "samples", proposed);
+					nc.AddVector("proposal", "mh_ratios", mhratios);
+					nc.Close();
+				}
+			}
+		}
+#endif
+
 		if (!transform_to_unbounded) {
-			for (size_t i = 0; i < num_variables; i++) {
+			for (ptrdiff_t i = 0; i < num_variables; i++) {
 				new_position(i) = ReflectOnBounds(new_position(i), variable_bounds[i].lower, variable_bounds[i].upper);
 			}
 		}
 
 		// Calculate Metropolis-Hastings ratio
 		VectorReal rev_resp = gmm->CalculateResponsibilities(new_position);
-		Real fwd_logp = 0;
-		Real rev_logp = 0;
-		for (size_t i = 0; i < gmm->GetNumComponents(); i++) {
+		Real fwd_logp = -std::numeric_limits<Real>::infinity();
+		Real rev_logp = -std::numeric_limits<Real>::infinity();
+		for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
 			VectorReal v = (new_position - current_position) / (t_scale * scales(i));
 
 			VectorReal s = gmm->GetCovarianceDecomp(i).matrixL().solve(v);

@@ -25,8 +25,8 @@ bool TestLikelihoodMultimodalGaussians::Initialize(std::shared_ptr<const bcm3::V
 	means[1] << 5, 5;
 
 	covariances.resize(2, MatrixReal::Identity(2, 2));
-	covariances[0] << 1, -0.5, -0.5, 0.5;
-	covariances[1] << 2, 1, 1, 1; 
+	covariances[0] << 1, -0.9, -0.9, 1;
+	covariances[1] << 2, -0.5, -0.5, 1; 
 
 	return true;
 }

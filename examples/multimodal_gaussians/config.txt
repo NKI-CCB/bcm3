@@ -1,20 +1,20 @@
 [sampler]
-num_samples=8000
-use_every_nth=1
+num_samples=16000
+use_every_nth=5
 
 [ptmhsampler]
-num_chains=4
+num_chains=2
 swapping_scheme=deterministic_even_odd
 num_exploration_steps=1
-max_history_size=5000
+max_history_size=4000
 proposal_type=parametric_mixture
 proposal_transform_to_unbounded=false
 adapt_proposal_times=1
-adapt_proposal_samples=2000
-adapt_proposal_max_history_samples=1000
-stop_proposal_scaling=4000
+adapt_proposal_samples=4000
+adapt_proposal_max_history_samples=4000
+stop_proposal_scaling=8000
 temperature_schedule_power=3.0
 output_proposal_adaptation=true
 
 [output]
-folder=output_t4_n5_e1
+folder=output_t2_n5_e1

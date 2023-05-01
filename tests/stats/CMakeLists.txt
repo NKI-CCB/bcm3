@@ -3,6 +3,7 @@ add_executable(test_stats)
 target_sources(test_stats
   PRIVATE
     init_boost_test.cpp
+    GMM.cpp
     mvn.cpp
     mvt.cpp
 )
