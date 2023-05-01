@@ -189,7 +189,7 @@ namespace bcm3 {
 		return true;
 	}
 
-	void ProposalParametricMixture::GetNewSampleImpl(const VectorReal& current_position, VectorReal& new_position, Real& log_mh_ratio, RNG& rng)
+	void ProposalParametricMixture::GetNewSampleImpl(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, Real& log_mh_ratio, RNG& rng)
 	{
 		VectorReal fwd_resp = gmm->CalculateResponsibilities(current_position);
 		selected_component = rng.Sample(fwd_resp);

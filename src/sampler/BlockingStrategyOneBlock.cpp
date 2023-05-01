@@ -3,7 +3,7 @@
 
 namespace bcm3 {
 
-	std::vector< std::vector<ptrdiff_t> > BlockingStrategyOneBlock::GetBlocks(const std::unique_ptr<SampleHistory>& sample_history)
+	std::vector< std::vector<ptrdiff_t> > BlockingStrategyOneBlock::GetBlocks(const std::unique_ptr<SampleHistory>& sample_history, const std::shared_ptr<SampleHistoryClustering> clustering)
 	{
 		std::vector< std::vector<ptrdiff_t> > blocks(1);
 		blocks[0].resize(num_variables);

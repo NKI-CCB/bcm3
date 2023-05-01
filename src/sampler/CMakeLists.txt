@@ -2,6 +2,16 @@ add_library(sampler)
 
 target_sources(sampler
   PRIVATE
+    BlockingStrategy.h
+    BlockingStrategy.cpp
+    BlockingStrategyClusteredTurek.cpp
+    BlockingStrategyClusteredTurek.h
+    BlockingStrategyNoBlocking.h
+    BlockingStrategyNoBlocking.cpp
+    BlockingStrategyOneBlock.h
+    BlockingStrategyOneBlock.cpp
+    BlockingStrategyTurek.h
+    BlockingStrategyTurek.cpp
     DataReference.h
     DataReference.cpp
     Likelihood.h
@@ -20,14 +30,8 @@ target_sources(sampler
     ProposalGlobalCovariance.cpp
     ProposalParametricMixture.h
     ProposalParametricMixture.cpp
-    BlockingStrategy.h
-    BlockingStrategy.cpp
-    BlockingStrategyNoBlocking.h
-    BlockingStrategyNoBlocking.cpp
-    BlockingStrategyOneBlock.h
-    BlockingStrategyOneBlock.cpp
-    BlockingStrategyTurek.h
-    BlockingStrategyTurek.cpp
+    ProposalClusteredCovariance.h
+    ProposalClusteredCovariance.cpp
     SampleHandler.h
     SampleHandler.cpp
     SampleHandlerNetCDF.h
@@ -38,6 +42,8 @@ target_sources(sampler
     SampleHandlerTSV.cpp
     SampleHistory.h
     SampleHistory.cpp
+    SampleHistoryClustering.h
+    SampleHistoryClustering.cpp
     Sampler.h
     Sampler.cpp
     SamplerFactory.h

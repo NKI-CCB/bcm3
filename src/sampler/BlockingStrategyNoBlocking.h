@@ -7,7 +7,7 @@ namespace bcm3 {
 	class BlockingStrategyNoBlocking : public BlockingStrategy
 	{
 	public:
-		virtual std::vector< std::vector<ptrdiff_t> > GetBlocks(const std::unique_ptr<SampleHistory>& sample_history);
+		virtual std::vector< std::vector<ptrdiff_t> > GetBlocks(const std::unique_ptr<SampleHistory>& sample_history, const std::shared_ptr<SampleHistoryClustering> clustering);
 	};
 
 }

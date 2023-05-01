@@ -1,5 +1,6 @@
 #include "Utils.h"
 #include "BlockingStrategy.h"
+#include "BlockingStrategyClusteredTurek.h"
 #include "BlockingStrategyNoBlocking.h"
 #include "BlockingStrategyOneBlock.h"
 #include "BlockingStrategyTurek.h"
@@ -7,9 +8,11 @@
 #include "NetCDFBundler.h"
 #include "Prior.h"
 #include "Proposal.h"
+#include "ProposalClusteredCovariance.h"
 #include "ProposalGlobalCovariance.h"
 #include "ProposalParametricMixture.h"
 #include "SampleHistory.h"
+#include "SampleHistoryClustering.h"
 #include "SamplerPT.h"
 #include "SamplerPTChain.h"
 #include "SummaryStats.h"
@@ -27,12 +30,17 @@ namespace bcm3 {
 		, llh(-std::numeric_limits<Real>::infinity())
 		, lpowerposterior(-std::numeric_limits<Real>::infinity())
 		, adaptation_iteration(0)
+		, current_cluster_assignment(-1)
 		, attempted_mutate(0)
 		, attempted_exchange(0)
 		, accepted_mutate(0)
 		, accepted_exchange(0)
 		, async_task(0)
 		, async_burnin(false)
+	{
+	}
+
+	SamplerPTChain::~SamplerPTChain()
 	{
 	}
 
@@ -59,6 +67,8 @@ namespace bcm3 {
 			blocking_strategy = std::make_unique<BlockingStrategyNoBlocking>();
 		} else if (sampler->blocking_strategy == "Turek") {
 			blocking_strategy = std::make_unique<BlockingStrategyTurek>();
+		} else if (sampler->blocking_strategy == "clustered_autoblock") {
+			blocking_strategy = std::make_unique<BlockingStrategyClusteredTurek>();
 		} else {
 			LOGERROR("Unknown blocking strategy \"%s\"", sampler->blocking_strategy.c_str());
 			return false;
@@ -67,6 +77,11 @@ namespace bcm3 {
 		
 		sample_history = std::make_unique<SampleHistory>();
 		sample_history->Initialize(sampler->num_variables, history_size, history_subsampling);
+
+		if (blocking_strategy->UsesClustering() && temperature != 0.0) {
+			sample_history_clustering = std::make_shared<SampleHistoryClustering>(sampler->adapt_proposal_max_history_samples);
+			current_cluster_assignment = -1;
+		}
 
 		if (!AdaptProposal(0)) {
 			return false;
@@ -96,8 +111,20 @@ namespace bcm3 {
 			return true;
 		}
 
-		// First update blocks according to the blocking strategy
-		std::vector< std::vector<ptrdiff_t> > blocks = blocking_strategy->GetBlocks(sample_history);
+		// First cluster the history if the blocking strategy or proposal wants it
+		if (sample_history_clustering && adaptation_iteration > 0) {
+			bool log_info = (temperature == sampler->temperatures.tail(1)(0)) ? true : false;
+			size_t discard_first_samples = 0;
+			if (adaptation_iteration == 1) {
+				discard_first_samples = 100;
+			}
+			if (!sample_history_clustering->Cluster(sample_history, discard_first_samples, sampler->async[thread].rng, log_info)) {
+				return false;
+			}
+		}
+
+		// Update variable blocks according to the blocking strategy
+		std::vector< std::vector<ptrdiff_t> > blocks = blocking_strategy->GetBlocks(sample_history, sample_history_clustering);
 
 		// Update the proposal for every variable block
 		variable_blocks.clear();
@@ -189,6 +216,14 @@ namespace bcm3 {
 			attempted_mutate++;
 			accepted_mutate++;
 		} else {
+			if (sample_history_clustering) {
+				// Check that cluster assignment is up to date
+				//if (current_cluster_assignment == -1) {
+				// TODO - can store the assignment calculated in the proposal
+				current_cluster_assignment = sample_history_clustering->GetSampleCluster(current_var_values);
+				//}
+			}
+
 			// Sample each block separately
 			for (ptrdiff_t i = 0; i < variable_blocks.size(); i++) {
 				Block& b = variable_blocks[i];
@@ -196,14 +231,20 @@ namespace bcm3 {
 				// Give the proposal a chance to update based on previous acceptance rates
 				b.proposal->Update(rng);
 
-				// Retrieve a new sample from the proposal distribution
+				// Retrieve a new sample from the proposal distribution for the variables in this block
 				VectorReal current_position(b.variable_indices.size());
 				for (ptrdiff_t i = 0; i < b.variable_indices.size(); i++) {
 					current_position(i) = current_var_values(b.variable_indices[i]);
 				}
-				VectorReal new_position;
+				VectorReal block_new_position;
 				Real log_mh_ratio;
-				b.proposal->GetNewSample(current_position, new_position, log_mh_ratio, rng);
+				b.proposal->GetNewSample(current_position, current_cluster_assignment, block_new_position, log_mh_ratio, rng);
+
+				// Construct the full new vector of variable values
+				VectorReal new_position = current_var_values;
+				for (ptrdiff_t i = 0; i < b.variable_indices.size(); i++) {
+					new_position(b.variable_indices[i]) = block_new_position(i);
+				}
 
 				// Evaluate prior, likelihood & posterior
 				Real new_lprior = -std::numeric_limits<Real>::infinity(), new_llh = -std::numeric_limits<Real>::infinity();
@@ -275,6 +316,8 @@ namespace bcm3 {
 			std::swap(chain1.current_var_values, chain2.current_var_values);
 			std::swap(chain1.llh, chain2.llh);
 			std::swap(chain1.lprior, chain2.lprior);
+			chain1.current_cluster_assignment = -1;
+			chain2.current_cluster_assignment = -1;
 			chain1.lpowerposterior = proposed_lpowerposterior1;
 			chain2.lpowerposterior = proposed_lpowerposterior2;
 		}
@@ -334,13 +377,15 @@ namespace bcm3 {
 			proposal = std::make_unique<ProposalGlobalCovariance>();
 		} else if (sampler->proposal_type == "parametric_mixture") {
 			proposal = std::make_unique<ProposalParametricMixture>();
+		} else if (sampler->proposal_type == "clustered_covariance") {
+			proposal = std::make_unique<ProposalClusteredCovariance>();
 		} else {
 			LOGERROR("Unknown proposal type \"%s\"", sampler->proposal_type.c_str());
 			return proposal;
 		}
 
 		bool log_info = (temperature == sampler->temperatures.tail(1)(0)) ? true : false;
-		if (!proposal->Initialize(sample_history, sampler->adapt_proposal_max_history_samples, sampler->proposal_transform_to_unbounded, sampler->prior, variable_indices, rng, log_info)) {
+		if (!proposal->Initialize(*sample_history, sample_history_clustering, sampler->adapt_proposal_max_history_samples, sampler->proposal_transform_to_unbounded, sampler->prior, variable_indices, rng, log_info)) {
 			LOGERROR("Proposal initialization failed.");
 			proposal.reset();
 		}

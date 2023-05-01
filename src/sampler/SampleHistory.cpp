@@ -46,7 +46,7 @@ namespace bcm3 {
 
 	MatrixReal SampleHistory::GetHistory(std::vector<ptrdiff_t> variable_indices) const
 	{
-		ptrdiff_t n_history_samples = std::min((ptrdiff_t)samples.cols(), sample_n);
+		ptrdiff_t n_history_samples = GetSampleCount();
 		MatrixReal sample_history_d(n_history_samples, variable_indices.size());
 		if (n_history_samples > 0) {
 			for (ptrdiff_t i = 0; i < variable_indices.size(); i++) {
@@ -68,6 +68,16 @@ namespace bcm3 {
 		ptrdiff_t n_history_samples = std::min((ptrdiff_t)samples.cols(), sample_n);
 		MatrixReal sample_history_d = samples.block(0, 0, samples.rows(), n_history_samples).cast<Real>();
 		return cor(sample_history_d.transpose());
+	}
+
+	size_t SampleHistory::GetSampleCount() const
+	{
+		return std::min((ptrdiff_t)samples.cols(), sample_n);
+	}
+
+	Eigen::VectorXf SampleHistory::GetHistorySample(ptrdiff_t i) const
+	{
+		return samples.col(i);
 	}
 
 }

@@ -63,7 +63,7 @@ namespace bcm3 {
 		return true;
 	}
 
-	void ProposalGlobalCovariance::GetNewSampleImpl(const VectorReal& current_position, VectorReal& new_position, Real& log_mh_ratio, RNG& rng)
+	void ProposalGlobalCovariance::GetNewSampleImpl(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, Real& log_mh_ratio, RNG& rng)
 	{
 		Real t_scale;
 		if (t_dof > 0.0) {

@@ -3,6 +3,7 @@
 #include "Proposal.h"
 #include "RNG.h"
 #include "SampleHistory.h"
+#include "SampleHistoryClustering.h"
 
 namespace bcm3 {
 
@@ -32,9 +33,11 @@ namespace bcm3 {
 	{
 	}
 
-	bool Proposal::Initialize(const std::unique_ptr<SampleHistory>& sample_history, size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)
+	bool Proposal::Initialize(const SampleHistory& sample_history, const std::shared_ptr<const SampleHistoryClustering> sample_history_clustering,
+		size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)
 	{
 		num_variables = variable_indices.size();
+		this->sample_history_clustering = sample_history_clustering;
 
 		variable_bounds.resize(num_variables);
 		this->transform_to_unbounded = transform_to_unbounded;
@@ -59,7 +62,7 @@ namespace bcm3 {
 			}
 		}
 
-		MatrixReal history = sample_history->GetHistory(variable_indices);
+		MatrixReal history = sample_history.GetHistory(variable_indices);
 		if (log_info) {
 			LOG("Proposal adaptation - history samples: %zd", history.rows());
 		}
@@ -103,13 +106,13 @@ namespace bcm3 {
 		return InitializeImpl(history, prior, variable_indices, rng, log_info);
 	}
 
-	void Proposal::GetNewSample(const VectorReal& current_position, VectorReal& new_position, Real& log_mh_ratio, RNG& rng)
+	void Proposal::GetNewSample(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, Real& log_mh_ratio, RNG& rng)
 	{
 		ASSERT(current_position.size() == num_variables);
 
 		if (transform_to_unbounded) {
 			VectorReal transformed = Transform(current_position);
-			GetNewSampleImpl(transformed, new_position, log_mh_ratio, rng);
+			GetNewSampleImpl(transformed, history_cluster_assignment, new_position, log_mh_ratio, rng);
 			new_position = ReverseTransform(new_position);
 
 			for (ptrdiff_t i = 0; i < num_variables; i++) {
@@ -147,11 +150,16 @@ namespace bcm3 {
 				}
 			}
 		} else {
-			GetNewSampleImpl(current_position, new_position, log_mh_ratio, rng);
+			GetNewSampleImpl(current_position, history_cluster_assignment, new_position, log_mh_ratio, rng);
 			for (ptrdiff_t i = 0; i < num_variables; i++) {
 				new_position(i) = ReflectOnBounds(new_position(i), variable_bounds[i].lower, variable_bounds[i].upper);
 			}
 		}
+	}
+
+	bool Proposal::UsesClustering()
+	{
+		return false;
 	}
 
 	void Proposal::Update(RNG& rng)

@@ -8,4 +8,8 @@ namespace bcm3 {
 		this->num_variables = num_variables;
 	}
 
+	bool BlockingStrategy::UsesClustering()
+	{
+		return false;
+	}
 }

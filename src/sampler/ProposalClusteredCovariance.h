@@ -6,12 +6,13 @@ namespace bcm3 {
 
 	class GMM;
 
-	class ProposalParametricMixture : public Proposal
+	class ProposalClusteredCovariance : public Proposal
 	{
 	public:
-		ProposalParametricMixture();
-		virtual ~ProposalParametricMixture();
+		ProposalClusteredCovariance();
+		virtual ~ProposalClusteredCovariance();
 
+		virtual bool UsesClustering();
 		virtual void Update(RNG& rng);
 		virtual void NotifyAccepted(bool accepted);
 		virtual void LogInfo() const;
@@ -25,7 +26,7 @@ namespace bcm3 {
 		Real t_dof;
 
 		// Runtime variables
-		std::shared_ptr<GMM> gmm;
+		std::shared_ptr<GMM> gmm; // We're not actually using a full Gaussian mixture; we're just using the class as a convenient way to store multiple Gaussians
 		VectorReal scales;
 		VectorReal acceptance_rate_emas;
 		ptrdiff_t selected_component;

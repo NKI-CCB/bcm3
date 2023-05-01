@@ -2,17 +2,18 @@
 
 #include "BlockingStrategy.h"
 #include "Proposal.h"
-#include "SampleHistory.h"
-#include <boost/dynamic_bitset.hpp>
 
 namespace bcm3 {
 
 	class SamplerPT;
+	class SampleHistory;
+	class SampleHistoryClustering;
 
 	class SamplerPTChain
 	{
 	public:
 		SamplerPTChain(SamplerPT* sampler);
+		~SamplerPTChain();
 
 		bool Initialize(size_t history_size, size_t history_subsampling);
 
@@ -51,11 +52,13 @@ namespace bcm3 {
 		// Run-time variables
 		std::unique_ptr<BlockingStrategy> blocking_strategy;
 		std::unique_ptr<SampleHistory> sample_history;
+		std::shared_ptr<SampleHistoryClustering> sample_history_clustering;
 		VectorReal current_var_values;
 		Real lprior;
 		Real llh;
 		Real lpowerposterior;
 		int adaptation_iteration;
+		ptrdiff_t current_cluster_assignment;
 
 		size_t attempted_mutate;
 		size_t attempted_exchange;
