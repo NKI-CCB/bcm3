@@ -186,6 +186,8 @@ namespace bcm3 {
 
 		NaiveKMeans(Y, num_clusters, 10, 100, spectral_kmeans_centroids, cluster_assignment, rng);
 
+		// TODO - ensure minimum number of samples in a cluster?
+
 #if 0
 		if (output_update_info) {
 			std::vector<int> assignment_int(assignment.size());

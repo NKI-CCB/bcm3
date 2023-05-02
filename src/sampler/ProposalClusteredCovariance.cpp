@@ -5,6 +5,7 @@
 #include "ProposalClusteredCovariance.h"
 #include "SampleHistoryClustering.h"
 #include "SummaryStats.h"
+#include "checks.h"
 
 namespace bcm3 {
 
@@ -198,6 +199,11 @@ namespace bcm3 {
 
 				means[ci] = colMean(cluster_samples);
 				covs[ci] = cov(cluster_samples);
+				covs[ci].diagonal().array() += 1e-8;
+
+				if (!is_positive_semi_definite(covs[ci])) {
+					LOGWARNING("  Cluster %zd with %zu samples - covariance matrix is not semi positive definite!", ci, sample_ix.size());
+				}
 			}
 
 			VectorReal weights;

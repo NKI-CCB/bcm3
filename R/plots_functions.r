@@ -393,7 +393,12 @@ plot_variable_distribution_impl <- function(samples, weights, varattrs, xlab="",
       bw <- h.select(samples, weights=weights, method="cv", nbins=0)
     }
   } else {
-    bw <- h.select(samples, method="cv", nbins=NA)
+    if (length(samples) > 500) {
+      use_samples_for_bw <- sort(sample(1:length(samples),500))
+      bw <- h.select(samples[use_samples_for_bw], method="cv", nbins=0)
+    } else {
+      bw <- h.select(samples, method="cv", nbins=0)
+    }
   }
   
   # If necessary, reflect samples around bounds and add the reflection to the sample, to get a more reasonable KDE near the bounds
