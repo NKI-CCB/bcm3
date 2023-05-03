@@ -38,6 +38,8 @@ namespace bcm3 {
 		MatrixReal spectral_decomposition;
 		MatrixReal spectral_kmeans_centroids;
 		std::vector<ptrdiff_t> cluster_assignment;
+
+		std::vector<ptrdiff_t> all_sample_cluster_assignment;
 	};
 
 }

@@ -109,23 +109,33 @@ load.netcdf.bundler.data <- function(netcdf_bundler_filename) {
   file <- H5File$new(netcdf_bundler_filename, 'r')
   res <- list()
   for (i in 1:length(names(file))) {
-    group <- names(file)[i]
-    res[[group]] <- list()
+    groupname <- names(file)[i]
+    res[[groupname]] <- load.netcdf.bundler.group(file[[groupname]])
+  }
+  file$close_all()
+  return(res)
+}
+
+load.netcdf.bundler.group <- function(group) {
+  result <- list()
+  for (j in 1:length(names(group))) {
+    elementname <- names(group)[j]
     
-    for (j in 1:length(names(file[[group]]))) {
-      varname <- names(file[[group]])[j]
+    if (class(group[[elementname]])[1] == "H5Group") {
+      result[[elementname]] <- load.netcdf.bundler.group(group[[elementname]])
+    } else {
+      varname <- elementname
       if (substr(varname, nchar(varname)-3,nchar(varname)) != "dim1" &&
           substr(varname, nchar(varname)-3,nchar(varname)) != "dim2") {
-        if (length(file[[group]][[varname]]$dims) == 1) {
-          res[[group]][[varname]] <- file[[group]][[varname]][]
-        } else if (length(file[[group]][[varname]]$dims) == 2) {
-          res[[group]][[varname]] <- file[[group]][[varname]][,]
+        if (length(group[[varname]]$dims) == 1) {
+          result[[varname]] <- group[[varname]][]
+        } else if (length(group[[varname]]$dims) == 2) {
+          result[[varname]] <- group[[varname]][,]
         } else {
           stop()
         }
       }
     }
   }
-  file$close_all()
-  return(res)
+  return(result)
 }

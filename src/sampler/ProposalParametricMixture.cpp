@@ -148,7 +148,7 @@ namespace bcm3 {
 		}
 	}
 
-	void ProposalParametricMixture::WriteToFile(const std::string& fn, std::string adaptation_group)
+	void ProposalParametricMixture::WriteToFile(const std::string& fn, std::string adaptation_group, std::vector<ptrdiff_t>& variable_indices)
 	{
 		NetCDFBundler update_info_output;
 		if (update_info_output.Open(fn)) {

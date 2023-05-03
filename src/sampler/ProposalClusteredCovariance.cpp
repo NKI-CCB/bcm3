@@ -133,11 +133,12 @@ namespace bcm3 {
 		}
 	}
 
-	void ProposalClusteredCovariance::WriteToFile(const std::string& fn, std::string adaptation_group)
+	void ProposalClusteredCovariance::WriteToFile(const std::string& fn, std::string adaptation_group, std::vector<ptrdiff_t>& variable_indices)
 	{
 		NetCDFBundler update_info_output;
 		if (update_info_output.Open(fn)) {
 			update_info_output.AddGroup(adaptation_group);
+			update_info_output.AddVector(adaptation_group, "variable_indices", variable_indices);
 			for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
 				update_info_output.AddVector(adaptation_group, "cluster" + std::to_string(i) + std::string("_mean"), gmm->GetMean(i));
 				update_info_output.AddMatrix(adaptation_group, "cluster" + std::to_string(i) + std::string("_covariance"), gmm->GetCovariance(i));
@@ -201,8 +202,12 @@ namespace bcm3 {
 				covs[ci] = cov(cluster_samples);
 				covs[ci].diagonal().array() += 1e-8;
 
+				if (log_info) {
+					LOG("  Cluster %zd based on %zu samples", ci, sample_ix.size());
+				}
+
 				if (!is_positive_semi_definite(covs[ci])) {
-					LOGWARNING("  Cluster %zd with %zu samples - covariance matrix is not semi positive definite!", ci, sample_ix.size());
+					LOGWARNING("  Cluster %zd - covariance matrix is not semi positive definite!", ci);
 				}
 			}
 

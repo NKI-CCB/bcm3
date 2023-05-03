@@ -19,7 +19,7 @@ namespace bcm3 {
 		virtual void Update(RNG& rng);
 		virtual void NotifyAccepted(bool accepted);
 		virtual void LogInfo() const;
-		virtual void WriteToFile(const std::string& fn, std::string adaptation_group);
+		virtual void WriteToFile(const std::string& fn, std::string adaptation_group, std::vector<ptrdiff_t>& variable_indices);
 
 	protected:
 		virtual bool InitializeImpl(const MatrixReal& history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info);

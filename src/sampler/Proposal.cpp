@@ -198,7 +198,7 @@ namespace bcm3 {
 	{
 	}
 
-	void Proposal::WriteToFile(const std::string& fn, std::string adaptation_group)
+	void Proposal::WriteToFile(const std::string& fn, std::string adaptation_group, std::vector<ptrdiff_t>& variable_indices)
 	{
 	}
 

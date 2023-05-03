@@ -136,9 +136,31 @@ void NetCDFDataFile::Close()
 
 bool NetCDFDataFile::CreateGroup(const std::string& group_name)
 {
-	int grpid;
-	NC_HANDLE_ERROR(nc_def_grp(fd, group_name.c_str(), &grpid), "Error creating group \"%s\"; status: %d", group_name.c_str())
-	return true;
+	size_t slash = group_name.find('/');
+	if (slash != std::string::npos && slash < group_name.size() + 1) {
+		std::string subgroup = group_name.substr(0, slash);
+		std::string rest = group_name.substr(slash + 1);
+
+		int grpid, grpid2;
+		int result = nc_inq_ncid(fd, subgroup.c_str(), &grpid);
+		if (result == NC_NOERR) {
+			int result = nc_inq_ncid(grpid, rest.c_str(), &grpid2);
+			if (result == NC_NOERR) {
+				return true;
+			} else {
+				NC_HANDLE_ERROR(nc_def_grp(grpid, rest.c_str(), &grpid2), "Error creating group \"%s\"; status: %d", group_name.c_str())
+				return true;
+			}
+		} else {
+			NC_HANDLE_ERROR(nc_def_grp(fd, subgroup.c_str(), &grpid), "Error creating group \"%s\"; status: %d", group_name.c_str())
+			NC_HANDLE_ERROR(nc_def_grp(grpid, rest.c_str(), &grpid2), "Error creating group \"%s\"; status: %d", group_name.c_str())
+			return true;
+		}
+	} else {
+		int grpid;
+		NC_HANDLE_ERROR(nc_def_grp(fd, group_name.c_str(), &grpid), "Error creating group \"%s\"; status: %d", group_name.c_str())
+		return true;
+	}
 }
 
 bool NetCDFDataFile::CreateDimension(const std::string& group_name, const std::string& dimname, const std::vector<unsigned int>& dimvalues)
@@ -681,16 +703,19 @@ bool NetCDFDataFile::GetDimensionIx(const std::string& group_name, const std::st
 
 int NetCDFDataFile::GetGroup(const std::string& group_name) const
 {
-#if 0
-	// Is it necessary to traverse the hierarchy manually?
+#if 1
 	std::vector<std::string> hierarchy;
 	bcm3::tokenize(group_name, hierarchy, "/");
 
 	int group = fd;
 	for (size_t i = 0; i < hierarchy.size(); i++) {
-		nc_get_grp
-		group = 
-			group.getGroup(hierarchy[i]);
+		int nextgroup;
+		int result = nc_inq_ncid(group, hierarchy[i].c_str(), &nextgroup);
+		if (result == NC_NOERR) {
+			group = nextgroup;
+		} else {
+			LOGERROR("Error retrieving group \"%s\"; status: %d", group_name.c_str(), result);
+		}
 	}
 #else
 	int group = -1;

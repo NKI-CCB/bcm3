@@ -186,6 +186,16 @@ namespace bcm3 {
 
 		NaiveKMeans(Y, num_clusters, 10, 100, spectral_kmeans_centroids, cluster_assignment, rng);
 
+		// Also assign all the samples that were not used for clustering to a cluster
+		all_sample_cluster_assignment.resize(sample_history->GetSampleCount());
+		for (ptrdiff_t i = 0; i < sample_history->GetSampleCount(); i++) {
+			std::vector<ptrdiff_t>::iterator iter = std::find(used_sample_ix.begin(), used_sample_ix.end(), i);
+			if (iter == used_sample_ix.end()) {
+				all_sample_cluster_assignment[i] = GetSampleCluster(sample_history->GetHistorySample(i).cast<Real>());
+			} else {
+				all_sample_cluster_assignment[i] = cluster_assignment [*iter];
+			}
+		}
 		// TODO - ensure minimum number of samples in a cluster?
 
 #if 0
