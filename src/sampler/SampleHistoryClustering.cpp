@@ -193,7 +193,7 @@ namespace bcm3 {
 			if (iter == used_sample_ix.end()) {
 				all_sample_cluster_assignment[i] = GetSampleCluster(sample_history->GetHistorySample(i).cast<Real>());
 			} else {
-				all_sample_cluster_assignment[i] = cluster_assignment [*iter];
+				all_sample_cluster_assignment[i] = cluster_assignment[iter - used_sample_ix.begin()];
 			}
 		}
 		// TODO - ensure minimum number of samples in a cluster?
@@ -287,4 +287,14 @@ namespace bcm3 {
 		return samples;
 	}
 
+	std::vector<ptrdiff_t> SampleHistoryClustering::GetAllSamplesAssignedToCluster(ptrdiff_t cluster_ix) const
+	{
+		std::vector<ptrdiff_t> samples;
+		for (ptrdiff_t i = 0; i < all_sample_cluster_assignment.size(); i++) {
+			if (all_sample_cluster_assignment[i] == cluster_ix) {
+				samples.push_back(i);
+			}
+		}
+		return samples;
+	}
 }

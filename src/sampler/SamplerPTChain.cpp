@@ -115,7 +115,7 @@ namespace bcm3 {
 		}
 
 		// First cluster the history if the blocking strategy or proposal wants it
-		if (sample_history_clustering && adaptation_iteration > 1) {
+		if (sample_history_clustering && adaptation_iteration > 0) {
 			size_t discard_first_samples = 0;
 			if (adaptation_iteration == 1) {
 				discard_first_samples = 100;

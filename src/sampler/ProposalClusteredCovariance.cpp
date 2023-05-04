@@ -202,7 +202,7 @@ namespace bcm3 {
 			std::vector<VectorReal> means(sample_history_clustering->GetNumClusters(), VectorReal::Zero(num_variables));
 			std::vector<MatrixReal> covs(sample_history_clustering->GetNumClusters(), MatrixReal::Identity(num_variables, num_variables));
 			for (ptrdiff_t ci = 0; ci < sample_history_clustering->GetNumClusters(); ci++) {
-				std::vector<ptrdiff_t> sample_ix = sample_history_clustering->GetSamplesFromCluster(ci);
+				std::vector<ptrdiff_t> sample_ix = sample_history_clustering->GetAllSamplesAssignedToCluster(ci);
 				MatrixReal cluster_samples = history(sample_ix, Eigen::all);
 
 				means[ci] = colMean(cluster_samples);
@@ -210,7 +210,7 @@ namespace bcm3 {
 				covs[ci].diagonal().array() += 1e-8;
 
 				if (log_info) {
-					LOG("  Cluster %zd based on %zu samples", ci, sample_ix.size());
+					LOG("  Cluster %zd based on %zu samples; using %zu samples for covariance estimation", ci, sample_history_clustering->GetSamplesFromCluster(ci).size(), sample_ix.size());
 				}
 
 				if (!is_positive_semi_definite(covs[ci])) {

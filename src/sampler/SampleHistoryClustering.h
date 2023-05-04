@@ -16,6 +16,7 @@ namespace bcm3 {
 
 		ptrdiff_t GetSampleCluster(const VectorReal& sample) const;
 		std::vector<ptrdiff_t> GetSamplesFromCluster(ptrdiff_t cluster_ix) const;
+		std::vector<ptrdiff_t> GetAllSamplesAssignedToCluster(ptrdiff_t cluster_ix) const;
 		inline size_t GetNumClusters() const { return num_clusters; }
 		inline size_t GetNumClusteredSamples() const { return used_sample_ix.size(); }
 		inline ptrdiff_t GetHistorySampleIx(ptrdiff_t i) const { return used_sample_ix[i]; }
