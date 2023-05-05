@@ -169,16 +169,12 @@ void sort(VectorReal& x, VectorReal& aux1, VectorReal& aux2)
 	}
 }
 
-std::vector<ptrdiff_t> rank(const VectorReal& x)
+std::vector<ptrdiff_t> order(const VectorReal& x)
 {
-	std::vector<ptrdiff_t> result(x.size());
-	std::vector<ptrdiff_t> ix(x.size());
-	std::iota(ix.begin(), ix.end(), 0);
-	std::sort(ix.begin(), ix.end(), [&x](ptrdiff_t i1, ptrdiff_t i2) {return x(i1) < x(i2); });
-	for (ptrdiff_t i = 0; i < x.size(); ++i) {
-		result[ix[i]] = i+1;
-	}
-	return result;
+	std::vector<ptrdiff_t> order(x.size());
+	std::iota(order.begin(), order.end(), 0);
+	std::sort(order.begin(), order.end(), [&x](ptrdiff_t i1, ptrdiff_t i2) {return x(i1) < x(i2); });
+	return order;
 }
 
 ptrdiff_t minindex(const VectorReal& x)

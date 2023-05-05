@@ -1,5 +1,6 @@
 #include "Utils.h"
 #include "Clustering.h"
+#include "NetCDFBundler.h"
 #include "RNG.h"
 #include "SampleHistory.h"
 #include "SampleHistoryClustering.h"
@@ -35,9 +36,9 @@ namespace bcm3 {
 #if 0
 		NetCDFBundler update_info_output;
 		bool output_update_info = false;
-		std::string output_update_info_group = std::string("info") + std::to_string(adaptation_iter);
-		if (sampler->output_proposal_adaptation && temperature == sampler->current_temperatures.tail(1)(0)) {
-			if (update_info_output.Open(sampler->output_path + "sampler_adaptation.nc")) {
+		std::string output_update_info_group = "history";
+		if (log_info) {
+			if (update_info_output.Open("sample_history_clustering.nc")) {
 				update_info_output.AddGroup(output_update_info_group);
 				output_update_info = true;
 			}
@@ -107,8 +108,8 @@ namespace bcm3 {
 
 #if 0
 		if (output_update_info) {
-			update_info_output.AddMatrix(output_update_info_group, "clustering_input_samples", clustered_blocking_scaled_samples);
-			update_info_output.AddVector(output_update_info_group, "clustering_input_sample_scaling", clustered_blocking_variable_scaling);
+			update_info_output.AddMatrix(output_update_info_group, "clustering_input_samples", scaled_samples);
+			update_info_output.AddVector(output_update_info_group, "clustering_input_sample_scaling", variable_scaling);
 		}
 #endif
 
@@ -123,20 +124,21 @@ namespace bcm3 {
 				VectorReal v = scaled_samples.row(si) - scaled_samples.row(sj);
 				dists(sj) = v.dot(v);
 				K(si, sj) = dists(sj);
+				ASSERT(K(si, sj) != 0.0 || si == sj);
 			}
 
-			std::vector<ptrdiff_t> ranks = rank(dists);
-			auto it = std::find(ranks.begin(), ranks.end(), density_aware_kernel_nn + 1);
-			ASSERT(it != ranks.end());
+			std::vector<ptrdiff_t> ordering = order(dists);
 
-			density_aware_kernel_sample_scale(si) = sqrt(dists(it - ranks.begin()));
+			int ix = ordering[density_aware_kernel_nn];
+			density_aware_kernel_sample_scale(si) = sqrt(dists(ix));
+			ASSERT(density_aware_kernel_sample_scale(si) != 0.0);
+
 			density_aware_kernel_nearest_neighbors[si].resize(density_aware_kernel_nn2);
 			density_aware_kernel_nearest_neighbors_bitset[si].resize(n);
 			for (int i = 1; i < density_aware_kernel_nn2 + 1; i++) {
-				auto it = std::find(ranks.begin(), ranks.end(), i + 1);
-				ASSERT(it != ranks.end());
-				density_aware_kernel_nearest_neighbors[si][i - 1] = it - ranks.begin();
-				density_aware_kernel_nearest_neighbors_bitset[si][it - ranks.begin()] = true;
+				ix = ordering[i];
+				density_aware_kernel_nearest_neighbors[si][i - 1] = ix;
+				density_aware_kernel_nearest_neighbors_bitset[si][ix] = true;
 			}
 		}
 
@@ -144,7 +146,7 @@ namespace bcm3 {
 			for (ptrdiff_t sj = 0; sj < si; sj++) {
 				Real cnns = 0.0;
 				for (ptrdiff_t i = 0; i < density_aware_kernel_nn2; i++) {
-					cnns += (Real)density_aware_kernel_nearest_neighbors_bitset[si][density_aware_kernel_nearest_neighbors_bitset[sj][i]];
+					cnns += (Real)density_aware_kernel_nearest_neighbors_bitset[si][density_aware_kernel_nearest_neighbors[sj][i]];
 				}
 
 				Real val = -K(si, sj) / (density_aware_kernel_sample_scale(si) * density_aware_kernel_sample_scale(sj) * (cnns + 1.0));
@@ -200,12 +202,19 @@ namespace bcm3 {
 
 #if 0
 		if (output_update_info) {
-			std::vector<int> assignment_int(assignment.size());
-			for (ptrdiff_t i = 0; i < assignment.size(); i++) {
-				ASSERT(assignment[i] <= std::numeric_limits<int>::max());
-				assignment_int[i] = (int)assignment[i];
+			std::vector<int> assignment_int(cluster_assignment.size());
+			for (ptrdiff_t i = 0; i < cluster_assignment.size(); i++) {
+				ASSERT(cluster_assignment[i] <= std::numeric_limits<int>::max());
+				assignment_int[i] = (int)cluster_assignment[i];
 			}
 			update_info_output.AddVector(output_update_info_group, "assignment", assignment_int);
+
+			assignment_int.resize(all_sample_cluster_assignment.size());
+			for (ptrdiff_t i = 0; i < all_sample_cluster_assignment.size(); i++) {
+				ASSERT(all_sample_cluster_assignment[i] <= std::numeric_limits<int>::max());
+				assignment_int[i] = (int)all_sample_cluster_assignment[i];
+			}
+			update_info_output.AddVector(output_update_info_group, "all_assignment", assignment_int);
 		}
 #endif
 

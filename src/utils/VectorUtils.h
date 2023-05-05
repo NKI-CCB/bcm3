@@ -5,7 +5,7 @@ namespace bcm3 {
 void sort(VectorReal& x, bool descend = false);
 void sort(VectorReal& x, VectorReal& aux);
 void sort(VectorReal& x, VectorReal& aux1, VectorReal& aux2);
-std::vector<ptrdiff_t> rank(const VectorReal& x);
+std::vector<ptrdiff_t> order(const VectorReal& x);
 ptrdiff_t minindex(const VectorReal& x);
 
 VectorReal cumsum(VectorReal& x);
