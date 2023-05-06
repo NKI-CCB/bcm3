@@ -14,6 +14,7 @@ namespace bcm3 {
 		, density_aware_kernel_nn(nn)
 		, density_aware_kernel_nn2(nn2)
 		, num_clusters(num_clusters)
+		, clustering_iter(0)
 	{
 	}
 
@@ -21,7 +22,7 @@ namespace bcm3 {
 	{
 	}
 
-	bool SampleHistoryClustering::Cluster(const std::unique_ptr<SampleHistory>& sample_history, size_t discard_first_samples, RNG& rng, bool log_info)
+	bool SampleHistoryClustering::Cluster(const std::unique_ptr<SampleHistory>& sample_history, size_t discard_first_samples, RNG& rng, bool log_info, const std::string& output_path)
 	{
 		size_t num_variables = sample_history->samples.rows();
 
@@ -33,12 +34,12 @@ namespace bcm3 {
 			LOG("Sample history clustering - samples in history: %d", n);
 		}
 
-#if 0
+#if 1
 		NetCDFBundler update_info_output;
 		bool output_update_info = false;
-		std::string output_update_info_group = "history";
+		std::string output_update_info_group = std::string("iter") + std::to_string(clustering_iter);
 		if (log_info) {
-			if (update_info_output.Open("sample_history_clustering.nc")) {
+			if (update_info_output.Open(output_path + "sample_history_clustering.nc")) {
 				update_info_output.AddGroup(output_update_info_group);
 				output_update_info = true;
 			}
@@ -106,7 +107,7 @@ namespace bcm3 {
 		}
 		n = scaled_samples.rows();
 
-#if 0
+#if 1
 		if (output_update_info) {
 			update_info_output.AddMatrix(output_update_info_group, "clustering_input_samples", scaled_samples);
 			update_info_output.AddVector(output_update_info_group, "clustering_input_sample_scaling", variable_scaling);
@@ -156,7 +157,7 @@ namespace bcm3 {
 		}
 		K.diagonal().array() = 0.0;
 
-#if 0
+#if 1
 		if (output_update_info) {
 			update_info_output.AddMatrix(output_update_info_group, "K", K);
 		}
@@ -180,7 +181,7 @@ namespace bcm3 {
 		}
 		spectral_decomposition = Y;
 
-#if 0
+#if 1
 		if (output_update_info) {
 			update_info_output.AddMatrix(output_update_info_group, "Y", Y);
 		}
@@ -200,7 +201,7 @@ namespace bcm3 {
 		}
 		// TODO - ensure minimum number of samples in a cluster?
 
-#if 0
+#if 1
 		if (output_update_info) {
 			std::vector<int> assignment_int(cluster_assignment.size());
 			for (ptrdiff_t i = 0; i < cluster_assignment.size(); i++) {
@@ -218,6 +219,7 @@ namespace bcm3 {
 		}
 #endif
 
+		clustering_iter++;
 		return true;
 	}
 	

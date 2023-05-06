@@ -12,7 +12,7 @@ namespace bcm3 {
 		SampleHistoryClustering(size_t max_samples, size_t nn, size_t nn2, size_t num_clusters);
 		~SampleHistoryClustering();
 
-		bool Cluster(const std::unique_ptr<SampleHistory>& sample_history, size_t discard_first_samples, RNG& rng, bool log_info);
+		bool Cluster(const std::unique_ptr<SampleHistory>& sample_history, size_t discard_first_samples, RNG& rng, bool log_info, const std::string& output_path);
 
 		ptrdiff_t GetSampleCluster(const VectorReal& sample) const;
 		std::vector<ptrdiff_t> GetSamplesFromCluster(ptrdiff_t cluster_ix) const;
@@ -39,6 +39,7 @@ namespace bcm3 {
 		MatrixReal spectral_decomposition;
 		MatrixReal spectral_kmeans_centroids;
 		std::vector<ptrdiff_t> cluster_assignment;
+		int clustering_iter;
 
 		std::vector<ptrdiff_t> all_sample_cluster_assignment;
 	};

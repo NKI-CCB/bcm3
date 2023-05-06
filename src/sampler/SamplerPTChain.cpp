@@ -120,7 +120,7 @@ namespace bcm3 {
 			if (adaptation_iteration == 1) {
 				discard_first_samples = 100;
 			}
-			if (!sample_history_clustering->Cluster(sample_history, discard_first_samples, sampler->async[thread].rng, log_info)) {
+			if (!sample_history_clustering->Cluster(sample_history, discard_first_samples, sampler->async[thread].rng, log_info, sampler->output_path)) {
 				return false;
 			}
 		}
