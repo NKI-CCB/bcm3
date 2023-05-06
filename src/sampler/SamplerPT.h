@@ -44,9 +44,12 @@ namespace bcm3 {
 		size_t adapt_proposal_samples;
 		size_t adapt_proposal_times;
 		size_t adapt_proposal_max_history_samples;
+		size_t stop_proposal_scaling;
+		size_t history_clustering_nn;
+		size_t history_clustering_nn2;
+		size_t history_clustering_nclusters;
 		Real proposal_scaling_learning_rate;
 		size_t proposal_scaling_ema_period;
-		size_t stop_proposal_scaling;
 		Real target_acceptance_rate;
 
 		// Run-time variables

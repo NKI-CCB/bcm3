@@ -9,7 +9,7 @@ namespace bcm3 {
 	class SampleHistoryClustering
 	{
 	public:
-		SampleHistoryClustering(size_t max_samples);
+		SampleHistoryClustering(size_t max_samples, size_t nn, size_t nn2, size_t num_clusters);
 		~SampleHistoryClustering();
 
 		bool Cluster(const std::unique_ptr<SampleHistory>& sample_history, size_t discard_first_samples, RNG& rng, bool log_info);

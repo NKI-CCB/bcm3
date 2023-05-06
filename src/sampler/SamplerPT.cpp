@@ -18,9 +18,12 @@ namespace bcm3 {
 		, adapt_proposal_times(2)
 		, max_history_size(5000)
 		, adapt_proposal_max_history_samples(5000)
+		, stop_proposal_scaling(6000)
+		, history_clustering_nn(3)
+		, history_clustering_nn2(7)
+		, history_clustering_nclusters(4)
 		, proposal_scaling_learning_rate(0.05)
 		, proposal_scaling_ema_period(2000)
-		, stop_proposal_scaling(6000)
 		, proposal_adaptations_done(0)
 		, proposal_scaling_adaptations_done(false)
 		, previous_swap_even(false)
@@ -45,6 +48,9 @@ namespace bcm3 {
 			max_history_size = vm["ptmhsampler.max_history_size"].as<size_t>();
 			adapt_proposal_samples = vm["ptmhsampler.adapt_proposal_samples"].as<size_t>();
 			stop_proposal_scaling = vm["ptmhsampler.stop_proposal_scaling"].as<size_t>();
+			history_clustering_nn = vm["ptmhsampler.sample_clustering_kernel_nn"].as<size_t>();
+			history_clustering_nn2 = vm["ptmhsampler.sample_clustering_kernel_nn2"].as<size_t>();
+			history_clustering_nclusters = vm["ptmhsampler.sample_clustering_num_clusters"].as<size_t>();
 			adapt_proposal_times = vm["ptmhsampler.adapt_proposal_times"].as<size_t>();
 			adapt_proposal_max_history_samples = vm["ptmhsampler.adapt_proposal_max_history_samples"].as<size_t>();
 			exchange_probability = vm["ptmhsampler.exchange_probability"].as<Real>();
@@ -144,6 +150,9 @@ namespace bcm3 {
 			("ptmhsampler.max_history_size",					boost::program_options::value<size_t>()->default_value(5000),							"Maximum number of samples to store in the sample history (before thinning).")
 			("ptmhsampler.adapt_proposal_max_history_samples",	boost::program_options::value<size_t>()->default_value(1000),							"Maximum number of samples to use in the GMM fitting/spectral clustering (before thinning).")
 			("ptmhsampler.stop_proposal_scaling",				boost::program_options::value<size_t>()->default_value(6000),							"Stop adaptive scaling of the proposal distribution after this many samples (after thinning).")
+			("ptmhsampler.sample_clustering_kernel_nn",			boost::program_options::value<size_t>()->default_value(3),								"Sample history clustering: nn-value of the density-aware kernel.")
+			("ptmhsampler.sample_clustering_kernel_nn",			boost::program_options::value<size_t>()->default_value(7),								"Sample history clustering: nn2-value of the density-aware kernel.")
+			("ptmhsampler.sample_clustering_num_clusters",		boost::program_options::value<size_t>()->default_value(4),								"Sample history clustering: number of clusters.")
 			("ptmhsampler.swapping_scheme",						boost::program_options::value<std::string>()->default_value("deterministic_even_odd"),	"Swapping scheme, can be either stochastic_random, stochastic_even_odd or deterministic_even_odd.")
 			("ptmhsampler.exchange_probability",				boost::program_options::value<Real>()->default_value(0.5),								"Probability of choosing an exchange move instead of a mutate move (only used if swapping_scheme is stochastic).")
 			("ptmhsampler.num_exploration_steps",				boost::program_options::value<size_t>()->default_value(1),								"Number of exploration steps between swaps (only used if swapping_scheme is deterministic).")

@@ -80,7 +80,7 @@ namespace bcm3 {
 		sample_history->Initialize(sampler->num_variables, history_size, history_subsampling);
 
 		if (blocking_strategy->UsesClustering() && temperature != 0.0) {
-			sample_history_clustering = std::make_shared<SampleHistoryClustering>(sampler->adapt_proposal_max_history_samples);
+			sample_history_clustering = std::make_shared<SampleHistoryClustering>(sampler->adapt_proposal_max_history_samples, sampler->history_clustering_nn, sampler->history_clustering_nn2, sampler->history_clustering_nclusters);
 			current_cluster_assignment = -1;
 		}
 

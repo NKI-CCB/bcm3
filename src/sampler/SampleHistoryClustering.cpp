@@ -9,11 +9,11 @@
 
 namespace bcm3 {
 
-	SampleHistoryClustering::SampleHistoryClustering(size_t max_samples)
+	SampleHistoryClustering::SampleHistoryClustering(size_t max_samples, size_t nn, size_t nn2, size_t num_clusters)
 		: max_samples(max_samples)
-		, density_aware_kernel_nn(3)
-		, density_aware_kernel_nn2(7)
-		, num_clusters(4)
+		, density_aware_kernel_nn(nn)
+		, density_aware_kernel_nn2(nn2)
+		, num_clusters(num_clusters)
 	{
 	}
 
