@@ -2,7 +2,7 @@
 #include "LikelihoodODE.h"
 #include "interface.h"
 
-std::shared_ptr<LikelihoodODE> GetCellPopulationLikelihood(bcm3info* info, int* retval)
+std::shared_ptr<LikelihoodODE> GetODELikelihood(bcm3info* info, int* retval)
 {
 	if (!info) {
 		return std::shared_ptr<LikelihoodODE>();
@@ -41,7 +41,7 @@ extern "C" {
 	void bcm3_rbridge_ODE_get_log_likelihood(char** bcm3info_ptr, double* param_values, double* logl, int* retval)
 	{
 		bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-		std::shared_ptr<LikelihoodODE> ll = GetCellPopulationLikelihood(info, retval);
+		std::shared_ptr<LikelihoodODE> ll = GetODELikelihood(info, retval);
 		if (!info || !ll) {
 			return;
 		}
@@ -56,7 +56,7 @@ extern "C" {
 	void bcm3_rbridge_ODE_get_simulated_trajectories(char** bcm3info_ptr, double* param_values, double* out_values, int* retval)
 	{
 		bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-		std::shared_ptr<LikelihoodODE> ll = GetCellPopulationLikelihood(info, retval);
+		std::shared_ptr<LikelihoodODE> ll = GetODELikelihood(info, retval);
 		if (!info || !ll) {
 			return;
 		}
