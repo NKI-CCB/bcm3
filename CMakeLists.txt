@@ -18,6 +18,7 @@ include("external_dependency_locations.txt")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_CXX_STANDARD 14)
 
 # Optimization settings
 if(CMAKE_HOST_WIN32)

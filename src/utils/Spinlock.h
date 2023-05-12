@@ -17,7 +17,7 @@ struct spinlock {
 			// Wait for lock to be released without generating cache misses
 			while (lock_.load(std::memory_order_relaxed)) {
 				// Issue X86 PAUSE or ARM YIELD instruction to reduce contention between hyper-threads
-#if defined(__arm__)
+#if defined(__arm__) || defined(__aarch64__)
 				__asm__ __volatile__("yield");
 #else
 #if PLATFORM_LINUX
