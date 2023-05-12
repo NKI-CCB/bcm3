@@ -6,6 +6,7 @@ target_sources(bcmrbridge
     interface.cpp
     interface_cellpop.cpp
     interface_fISA.cpp
+    interface_ODE.cpp
     interface_popPK.cpp
     definitions.def
 )

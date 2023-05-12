@@ -4,6 +4,8 @@ target_sources(likelihoods
   PRIVATE
     LikelihoodFactory.h
     LikelihoodFactory.cpp
+    LikelihoodODE.h
+    LikelihoodODE.cpp
     LikelihoodPharmacokineticTrajectory.h
     LikelihoodPharmacokineticTrajectory.cpp
     LikelihoodPopPKTrajectory.h

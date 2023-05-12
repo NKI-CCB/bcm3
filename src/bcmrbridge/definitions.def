@@ -1,6 +1,8 @@
 EXPORTS
 	bcm3_rbridge_init
 	bcm3_rbridge_cleanup
+	bcm3_rbridge_ODE_get_log_likelihood
+	bcm3_rbridge_ODE_get_simulated_trajectories
 	bcm3_rbridge_cellpop_get_log_likelihood
 	bcm3_rbridge_cellpop_get_num_species
 	bcm3_rbridge_cellpop_get_species_name
