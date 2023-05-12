@@ -8,23 +8,17 @@
 
 static const size_t MAX_CVODE_STEPS = 10000;
 
-static void static_cvode_err_fn(int error_code, const char *module, const char *function, char *msg, void *user_data)
+void static_cvode_err_fn(int error_code, const char *module, const char *function, char *msg, void *user_data)
 {
 #if 0
 	LOGERROR("CVODE error %d in module %s, function %s: %s", error_code, module, function, msg);
 #endif
 }
 
-static int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data)
+int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data)
 {
 	ODESolverCVODE* solver = reinterpret_cast<ODESolverCVODE*>(user_data);
 	return solver->cvode_rhs_fn(t, NV_DATA_S(y), NV_DATA_S(ydot));
-}
-
-static int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3)
-{
-	ODESolverCVODE* solver = reinterpret_cast<ODESolverCVODE*>(user_data);
-	return solver->cvode_jac_fn(t, y, fy, Jac);
 }
 
 ODESolverCVODE::ODESolverCVODE()
