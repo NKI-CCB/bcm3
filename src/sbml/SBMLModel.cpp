@@ -1,5 +1,4 @@
 #include "Utils.h"
-#include "CVODESolver.h"
 #include "SBMLAssignmentRule.h"
 #include "SBMLModel.h"
 #include "SBMLModelParameters.h"
@@ -309,14 +308,14 @@ bool SBMLModel::Initialize()
 
 	// Initialize CVODE solvers
 	for (size_t i = 0; i < Solvers.size(); i++) {
-		CVODESolver::TDeriviativeFunction derivative = boost::bind(&SBMLModel::CalculateDerivative, this, _1, _2, _3, _4);
+		ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&SBMLModel::CalculateDerivative, this, _1, _2, _3, _4);
 
-		Solvers[i].solver = std::make_unique<CVODESolver>();
+		Solvers[i].solver = std::make_unique<ODESolverCVODE>();
 		//Solvers[i].linear_solver = new LinearSolverMKL(this);
 		//Solvers[i].solver->SetLinearSolver(Solvers[i].linear_solver);
 		Solvers[i].solver->SetDerivativeFunction(derivative);
 #if USE_CODE
-		CVODESolver::TJacobianFunction jacobian = boost::bind(&SBMLModel::CalculateJacobian, this, _1, _2, _3, _4, _5);
+		ODESolverCVODE::TJacobianFunction jacobian = boost::bind(&SBMLModel::CalculateJacobian, this, _1, _2, _3, _4, _5);
 		Solvers[i].solver->SetJacobianFunction(jacobian);
 #endif
 		if (!Solvers[i].solver->Initialize(CVodeSpecies.size(), Solvers[i].solver.get())) {
@@ -326,7 +325,6 @@ bool SBMLModel::Initialize()
 		Solvers[i].transformed_variables = VectorReal::Zero(variables->GetNumVariables());
 		Solvers[i].transformed_variables_use_in_ode = OdeVectorReal::Zero(variables->GetNumVariables());
 		
-#if 1
 		VectorReal tolerance = VectorReal::Zero(CVodeSpecies.size());
 		for (size_t si = 0; si < CVodeSpecies.size(); si++) {
 			const SBMLSpecies* species = GetSpecies(CVodeSpecies[si]);
@@ -337,9 +335,6 @@ bool SBMLModel::Initialize()
 			}
 		}
 		Solvers[i].solver->SetTolerance(1e-5, tolerance);
-#else
-		Solvers[i].solver->SetTolerance(1e-5, 1e-5);
-#endif
 	}
 
 	return true;

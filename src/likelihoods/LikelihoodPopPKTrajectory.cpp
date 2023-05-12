@@ -153,26 +153,26 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 
 	// Allocate structures for parallel evaluation
 	for (size_t threadix = 0; threadix < sampling_threads; threadix++) {
-		//solvers[threadix] = std::make_unique<CVODESolver>();
+		//solvers[threadix] = std::make_unique<ODESolverCVODE>();
 		solvers[threadix] = std::make_unique<ODESolverDP5>();
 		if (pk_type == PKMT_OneCompartment) {
-			CVODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartment, this, _1, _2, _3, _4);
+			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartment, this, _1, _2, _3, _4);
 			solvers[threadix]->SetDerivativeFunction(derivative);
 			solvers[threadix]->Initialize(2, NULL);
 		} else if (pk_type == PKMT_TwoCompartment) {
-			CVODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4);
+			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4);
 			solvers[threadix]->SetDerivativeFunction(derivative);
 			solvers[threadix]->Initialize(3, NULL);
 		} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-			CVODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentBiphasic, this, _1, _2, _3, _4);
+			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentBiphasic, this, _1, _2, _3, _4);
 			solvers[threadix]->SetDerivativeFunction(derivative);
 			solvers[threadix]->Initialize(3, NULL);
 		} else if (pk_type == PKMT_OneCompartmentTransit) {
-			CVODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4);
+			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4);
 			solvers[threadix]->SetDerivativeFunction(derivative);
 			solvers[threadix]->Initialize(3, NULL);
 		} else if (pk_type == PKMT_TwoCompartmentTransit) {
-			CVODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4);
+			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4);
 			solvers[threadix]->SetDerivativeFunction(derivative);
 			solvers[threadix]->Initialize(5, NULL);
 		} else {

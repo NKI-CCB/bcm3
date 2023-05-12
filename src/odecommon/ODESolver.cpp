@@ -3,6 +3,7 @@
 
 ODESolver::ODESolver()
 	: user_data(nullptr)
+	, N(0)
 	, discontinuity_time(std::numeric_limits<Real>::quiet_NaN())
 	, discontinuity_user(nullptr)
 {
@@ -24,11 +25,19 @@ bool ODESolver::Initialize(size_t N, void* user)
 	return true;
 }
 
-bool ODESolver::SetTolerance(OdeReal relative, OdeReal absolute)
+void ODESolver::SetTolerance(OdeReal relative, OdeReal absolute)
 {
+	ASSERT(N != 0);
+	abstol.setConstant(N, absolute);
+	reltol = relative;
+}
+
+void ODESolver::SetTolerance(OdeReal relative, OdeVectorReal absolute)
+{
+	ASSERT(N != 0);
+	ASSERT(absolute.size() == N);
 	abstol = absolute;
 	reltol = relative;
-	return true;
 }
 
 void ODESolver::SetUserData(void* user)

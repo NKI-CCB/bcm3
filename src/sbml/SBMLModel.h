@@ -1,6 +1,6 @@
 #pragma once
 
-class CVODESolver;
+class ODESolverCVODE;
 class ExperimentalCondition;
 class SBMLAssignmentRule;
 class SBMLReaction;
@@ -8,7 +8,7 @@ class SBMLSpecies;
 
 #include <sbml/SBMLTypes.h>
 #include "VariableSet.h"
-#include "CVODESolver.h"
+#include "ODESolverCVODE.h"
 #include "SBMLModelParameters.h"
 
 class SBMLModel
@@ -79,7 +79,7 @@ private:
 
 	struct ParallelSolver {
 		ParallelSolver() : variables(NULL) {}
-		std::unique_ptr<CVODESolver> solver;
+		std::unique_ptr<ODESolverCVODE> solver;
 		std::unique_ptr<SBMLModelParameters> parameters;
 		std::vector<OdeReal> y;
 		std::vector<OdeReal> constant_species_y;

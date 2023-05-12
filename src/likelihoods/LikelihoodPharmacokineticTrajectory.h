@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CVODESolver.h"
+#include "ODESolverCVODE.h"
 #include "Likelihood.h"
 #include "RNG.h"
 #include "VariableSet.h"
@@ -68,6 +68,6 @@ private:
 	PKModelType pk_type;
 
 	// Runtime variables
-	std::vector< CVODESolver > solvers;
+	std::vector< ODESolverCVODE > solvers;
 	std::vector< ParallelData > parallel_data;
 };

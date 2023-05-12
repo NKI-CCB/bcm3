@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CVODESolver.h"
+#include "ODESolverCVODE.h"
 #include "ODESolver.h"
 #include "Likelihood.h"
 #include "RNG.h"
@@ -88,7 +88,7 @@ private:
 	size_t num_pk_pop_params;
 
 	// Runtime variables
-	//std::vector< std::unique_ptr<CVODESolver> > solvers;
+	//std::vector< std::unique_ptr<ODESolverCVODE> > solvers;
 	std::vector< std::unique_ptr<ODESolver> > solvers;
 	std::vector<ParallelData> parallel_data;
 

@@ -6,14 +6,15 @@ class ODESolver
 {
 public:
 	typedef std::function<bool(OdeReal, const OdeReal*, OdeReal*, void*)> TDeriviativeFunction;
-	typedef std::function<bool(OdeReal, const OdeReal*, const OdeReal*, OdeReal**, void*)> TJacobianFunction;
+	typedef std::function<bool(OdeReal, const OdeReal*, const OdeReal*, OdeMatrixReal&, void*)> TJacobianFunction;
 	typedef std::function<Real(OdeReal, void*)> TDiscontinuityCallback;
 
 	ODESolver();
 	virtual ~ODESolver();
 
 	virtual bool Initialize(size_t N, void* user);
-	bool SetTolerance(OdeReal relative, OdeReal absolute);
+	void SetTolerance(OdeReal relative, OdeReal absolute);			// SetTolerance should be called after Initialize
+	void SetTolerance(OdeReal relative, OdeVectorReal absolute);	// SetTolerance should be called after Initialize
 	void SetUserData(void* user);
 	void SetDiscontinuity(OdeReal time, TDiscontinuityCallback cb, void* user);
 	void ResetDiscontinuity();
@@ -28,12 +29,14 @@ public:
 protected:
 	size_t N;
 	void* user_data;
+
 	OdeReal discontinuity_time;
 	TDiscontinuityCallback discontinuity_cb;
 	void* discontinuity_user;
+
 	TDeriviativeFunction derivative;
 	TJacobianFunction jacobian;
 
-	OdeReal abstol;
 	OdeReal reltol;
+	OdeVectorReal abstol;
 };

@@ -2,8 +2,6 @@ add_library(odecommon)
 
 target_sources(odecommon
   PRIVATE
-    CVODESolver.h
-    CVODESolver.cpp
     CVODESolverDelay.h
     CVODESolverDelay.cpp
     LinearAlgebraSelector.h
@@ -12,6 +10,8 @@ target_sources(odecommon
     nvector_serial_eigen.cpp
     ODESolver.h
     ODESolver.cpp
+    ODESolverCVODE.h
+    ODESolverCVODE.cpp
     ODESolverDP5.h
     ODESolverDP5.cpp
     sunlinsol_dense_eigen.h

@@ -112,23 +112,23 @@ bool LikelihoodPharmacokineticTrajectory::Initialize(std::shared_ptr<const bcm3:
 	// Allocate structures for parallel evaluation
 	for (size_t threadix = 0; threadix < sampling_threads; threadix++) {
 		if (pk_type == PKMT_OneCompartment) {
-			CVODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartment, this, _1, _2, _3, _4);
+			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartment, this, _1, _2, _3, _4);
 			solvers[threadix].SetDerivativeFunction(derivative);
 			solvers[threadix].Initialize(2, NULL);
 		} else if (pk_type == PKMT_TwoCompartment) {
-			CVODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4);
+			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4);
 			solvers[threadix].SetDerivativeFunction(derivative);
 			solvers[threadix].Initialize(3, NULL);
 		} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-			CVODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentBiphasic, this, _1, _2, _3, _4);
+			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentBiphasic, this, _1, _2, _3, _4);
 			solvers[threadix].SetDerivativeFunction(derivative);
 			solvers[threadix].Initialize(3, NULL);
 		} else if (pk_type == PKMT_OneCompartmentTransit) {
-			CVODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4);
+			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4);
 			solvers[threadix].SetDerivativeFunction(derivative);
 			solvers[threadix].Initialize(3, NULL);
 		} else if (pk_type == PKMT_TwoCompartmentTransit) {
-			CVODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4);
+			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4);
 			solvers[threadix].SetDerivativeFunction(derivative);
 			solvers[threadix].Initialize(5, NULL);
 		} else {

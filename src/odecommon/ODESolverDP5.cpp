@@ -384,8 +384,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 			- (OdeReal)0.025							  * k[6][i]);
 		error = fabs(error);
 		
-		//OdeReal D = abstol[i] + reltol * (ytmp[i] + k[6][i] * cur_dt);
-		OdeReal D = abstol + reltol * fabs(ytmp[i] + k[6][i] * cur_dt);
+		OdeReal D = abstol(i) + reltol * fabs(ytmp[i] + k[6][i] * cur_dt);
 		OdeReal diff = error / D;
 		maxdiff = (std::max)(maxdiff, diff);
 	}
