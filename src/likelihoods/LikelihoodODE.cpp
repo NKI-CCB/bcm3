@@ -24,7 +24,7 @@ bool LikelihoodODE::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, 
 
     solver = std::make_shared<ODESolverCVODE>();
 
-	ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodODE::CalculateDerivative, this, _1, _2, _3, _4);
+	ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodODE::CalculateDerivative, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4);
 	solver->SetDerivativeFunction(derivative);
 	solver->Initialize(num_dynamic_variables, NULL);
 	solver->SetTolerance(1e-8, 1e-8);
