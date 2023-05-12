@@ -5,8 +5,6 @@
 #include "SBMLReaction.h"
 #include "SBMLSpecies.h"
 
-using namespace boost::placeholders;
-
 #define USE_CODE 0
 
 #if USE_CODE
@@ -308,14 +306,14 @@ bool SBMLModel::Initialize()
 
 	// Initialize CVODE solvers
 	for (size_t i = 0; i < Solvers.size(); i++) {
-		ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&SBMLModel::CalculateDerivative, this, _1, _2, _3, _4);
+		ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&SBMLModel::CalculateDerivative, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4);
 
 		Solvers[i].solver = std::make_unique<ODESolverCVODE>();
 		//Solvers[i].linear_solver = new LinearSolverMKL(this);
 		//Solvers[i].solver->SetLinearSolver(Solvers[i].linear_solver);
 		Solvers[i].solver->SetDerivativeFunction(derivative);
 #if USE_CODE
-		ODESolverCVODE::TJacobianFunction jacobian = boost::bind(&SBMLModel::CalculateJacobian, this, _1, _2, _3, _4, _5);
+		ODESolverCVODE::TJacobianFunction jacobian = boost::bind(&SBMLModel::CalculateJacobian, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4, boost::placeholders::_5);
 		Solvers[i].solver->SetJacobianFunction(jacobian);
 #endif
 		if (!Solvers[i].solver->Initialize(CVodeSpecies.size(), Solvers[i].solver.get())) {

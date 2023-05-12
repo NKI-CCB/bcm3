@@ -8,7 +8,6 @@ using namespace boost::placeholders;
 
 typedef std::function<bool(OdeReal, const OdeReal*, OdeReal*, void*)> TDeriviativeFunction;
 
-
 LikelihoodPharmacokineticTrajectory::LikelihoodPharmacokineticTrajectory(size_t sampling_threads, size_t evaluation_threads)
 	: sampling_threads(sampling_threads)
 	, dose(std::numeric_limits<Real>::quiet_NaN())

@@ -26,6 +26,8 @@ public:
 	virtual OdeReal get_y(size_t i) { return std::numeric_limits<OdeReal>::quiet_NaN(); }
 	virtual void set_y(size_t i, OdeReal y) {}
 
+	inline size_t GetNumVariables() const { return N; }
+
 protected:
 	size_t N;
 	void* user_data;
