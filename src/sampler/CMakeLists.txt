@@ -26,10 +26,12 @@ target_sources(sampler
     ProgressIndicatorConsole.cpp
     Proposal.h
     Proposal.cpp
+    ProposalGaussianMixture.h
+    ProposalGaussianMixture.cpp
+    ProposalGaussianMixtureFitInR.h
+    ProposalGaussianMixtureFitInR.cpp
     ProposalGlobalCovariance.h
     ProposalGlobalCovariance.cpp
-    ProposalParametricMixture.h
-    ProposalParametricMixture.cpp
     ProposalClusteredCovariance.h
     ProposalClusteredCovariance.cpp
     SampleHandler.h

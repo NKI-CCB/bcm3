@@ -153,24 +153,34 @@ namespace bcm3 {
 		}
 
 		components.resize(num_components);
-		unsigned int ix = rng.GetUnsignedInt((unsigned int)num_components-1);
+		unsigned int ix = rng.GetUnsignedInt((unsigned int)num_samples-1);
 		components[0].mean = samples.row(ix);
+		std::set<unsigned int> used_samples;
+		used_samples.insert(ix);
 	
 		for (size_t i = 1; i < num_components; i++) {
-			VectorReal mindistsq = VectorReal::Constant(num_samples, std::numeric_limits<Real>::max());
+			VectorReal mindistsq = VectorReal::Constant(num_samples, 0);
+			Real total = 0.0;
 			for (size_t j = 0; j < num_samples; j++) {
+				if (used_samples.find(j) != used_samples.end()) {
+					continue;
+				}
+
 				VectorReal v = samples.row(j);
+				Real mindistsqsearch = std::numeric_limits<Real>::max();
 				for (size_t l = 0; l < i; l++) {
 					VectorReal d = v - components[l].mean;
 					Real distsq = d.dot(d);
-					mindistsq(j) = std::min(mindistsq(j), distsq);
+					mindistsqsearch = std::min(mindistsqsearch, distsq);
 				}
+				mindistsq(j) = mindistsqsearch;
+				total += mindistsq(j);
 			}
 
-			Real total = mindistsq.sum();
 			mindistsq /= total;
 			unsigned int newix = rng.Sample(mindistsq);
 			components[i].mean = samples.row(newix);
+			used_samples.insert(newix);
 		}
 
 		responsibilities = MatrixReal::Zero(num_samples, num_components);

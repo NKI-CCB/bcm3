@@ -6,11 +6,11 @@ namespace bcm3 {
 
 	class GMM;
 
-	class ProposalParametricMixture : public Proposal
+	class ProposalGaussianMixture : public Proposal
 	{
 	public:
-		ProposalParametricMixture();
-		virtual ~ProposalParametricMixture();
+		ProposalGaussianMixture();
+		virtual ~ProposalGaussianMixture();
 
 		virtual void GetNewSample(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, RNG& rng);
 		virtual Real CalculateMHRatio(const VectorReal& current_position, ptrdiff_t curpos_cluster_assignment, const VectorReal& new_position, ptrdiff_t newpos_cluster_assignment);

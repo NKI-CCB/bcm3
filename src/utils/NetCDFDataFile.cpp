@@ -480,6 +480,76 @@ bool NetCDFDataFile::GetValuesDim3(const std::string& group_name, const std::str
 	return true;
 }
 
+bool NetCDFDataFile::GetVector(const std::string& group_name, const std::string& variable_name, VectorReal& values) const
+{
+	int group = GetGroup(group_name);
+	if (group == -1) { return false; }
+	int var = GetVariable(group, variable_name);
+	if (var == -1) { return false; }
+
+	int ndims;
+	NC_HANDLE_ERROR(nc_inq_varndims(group, var, &ndims), "Error inquiring dimensions for variable \"%s\" in group \"%s\"; status: %d", variable_name.c_str(), group_name.c_str())
+	if (ndims != 1) {
+		LOGERROR("Trying to get vector from a variable that does not have one dimension, for variable \"%s\" in group \"%s\"; status: %d", group_name.c_str(), variable_name.c_str());
+		return false;
+	}
+
+	std::string dimname;
+	bool result = true;
+	result &= GetDimensionName(group_name, variable_name, 0, dimname);
+
+	size_t dimsize;
+	result &= GetDimensionSize(group_name, dimname, &dimsize);
+
+	if (!result) {
+		return false;
+	}
+
+	values.resize(dimsize);
+	size_t dimix = 0;
+	NC_HANDLE_ERROR(nc_get_vara_double(group, var, &dimix, &dimsize, values.data()), "Error getting values for variable \"%s\" in group \"%s\"; status: %d", variable_name.c_str(), group_name.c_str())
+
+	return true;
+}
+
+bool NetCDFDataFile::GetMatrix(const std::string& group_name, const std::string& variable_name, MatrixReal& values) const
+{
+	int group = GetGroup(group_name);
+	if (group == -1) { return false; }
+	int var = GetVariable(group, variable_name);
+	if (var == -1) { return false; }
+
+	int ndims;
+	NC_HANDLE_ERROR(nc_inq_varndims(group, var, &ndims), "Error inquiring dimensions for variable \"%s\" in group \"%s\"; status: %d", variable_name.c_str(), group_name.c_str())
+	if (ndims != 2) {
+		LOGERROR("Trying to get matrix from a variable that does not have two dimensions, for variable \"%s\" in group \"%s\"; status: %d", group_name.c_str(), variable_name.c_str());
+		return false;
+	}
+
+	std::string dimname1, dimname2;
+	bool result = true;
+	result &= GetDimensionName(group_name, variable_name, 0, dimname1);
+	result &= GetDimensionName(group_name, variable_name, 1, dimname2);
+
+	size_t dim1size, dim2size;
+	result &= GetDimensionSize(group_name, dimname1, &dim1size);
+	result &= GetDimensionSize(group_name, dimname2, &dim2size);
+
+	if (!result) {
+		return false;
+	}
+
+	values.resize(dim1size, dim2size);
+	size_t dimix[2] = { 0, 0 };
+	size_t count[2] = { 1, dim2size };
+	for (size_t i = 0; i < dim1size; i++) {
+		dimix[0] = i;
+		NC_HANDLE_ERROR(nc_get_vara_double(group, var, dimix, count, values.data() + i * dim2size), "Error getting values for variable \"%s\" in group \"%s\"; status: %d", variable_name.c_str(), group_name.c_str())
+	}
+
+	return true;
+}
+
 bool NetCDFDataFile::PutValues(const std::string& group_name, const std::string& variable_name, size_t dim1ix, const VectorReal& values)
 {
 	int group = GetGroup(group_name);

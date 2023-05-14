@@ -14,7 +14,8 @@ namespace bcm3 {
 		virtual ~Proposal();
 
 		bool Initialize(const SampleHistory& sample_history, const std::shared_ptr<const SampleHistoryClustering> sample_history_clustering,
-			size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info);
+			size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng,
+			const std::string& tmpfilename, bool log_info);
 
 		virtual void GetNewSample(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, RNG& rng) = 0;
 		virtual Real CalculateMHRatio(const VectorReal& current_position, ptrdiff_t curpos_cluster_assignment, const VectorReal& new_position, ptrdiff_t newpos_cluster_assignment) = 0;
@@ -54,6 +55,7 @@ namespace bcm3 {
 		Real scaling_ema_period;
 		Real scaling_learning_rate;
 		Real target_acceptance_rate;
+		std::string tmpfilename;
 
 		// Runtime variables
 		std::shared_ptr<const SampleHistoryClustering> sample_history_clustering;

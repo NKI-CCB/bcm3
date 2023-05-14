@@ -43,6 +43,9 @@ public:
 	bool GetValuesDim2(const std::string& group_name, const std::string& variable_name, size_t dim1ix, size_t dim2ix, size_t dim3ix, size_t count, VectorReal& values) const;
 	bool GetValuesDim3(const std::string& group_name, const std::string& variable_name, size_t dim1ix, size_t dim2ix, size_t dim3ix, size_t count, VectorReal& values) const;
 
+	bool GetVector(const std::string& group_name, const std::string& variable_name, VectorReal& values) const;
+	bool GetMatrix(const std::string& group_name, const std::string& variable_name, MatrixReal& values) const;
+
 	template<typename T>
 	bool PutValue(const std::string& group_name, const std::string& variable_name, size_t dim1ix, T value);
 	template<typename T>

@@ -34,10 +34,12 @@ namespace bcm3 {
 	}
 
 	bool Proposal::Initialize(const SampleHistory& sample_history, const std::shared_ptr<const SampleHistoryClustering> sample_history_clustering,
-		size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)
+		size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng,
+		const std::string& tmpfilename, bool log_info)
 	{
 		num_variables = variable_indices.size();
 		this->sample_history_clustering = sample_history_clustering;
+		this->tmpfilename = tmpfilename;
 
 		variable_bounds.resize(num_variables);
 		this->transform_to_unbounded = transform_to_unbounded;
@@ -68,7 +70,7 @@ namespace bcm3 {
 		}
 
 		// If necessary, reduce the history size to the maximum number of samples specified in the configuration
-#if 0
+#if 1
 		if (history.rows() > max_history_samples) {
 			if (log_info) {
 				LOG("Proposal adaptation - downsampling to %zu samples", max_history_samples);

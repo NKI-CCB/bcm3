@@ -69,12 +69,12 @@ namespace bcm3 {
 			VectorReal v = new_position - current_position;
 			v /= scales(curpos_cluster_assignment);
 			gmm->GetCovarianceDecomp(curpos_cluster_assignment).matrixL().solveInPlace(v);
-			Real log_fwd_p = gmm->GetLogC(curpos_cluster_assignment) - 0.5 * v.dot(v);
+			Real log_fwd_p = -log(square(scales(curpos_cluster_assignment))) + gmm->GetLogC(curpos_cluster_assignment) - 0.5 * v.dot(v);
 
 			v = current_position - new_position;
 			v /= scales(newpos_cluster_assignment);
 			gmm->GetCovarianceDecomp(newpos_cluster_assignment).matrixL().solveInPlace(v);
-			Real log_bwd_p = gmm->GetLogC(newpos_cluster_assignment) - 0.5 * v.dot(v);
+			Real log_bwd_p = -log(square(scales(newpos_cluster_assignment))) + gmm->GetLogC(newpos_cluster_assignment) - 0.5 * v.dot(v);
 
 			log_mh_ratio = log_bwd_p - log_fwd_p;
 		} else {

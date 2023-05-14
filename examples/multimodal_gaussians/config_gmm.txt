@@ -8,7 +8,7 @@ swapping_scheme=deterministic_even_odd
 num_exploration_steps=1
 max_history_size=4000
 blocking_strategy=one_block
-proposal_type=parametric_mixture
+proposal_type=gaussian_mixture
 proposal_transform_to_unbounded=false
 adapt_proposal_times=1
 adapt_proposal_samples=4000
@@ -18,4 +18,4 @@ temperature_schedule_power=3.0
 output_proposal_adaptation=true
 
 [output]
-folder=output_t2_n5_e1_gmm
+folder=output_t2_n5_e1_gmm_noscaleadapt

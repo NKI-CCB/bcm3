@@ -3,7 +3,7 @@ source(paste(Sys.getenv("BCM3_ROOT"), "/R/plots_functions.r", sep=""))
 
 model1 <- bcm3.load.results(".", "output_t2_n5_e1_gmm")
 model2 <- bcm3.load.results(".", "output_t2_n5_e1_globalcov")
-model3 <- bcm3.load.results(".", "output_t2_n2_e1_spectralclust")
+model3 <- bcm3.load.results(".", "output_t2_n5_e1_gmm_noscaleadapt")
 
 model <- model1
 sample_ix <- (dim(model$posterior$samples)[3]/2+1):(dim(model$posterior$samples)[3])

@@ -9,8 +9,9 @@
 #include "Prior.h"
 #include "Proposal.h"
 #include "ProposalClusteredCovariance.h"
+#include "ProposalGaussianMixture.h"
+#include "ProposalGaussianMixtureFitInR.h"
 #include "ProposalGlobalCovariance.h"
-#include "ProposalParametricMixture.h"
 #include "SampleHistory.h"
 #include "SampleHistoryClustering.h"
 #include "SamplerPT.h"
@@ -140,6 +141,9 @@ namespace bcm3 {
 			}
 			variable_blocks[i].variable_indices = blocks[i];
 			variable_blocks[i].proposal = CreateProposalInstance(blocks[i], sampler->async[thread].rng);
+			if (!variable_blocks[i].proposal) {
+				return false;
+			}
 		}
 
 		if (sampler->output_proposal_adaptation && temperature == sampler->temperatures.tail(1)(0)) {
@@ -347,7 +351,7 @@ namespace bcm3 {
 		}
 
 		sample_history->AddSample(current_var_values);
-		other.sample_history->AddSample(current_var_values);
+		other.sample_history->AddSample(other.current_var_values);
 		return swap;
 	}
 
@@ -372,7 +376,9 @@ namespace bcm3 {
 
 			LOG(" Block %u: %s", i + 1, ixs.c_str());
 
-			b.proposal->LogInfo();
+			if (b.proposal) {
+				b.proposal->LogInfo();
+			}
 		}
 	}
 
@@ -399,8 +405,10 @@ namespace bcm3 {
 		std::unique_ptr<Proposal> proposal;
 		if (sampler->proposal_type == "global_covariance") {
 			proposal = std::make_unique<ProposalGlobalCovariance>();
-		} else if (sampler->proposal_type == "parametric_mixture") {
-			proposal = std::make_unique<ProposalParametricMixture>();
+		} else if (sampler->proposal_type == "gaussian_mixture") {
+			proposal = std::make_unique<ProposalGaussianMixture>();
+		} else if (sampler->proposal_type == "gaussian_mixture_fit_in_r") {
+			proposal = std::make_unique<ProposalGaussianMixtureFitInR>();
 		} else if (sampler->proposal_type == "clustered_covariance") {
 			proposal = std::make_unique<ProposalClusteredCovariance>();
 		} else {
@@ -409,7 +417,17 @@ namespace bcm3 {
 		}
 
 		bool log_info = (temperature == sampler->temperatures.tail(1)(0)) ? true : false;
-		if (!proposal->Initialize(*sample_history, sample_history_clustering, sampler->adapt_proposal_max_history_samples, sampler->proposal_transform_to_unbounded, sampler->prior, variable_indices, rng, log_info)) {
+
+		size_t chain_ix = 0;
+		for (size_t i = 0; i < sampler->chains.size(); i++) {
+			if (sampler->chains[i].get() == this) {
+				chain_ix = i;
+				break;
+			}
+		}
+
+		if (!proposal->Initialize(*sample_history, sample_history_clustering, sampler->adapt_proposal_max_history_samples, sampler->proposal_transform_to_unbounded, sampler->prior, variable_indices, rng, 
+			sampler->output_path + "adaptationtmpfile" + std::to_string(chain_ix), log_info)) {
 			LOGERROR("  Proposal initialization failed.");
 			proposal.reset();
 		}

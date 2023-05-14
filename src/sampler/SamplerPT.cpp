@@ -106,7 +106,7 @@ namespace bcm3 {
 
 		// Calculate the number of samples we can store in history
 		size_t expected_sample_history = adapt_proposal_samples * use_every_nth;
-		if (swapping_scheme == ESwappingScheme::DeterministicEvenOdd) {
+		if (temperatures.size() > 1 && swapping_scheme == ESwappingScheme::DeterministicEvenOdd) {
 			expected_sample_history *= (num_exploration_steps + 1);
 		}
 		size_t history_subsampling = 1;
@@ -192,13 +192,14 @@ namespace bcm3 {
 						result = DoMutateMove();
 					}
 				} else if (swapping_scheme == ESwappingScheme::DeterministicEvenOdd) {
+					DoExchangeMove(si);
+
 					for (size_t ei = 0; ei < num_exploration_steps; ei++) {
 						result = DoMutateMove();
 						if (!result) {
 							break;
 						}
 					}
-					DoExchangeMove(si);
 				}
 			} else {
 				result = DoMutateMove();
@@ -230,6 +231,10 @@ namespace bcm3 {
 					}
 					for (auto& chain : chains) {
 						result &= chain->AdaptProposalWait();
+					}
+					if (!result) {
+						LOGERROR("Proposal adaptation failed");
+						return false;
 					}
 					proposal_adaptations_done++;
 				}

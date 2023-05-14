@@ -26,6 +26,7 @@ namespace bcm3 {
 
 		// Settings
 		Real t_dof;
+		std::string tmpfilename;
 
 		// Runtime variables
 		std::shared_ptr<GMM> gmm; // We're not actually using a full Gaussian mixture; we're just using the class as a convenient way to store multiple Gaussians
