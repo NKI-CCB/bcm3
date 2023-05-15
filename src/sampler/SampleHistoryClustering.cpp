@@ -7,6 +7,8 @@
 #include "SummaryStats.h"
 #include "VectorUtils.h"
 
+#include <boost/filesystem.hpp>
+
 namespace bcm3 {
 
 	SampleHistoryClustering::SampleHistoryClustering(size_t max_samples, size_t nn, size_t nn2, size_t num_clusters)
@@ -39,7 +41,13 @@ namespace bcm3 {
 		bool output_update_info = false;
 		std::string output_update_info_group = std::string("iter") + std::to_string(clustering_iter);
 		if (log_info) {
-			if (update_info_output.Open(output_path + "sample_history_clustering.nc")) {
+			std::string update_info_output_filename = output_path + "sample_history_clustering.nc";
+			if (clustering_iter == 0) {
+				if (boost::filesystem::exists(update_info_output_filename)) {
+					boost::filesystem::remove(update_info_output_filename);
+				}
+			}
+			if (update_info_output.Open(update_info_output_filename)) {
 				update_info_output.AddGroup(output_update_info_group);
 				output_update_info = true;
 			}
