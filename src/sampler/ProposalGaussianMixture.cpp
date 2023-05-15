@@ -183,30 +183,33 @@ namespace bcm3 {
 				ess(i) = (Real)num_history_samples / (1.0 + 2.0 * rho_t);
 			}
 			Real min_ess = ess.minCoeff();
+			Real AIC_adjust_factor = min_ess / num_history_samples;
 
 			if (log_info) {
 				LOG("Fitting GMMs...");
-				LOG("Minimum effective sample size: %g out of %zu samples", min_ess, num_history_samples);
+				LOG("Minimum effective sample size: %g out of %zu samples; AIC_adjust_factor = %g", min_ess, num_history_samples, AIC_adjust_factor);
 			}
 
 			// Fit GMMs for increasing number of components and select the one with the lowest AIC
 			Real best_aic = std::numeric_limits<Real>::infinity();
 			gmm.reset();
 			static const size_t num_components[7] = { 1, 2, 3, 4, 5, 8, 13 };
-			for (size_t i = 0; i < 4; i++) {
+			for (size_t i = 0; i < 7; i++) {
 				std::shared_ptr<GMM> test_gmm_k = std::make_shared<GMM>();
 				if (min_ess < num_components[i] * (1 + num_variables * 3)) {
 					if (log_info) {
 						LOG("GMM num_components=%2zu - not enough effective samples", num_components[i], test_gmm_k->GetAIC());
 					}
 				} else if (test_gmm_k->Fit(history, num_history_samples, num_components[i], rng, num_history_samples / min_ess)) {
+					Real nparam = 0.5 * test_gmm_k->GetAIC() + test_gmm_k->GetLogLikelihood();
+					Real adjusted_AIC = 2.0 * nparam - 2.0 * AIC_adjust_factor * test_gmm_k->GetLogLikelihood();
 					if (log_info) {
-						LOG("GMM num_components=%2zu - AIC=%.6g", num_components[i], test_gmm_k->GetAIC());
+						LOG("GMM num_components=%2zu - AIC=%.6g, adjusted AIC=%.6g", num_components[i], test_gmm_k->GetAIC(), adjusted_AIC);
 					}
 
-					if (test_gmm_k->GetAIC() < best_aic - 2 * (num_history_samples / min_ess)) {
+					if (adjusted_AIC < best_aic) {
 						gmm = test_gmm_k;
-						best_aic = gmm->GetAIC();
+						best_aic = adjusted_AIC;
 					}
 				} else {
 					if (log_info) {
@@ -225,8 +228,7 @@ namespace bcm3 {
 
 					std::stringstream().swap(str);
 					str << gmm->GetCovariance(i);
-					LOG("Covariance component %zd:", i);
-					LOG("\n%s", str.str().c_str());
+					LOG("Covariance component %zd:\n%s", i, str.str().c_str());
 				}
 			}
 #endif

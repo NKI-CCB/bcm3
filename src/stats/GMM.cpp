@@ -5,6 +5,12 @@
 
 namespace bcm3 {
 
+	GMM::GMM()
+		: full_logl(std::numeric_limits<Real>::quiet_NaN())
+		, aic(std::numeric_limits<Real>::quiet_NaN())
+	{
+	}
+
 	bool GMM::Set(const std::vector<VectorReal>& means, const std::vector<MatrixReal>& covariances, VectorReal weights)
 	{
 		ASSERT(means.size() == covariances.size());
@@ -114,6 +120,7 @@ namespace bcm3 {
 		}
 
 		size_t nparam = num_components * (D + D * (D + 1) / 2) + num_components - 1;
+		full_logl = logl;
 		aic = 2 * nparam - 2 * logl;
 		return !singular;
 	}

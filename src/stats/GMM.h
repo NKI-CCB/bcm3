@@ -7,6 +7,8 @@ namespace bcm3 {
 class GMM
 {
 public:
+	GMM();
+
 	bool Set(const std::vector<VectorReal>& means, const std::vector<MatrixReal>& covariances, VectorReal weights);
 	bool Fit(const MatrixReal& samples, size_t num_samples, size_t num_components, RNG& rng, Real ess_factor = 1.0);
 
@@ -19,6 +21,7 @@ public:
 	const MatrixReal& GetCovariance(size_t component_ix) const { return components[component_ix].covariance; }
 	const Eigen::LLT<MatrixReal>& GetCovarianceDecomp(size_t component_ix) const { return components[component_ix].covariance_llt; }
 	Real GetLogC(size_t component_ix) const { return components[component_ix].logC; }
+	Real GetLogLikelihood() const { return full_logl; }
 	Real GetAIC() const { return aic; }
 
 private:
@@ -37,6 +40,7 @@ private:
 
 	VectorReal weights;
 	std::vector<Component> components;
+	Real full_logl;
 	Real aic;
 };
 
