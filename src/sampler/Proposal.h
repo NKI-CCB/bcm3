@@ -13,7 +13,7 @@ namespace bcm3 {
 		Proposal();
 		virtual ~Proposal();
 
-		bool Initialize(const SampleHistory& sample_history, const std::shared_ptr<const SampleHistoryClustering> sample_history_clustering,
+		bool Initialize(const SampleHistory& sample_history, const std::shared_ptr<SampleHistoryClustering> sample_history_clustering,
 			size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng,
 			const std::string& tmpfilename, bool log_info);
 
@@ -58,7 +58,7 @@ namespace bcm3 {
 		std::string tmpfilename;
 
 		// Runtime variables
-		std::shared_ptr<const SampleHistoryClustering> sample_history_clustering;
+		std::shared_ptr<SampleHistoryClustering> sample_history_clustering;
 		std::vector<ETransforms> variable_transforms;
 		std::vector<Bound> variable_bounds;
 

@@ -79,19 +79,18 @@ namespace bcm3 {
 			std::string bcm_path;
 			char* bcm_root_env = getenv("BCM3_ROOT");
 			if (!bcm_root_env) {
-				LOGERROR("BCM_ROOT environment variable has not been specified!");
+				LOGERROR("BCM3_ROOT environment variable has not been specified!");
 				return false;
 			} else {
 				bcm_path = bcm_root_env;
 				bcm3::fix_path(bcm_path);
 			}
 
-			LOG("Calling R script", tmpfilename.c_str());
-
 			std::string cmd = std::string("Rscript ") + bcm_path + std::string("R/fit_proposal.r ") + tmpfilename.c_str();
 			if (log_info) {
 				cmd += std::string(" log_info");
 			}
+			LOG("Calling R fitting script using: \"%s\"", cmd.c_str());
 			int result = boost::process::system(cmd);
 
 			if (result != 0) {

@@ -100,6 +100,10 @@ namespace bcm3 {
 			}
 
 			sample_ix[temperature_ix]++;
+
+			if (temperature_ix == sample_ix.size() - 1 && si % 10 == 0) {
+				netcdf_file.Sync();
+			}
 		} else {
 			// This temperature is not stored in the output value
 		}

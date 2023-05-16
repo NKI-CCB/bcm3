@@ -13,6 +13,7 @@ namespace bcm3 {
 		~SampleHistoryClustering();
 
 		bool Cluster(const std::unique_ptr<SampleHistory>& sample_history, size_t discard_first_samples, RNG& rng, bool log_info, const std::string& output_path);
+		bool AssignAllHistorySamples(std::vector<ptrdiff_t> history_sample_ix, MatrixReal& samples);
 
 		ptrdiff_t GetSampleCluster(const VectorReal& sample) const;
 		std::vector<ptrdiff_t> GetSamplesFromCluster(ptrdiff_t cluster_ix) const;

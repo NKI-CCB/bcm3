@@ -11,6 +11,7 @@ public:
 	bool Open(const std::string& filename, bool write);
 	bool Create(const std::string& filename);
 	void Close();
+	void Sync();
 
 	bool CreateGroup(const std::string& group_name);
 

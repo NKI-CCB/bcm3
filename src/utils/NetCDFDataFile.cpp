@@ -134,6 +134,14 @@ void NetCDFDataFile::Close()
 	}
 }
 
+void NetCDFDataFile::Sync()
+{
+	int result = nc_sync(fd);
+	if (result != NC_NOERR) {
+		LOGERROR("Error syncing netcdf file; status: %d", result);
+	}
+}
+
 bool NetCDFDataFile::CreateGroup(const std::string& group_name)
 {
 	size_t slash = group_name.find('/');

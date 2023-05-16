@@ -33,7 +33,7 @@ namespace bcm3 {
 	{
 	}
 
-	bool Proposal::Initialize(const SampleHistory& sample_history, const std::shared_ptr<const SampleHistoryClustering> sample_history_clustering,
+	bool Proposal::Initialize(const SampleHistory& sample_history, const std::shared_ptr<SampleHistoryClustering> sample_history_clustering,
 		size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng,
 		const std::string& tmpfilename, bool log_info)
 	{
@@ -100,6 +100,10 @@ namespace bcm3 {
 
 			MatrixReal selected = history(use_sample_ix, Eigen::all);
 			history = selected;
+
+			if (sample_history_clustering) {
+				sample_history_clustering->AssignAllHistorySamples(use_sample_ix, selected);
+			}
 		}
 #endif
 

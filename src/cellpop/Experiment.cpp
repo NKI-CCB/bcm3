@@ -541,7 +541,7 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 	std::string bcm_path;
 	char* bcm_root_env = getenv("BCM3_ROOT");
 	if (!bcm_root_env) {
-		LOGERROR("BCM_ROOT environment variable has not been specified!");
+		LOGERROR("BCM3_ROOT environment variable has not been specified!");
 		return false;
 	} else {
 		bcm_path = bcm_root_env;

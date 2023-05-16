@@ -44,6 +44,7 @@ namespace bcm3 {
 		size_t adapt_proposal_samples;
 		size_t adapt_proposal_times;
 		size_t adapt_proposal_max_history_samples;
+		size_t adapt_proposal_max_clustering_samples;
 		size_t stop_proposal_scaling;
 		size_t history_clustering_nn;
 		size_t history_clustering_nn2;
