@@ -80,7 +80,6 @@ namespace bcm3 {
 		}
 
 		// If necessary, reduce the history size to the maximum number of samples specified in the configuration
-#if 1
 		if (history.rows() > max_history_samples) {
 			if (log_info) {
 				LOG("Proposal adaptation - downsampling to %zu samples", max_history_samples);
@@ -112,10 +111,17 @@ namespace bcm3 {
 			history = selected;
 
 			if (sample_history_clustering) {
-				sample_history_clustering->AssignAllHistorySamples(use_sample_ix, selected);
+				sample_history_clustering->AssignAllHistorySamples(use_sample_ix, history);
+			}
+		} else {
+			if (sample_history_clustering) {
+				std::vector<ptrdiff_t> use_sample_ix(history.rows());
+				for (ptrdiff_t i = 0; i < use_sample_ix.size(); i++) {
+					use_sample_ix[i] = i;
+				}
+				sample_history_clustering->AssignAllHistorySamples(use_sample_ix, history);
 			}
 		}
-#endif
 
 #if 0
 		if (transform_to_unbounded) {

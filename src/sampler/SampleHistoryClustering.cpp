@@ -220,7 +220,7 @@ namespace bcm3 {
 		return true;
 	}
 
-	bool SampleHistoryClustering::AssignAllHistorySamples(std::vector<ptrdiff_t> history_sample_ix, MatrixReal& samples)
+	void SampleHistoryClustering::AssignAllHistorySamples(std::vector<ptrdiff_t> history_sample_ix, MatrixReal& samples)
 	{
 		// Also assign all the samples that were not used for clustering to a cluster
 		all_sample_cluster_assignment.resize(history_sample_ix.size());

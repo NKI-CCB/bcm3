@@ -70,9 +70,7 @@ namespace bcm3 {
 		} else if (sampler->blocking_strategy == "Turek") {
 			blocking_strategy = std::make_unique<BlockingStrategyTurek>();
 		} else if (sampler->blocking_strategy == "clustered_autoblock") {
-			//blocking_strategy = std::make_unique<BlockingStrategyClusteredTurek>();
-			LOGERROR("clustered_autoblock is disabled for now; there is an issue in the sample clustering and we recommend using \"one_block\" blocking strategy with \"gaussian_mixture\" proposal");
-			return false;
+			blocking_strategy = std::make_unique<BlockingStrategyClusteredTurek>();
 		} else {
 			LOGERROR("Unknown blocking strategy \"%s\"", sampler->blocking_strategy.c_str());
 			return false;

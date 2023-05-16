@@ -8,7 +8,7 @@ namespace bcm3 {
 	SamplerPT::SamplerPT(size_t threads, size_t max_memory_use)
 		: Sampler(threads, max_memory_use)
 		, blocking_strategy("one_block")
-		, proposal_type("global_covariance")
+		, proposal_type("gaussian_mixture")
 		, proposal_transform_to_unbounded(false)
 		, output_proposal_adaptation(true)
 		, swapping_scheme(ESwappingScheme::StochasticEvenOdd)
@@ -16,8 +16,9 @@ namespace bcm3 {
 		, num_exploration_steps(1)
 		, adapt_proposal_samples(2000)
 		, adapt_proposal_times(2)
-		, max_history_size(5000)
-		, adapt_proposal_max_history_samples(5000)
+		, max_history_size(2000)
+		, adapt_proposal_max_history_samples(2000)
+		, adapt_proposal_max_clustering_samples(1000)
 		, stop_proposal_scaling(6000)
 		, history_clustering_nn(3)
 		, history_clustering_nn2(7)
@@ -53,6 +54,7 @@ namespace bcm3 {
 			history_clustering_nclusters = vm["ptmhsampler.sample_clustering_num_clusters"].as<size_t>();
 			adapt_proposal_times = vm["ptmhsampler.adapt_proposal_times"].as<size_t>();
 			adapt_proposal_max_history_samples = vm["ptmhsampler.adapt_proposal_max_history_samples"].as<size_t>();
+			adapt_proposal_max_clustering_samples = vm["ptmhsampler.adapt_proposal_max_clustering_samples"].as<size_t>();
 			exchange_probability = vm["ptmhsampler.exchange_probability"].as<Real>();
 			num_exploration_steps = vm["ptmhsampler.num_exploration_steps"].as<size_t>();
 			output_proposal_adaptation = vm["ptmhsampler.output_proposal_adaptation"].as<bool>();
@@ -142,13 +144,13 @@ namespace bcm3 {
 	{
 		pod.add_options()
 			("ptmhsampler.num_chains",								boost::program_options::value<size_t>()->default_value(6),								"Number of parallel-tempered chains")
-			("ptmhsampler.blocking_strategy",						boost::program_options::value<std::string>()->default_value("clustered_autoblock"),		"Blocking strateg: one_block, no_blocking, Turek, clustered_autoblock")
-			("ptmhsampler.proposal_type",							boost::program_options::value<std::string>()->default_value("clustered_covariance"),	"Type of proposal: global_covariance, clustered_covariance, parametric_mixture")
+			("ptmhsampler.blocking_strategy",						boost::program_options::value<std::string>()->default_value("one_block"),				"Blocking strateg: one_block, no_blocking, Turek, clustered_autoblock")
+			("ptmhsampler.proposal_type",							boost::program_options::value<std::string>()->default_value("gaussian_mixture"),		"Type of proposal: global_covariance, clustered_covariance, gaussian_mixture, gaussian_mixture_fit_in_r")
 			("ptmhsampler.proposal_transform_to_unbounded",			boost::program_options::value<bool>()->default_value(false),							"Specifies whether to transform variables that have a bounded prior to an unbounded domain before applying the proposal")
 			("ptmhsampler.adapt_proposal_samples",					boost::program_options::value<size_t>()->default_value(2000),							"Number of samples after which the proposal distribution should be adapted, 0 for no adaptation (after thinning).")
 			("ptmhsampler.adapt_proposal_times",					boost::program_options::value<size_t>()->default_value(2),								"Number of times the proposal variance should be adapted.")
-			("ptmhsampler.max_history_size",						boost::program_options::value<size_t>()->default_value(5000),							"Maximum number of samples to store in the sample history (before thinning).")
-			("ptmhsampler.adapt_proposal_max_history_samples",		boost::program_options::value<size_t>()->default_value(5000),							"Maximum number of samples to use in the GMM/covariance fitting (before thinning).")
+			("ptmhsampler.max_history_size",						boost::program_options::value<size_t>()->default_value(2000),							"Maximum number of samples to store in the sample history (before thinning).")
+			("ptmhsampler.adapt_proposal_max_history_samples",		boost::program_options::value<size_t>()->default_value(2000),							"Maximum number of samples to use in the GMM/covariance fitting (before thinning).")
 			("ptmhsampler.adapt_proposal_max_clustering_samples",	boost::program_options::value<size_t>()->default_value(1000),							"Maximum number of samples to use in the spectral clustering (before thinning).")
 			("ptmhsampler.stop_proposal_scaling",					boost::program_options::value<size_t>()->default_value(6000),							"Stop adaptive scaling of the proposal distribution after this many samples (after thinning).")
 			("ptmhsampler.sample_clustering_kernel_nn",				boost::program_options::value<size_t>()->default_value(3),								"Sample history clustering: nn-value of the density-aware kernel.")
