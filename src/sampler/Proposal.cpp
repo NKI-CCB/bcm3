@@ -23,7 +23,7 @@ namespace bcm3 {
 		, transform_to_unbounded(false)
 		, scaling_ema_period(1000)
 		, scaling_learning_rate(0.05)
-		, target_acceptance_rate(0.23)
+		, target_acceptance_rate(0.234)
 		, adaptive_scale(1.0)
 		, current_acceptance_rate_ema(0.23)
 	{
@@ -40,6 +40,16 @@ namespace bcm3 {
 		num_variables = variable_indices.size();
 		this->sample_history_clustering = sample_history_clustering;
 		this->tmpfilename = tmpfilename;
+
+		if (num_variables == 1) {
+			target_acceptance_rate = 0.44;
+		} else if (num_variables == 2) {
+			target_acceptance_rate = 0.35;
+		} else if (num_variables == 3) {
+			target_acceptance_rate = 0.3;
+		} else {
+			target_acceptance_rate = 0.234;
+		}
 
 		variable_bounds.resize(num_variables);
 		this->transform_to_unbounded = transform_to_unbounded;

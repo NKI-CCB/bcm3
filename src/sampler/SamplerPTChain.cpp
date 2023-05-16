@@ -70,7 +70,9 @@ namespace bcm3 {
 		} else if (sampler->blocking_strategy == "Turek") {
 			blocking_strategy = std::make_unique<BlockingStrategyTurek>();
 		} else if (sampler->blocking_strategy == "clustered_autoblock") {
-			blocking_strategy = std::make_unique<BlockingStrategyClusteredTurek>();
+			//blocking_strategy = std::make_unique<BlockingStrategyClusteredTurek>();
+			LOGERROR("clustered_autoblock is disabled for now; there is an issue in the sample clustering and we recommend using \"one_block\" blocking strategy with \"gaussian_mixture\" proposal");
+			return false;
 		} else {
 			LOGERROR("Unknown blocking strategy \"%s\"", sampler->blocking_strategy.c_str());
 			return false;
@@ -350,8 +352,12 @@ namespace bcm3 {
 			chain2.lpowerposterior = proposed_lpowerposterior2;
 		}
 
-		sample_history->AddSample(current_var_values);
-		other.sample_history->AddSample(other.current_var_values);
+		if (temperature != 0.0) {
+			sample_history->AddSample(current_var_values);
+		}
+		if (other.temperature != 0.0) {
+			other.sample_history->AddSample(other.current_var_values);
+		}
 		return swap;
 	}
 
