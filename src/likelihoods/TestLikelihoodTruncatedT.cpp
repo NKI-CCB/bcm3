@@ -2,8 +2,11 @@
 #include "TestLikelihoodTruncatedT.h"
 #include "ProbabilityDistributions.h"
 #include "VectorUtils.h"
+#include "mvt.h"
 
 TestLikelihoodTruncatedT::TestLikelihoodTruncatedT(size_t sampling_threads, size_t evaluation_threads)
+	: dimensions(0)
+	, num_clusters(0)
 {
 }
 
@@ -74,5 +77,12 @@ bool TestLikelihoodTruncatedT::Initialize(std::shared_ptr<const bcm3::VariableSe
 
 bool TestLikelihoodTruncatedT::EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp)
 {
+	logp = -std::numeric_limits<Real>::infinity();
+
+	for (size_t i = 0; i < num_clusters; i++) {
+		Real thislogp = bcm3::dmvt(values, mus[i], sigmas[i], nus[i], true);
+		logp = bcm3::logsum(logp, thislogp + log(weights[i]));
+	}
+
 	return true;
 }
