@@ -8,8 +8,7 @@
 namespace bcm3 {
 
 	ProposalGaussianMixture::ProposalGaussianMixture()
-		: t_dof(0.0)
-		, selected_component(-1)
+		: selected_component(-1)
 	{
 	}
 

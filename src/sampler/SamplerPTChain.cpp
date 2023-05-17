@@ -430,8 +430,8 @@ namespace bcm3 {
 			}
 		}
 
-		if (!proposal->Initialize(*sample_history, sample_history_clustering, sampler->adapt_proposal_max_history_samples, sampler->proposal_transform_to_unbounded, sampler->prior, variable_indices, rng, 
-			sampler->output_path + "adaptationtmpfile" + std::to_string(chain_ix), log_info)) {
+		if (!proposal->Initialize(*sample_history, sample_history_clustering, sampler->adapt_proposal_max_history_samples, sampler->prior, variable_indices, rng, 
+			sampler->proposal_t_dof, sampler->output_path + "adaptationtmpfile" + std::to_string(chain_ix), log_info)) {
 			LOGERROR("  Proposal initialization failed.");
 			proposal.reset();
 		}

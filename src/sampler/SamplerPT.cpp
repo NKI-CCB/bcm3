@@ -28,7 +28,8 @@ namespace bcm3 {
 		, proposal_adaptations_done(0)
 		, proposal_scaling_adaptations_done(false)
 		, previous_swap_even(false)
-		, target_acceptance_rate(0.23)
+		, target_acceptance_rate(0.234)
+		, proposal_t_dof(0.0)
 	{
 	}
 
@@ -58,6 +59,7 @@ namespace bcm3 {
 			exchange_probability = vm["ptmhsampler.exchange_probability"].as<Real>();
 			num_exploration_steps = vm["ptmhsampler.num_exploration_steps"].as<size_t>();
 			output_proposal_adaptation = vm["ptmhsampler.output_proposal_adaptation"].as<bool>();
+			proposal_t_dof = vm["ptmhsampler.proposal_t_dof"].as<Real>();
 
 			std::string swapping_scheme_str = vm["ptmhsampler.swapping_scheme"].as<std::string>();
 			if (swapping_scheme_str == "stochastic_random") {
@@ -162,6 +164,7 @@ namespace bcm3 {
 			("ptmhsampler.temperature_schedule_power",				boost::program_options::value<Real>()->default_value(3.0),								"Specifies the rate of the power-law used for the fixed/initial temperature schedule.")
 			("ptmhsampler.temperature_schedule_max",				boost::program_options::value<Real>()->default_value(1.0),								"Specifies the maximum temperature used for the fixed/initial temperature schedule.")
 			("ptmhsampler.output_proposal_adaptation",				boost::program_options::value<bool>()->default_value(false),							"Whether to output information describing the proposal adaptation.")
+			("ptmhsampler.proposal_t_dof",							boost::program_options::value<Real>()->default_value(0.0),								"Degrees of freedom of the t-distribution proposal, set to 0 to use a standard normal distribution.")
 			;
 	}
 

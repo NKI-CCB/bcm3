@@ -10,8 +10,7 @@
 namespace bcm3 {
 
 	ProposalClusteredCovariance::ProposalClusteredCovariance()
-		: t_dof(0.0)
-		, selected_component(-1)
+		: selected_component(-1)
 	{
 	}
 

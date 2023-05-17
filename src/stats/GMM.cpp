@@ -257,7 +257,7 @@ namespace bcm3 {
 			VectorReal tmp = covariance.diagonal();
 			covariance = tmp.asDiagonal();
 		} else {
-			// Stein's minimax shrinkage
+			// James-Stein constant risk minimax shrinkage
 			Eigen::SelfAdjointEigenSolver<MatrixReal> eig;
 			eig.compute(covariance);
 			VectorReal shrunk_eigval = eig.eigenvalues();

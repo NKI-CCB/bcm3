@@ -18,9 +18,6 @@ namespace bcm3 {
 	protected:
 		virtual bool InitializeImpl(const MatrixReal& history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info);
 
-		// Settings
-		Real t_dof;
-
 		// Runtime variables
 		MatrixReal covariance;
 		Eigen::LLT<MatrixReal> covariance_llt;

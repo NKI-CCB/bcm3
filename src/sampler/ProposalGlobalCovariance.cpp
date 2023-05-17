@@ -8,7 +8,6 @@ namespace bcm3 {
 
 	ProposalGlobalCovariance::ProposalGlobalCovariance()
 		: logC(std::numeric_limits<Real>::quiet_NaN())
-		, t_dof(0.0)
 	{
 	}
 

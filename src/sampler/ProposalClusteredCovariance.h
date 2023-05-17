@@ -24,10 +24,6 @@ namespace bcm3 {
 	protected:
 		virtual bool InitializeImpl(const MatrixReal& history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info);
 
-		// Settings
-		Real t_dof;
-		std::string tmpfilename;
-
 		// Runtime variables
 		std::shared_ptr<GMM> gmm; // We're not actually using a full Gaussian mixture; we're just using the class as a convenient way to store multiple Gaussians
 		VectorReal scales;

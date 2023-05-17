@@ -24,6 +24,7 @@ namespace bcm3 {
 		, scaling_ema_period(1000)
 		, scaling_learning_rate(0.05)
 		, target_acceptance_rate(0.234)
+		, t_dof(0.0)
 		, adaptive_scale(1.0)
 		, current_acceptance_rate_ema(0.23)
 	{
@@ -34,12 +35,13 @@ namespace bcm3 {
 	}
 
 	bool Proposal::Initialize(const SampleHistory& sample_history, const std::shared_ptr<SampleHistoryClustering> sample_history_clustering,
-		size_t max_history_samples, bool transform_to_unbounded, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng,
+		size_t max_history_samples, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, Real t_dof,
 		const std::string& tmpfilename, bool log_info)
 	{
 		num_variables = variable_indices.size();
 		this->sample_history_clustering = sample_history_clustering;
 		this->tmpfilename = tmpfilename;
+		this->t_dof = t_dof;
 
 		if (num_variables == 1) {
 			target_acceptance_rate = 0.44;
