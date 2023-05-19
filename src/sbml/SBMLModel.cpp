@@ -110,13 +110,33 @@ bool SBMLModel::LoadSBML(const std::string& fn)
 		LOGERROR("Errors reading SBML file %s: NULL returned", fn.c_str());
 		return false;
 	}
-	if (document->getNumErrors() > 0) {
-		LOGERROR("Errors reading SBML file %s: %d", fn.c_str(), document->getNumErrors());
-		for (unsigned int i = 0; i < document->getNumErrors(); i++) {
-			LOGERROR(" %d: %s", i, document->getError(i)->getMessage().c_str());
+	if (document->getNumErrors(LIBSBML_SEV_ERROR) > 0) {
+		LOGERROR("Errors reading SBML file %s: %d", fn.c_str(), document->getNumErrors(LIBSBML_SEV_ERROR));
+		for (unsigned int i = 0; i < document->getNumErrors(LIBSBML_SEV_ERROR); i++) {
+			LOGERROR(" Error %d: %s", i+1, document->getErrorWithSeverity(i, LIBSBML_SEV_ERROR)->getMessage().c_str());
 		}
 		delete document;
 		return false;
+	}
+	if (document->getNumErrors(LIBSBML_SEV_FATAL) > 0) {
+		LOGERROR("Fatal errors reading SBML file %s: %d", fn.c_str(), document->getNumErrors(LIBSBML_SEV_FATAL));
+		for (unsigned int i = 0; i < document->getNumErrors(LIBSBML_SEV_FATAL); i++) {
+			LOGERROR(" Error %d: %s", i + 1, document->getErrorWithSeverity(i, LIBSBML_SEV_FATAL)->getMessage().c_str());
+		}
+		delete document;
+		return false;
+	}
+	if (document->getNumErrors(LIBSBML_SEV_WARNING) > 0) {
+		LOGWARNING("Warnings reading SBML file %s: %d", fn.c_str(), document->getNumErrors(LIBSBML_SEV_WARNING));
+		for (unsigned int i = 0; i < document->getNumErrors(LIBSBML_SEV_WARNING); i++) {
+			LOGWARNING(" Warning %d: %s", i + 1, document->getErrorWithSeverity(i, LIBSBML_SEV_WARNING)->getMessage().c_str());
+		}
+	}
+	if (document->getNumErrors(LIBSBML_SEV_INFO) > 0) {
+		LOG("Information while reading SBML file %s: %d", fn.c_str(), document->getNumErrors(LIBSBML_SEV_INFO));
+		for (unsigned int i = 0; i < document->getNumErrors(LIBSBML_SEV_INFO); i++) {
+			LOG(" Information %d: %s", i + 1, document->getErrorWithSeverity(i, LIBSBML_SEV_INFO)->getMessage().c_str());
+		}
 	}
 
 	model = document->getModel();
