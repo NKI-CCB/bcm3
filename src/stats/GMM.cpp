@@ -257,7 +257,10 @@ namespace bcm3 {
 			VectorReal tmp = covariance.diagonal();
 			covariance = tmp.asDiagonal();
 		} else {
-			// James-Stein constant risk minimax shrinkage
+			// Eigenvalue shrinkage based on Theorem 3.1 from 
+			// Dey, D. K., and Srinivasan, C. (1985) Estimation of a Covariance Matrix under Stein’s Loss. Ann. Statist.
+			// Also refered to by
+			// Ledoit, O., and Wolf, M. (2004) A well-conditioned estimator for large-dimensional covariance matrices. Journal of Multivariate Analysis.
 			Eigen::SelfAdjointEigenSolver<MatrixReal> eig;
 			eig.compute(covariance);
 			VectorReal shrunk_eigval = eig.eigenvalues();

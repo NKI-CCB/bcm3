@@ -8,6 +8,9 @@ namespace bcm3 {
 	class BlockingStrategy
 	{
 	public:
+		BlockingStrategy();
+		virtual ~BlockingStrategy();
+
 		virtual void Initialize(size_t num_variables);
 		virtual bool UsesClustering();
 

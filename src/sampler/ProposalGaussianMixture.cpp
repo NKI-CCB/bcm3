@@ -131,39 +131,7 @@ namespace bcm3 {
 
 	bool ProposalGaussianMixture::InitializeImpl(const MatrixReal& history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)
 	{
-		if (history.rows() < 2) {
-			// Start with vector sampler with a single component with diagonal covariance equal to prior variance
-			VectorReal mean(num_variables);
-			MatrixReal covariance(num_variables, num_variables);
-
-			covariance.setZero();
-			for (size_t i = 0; i < variable_indices.size(); i++) {
-				Real prior_mean;
-				if (!prior->EvaluateMarginalMean(variable_indices[i], prior_mean)) {
-					// TODO - somehow come up with something reasonable?
-					prior_mean = 0.0;
-				}
-
-				Real prior_var;
-				if (!prior->EvaluateMarginalVariance(variable_indices[i], prior_var)) {
-					// TODO - somehow come up with something reasonable?
-					prior_var = 1.0;
-				}
-
-				mean(i) = prior_mean;
-				covariance(i, i) = prior_var;
-			}
-
-			std::vector<VectorReal> means(1, mean);
-			std::vector<MatrixReal> covs(1, covariance);
-			VectorReal weights;
-			weights.setConstant(1, 1);
-
-			gmm = std::make_shared<GMM>();
-			if (!gmm->Set(means, covs, weights)) {
-				return false;
-			}
-		} else {
+		if (history.rows() >= 2) {
 			// Calculate effective sample size
 			size_t num_history_samples = history.rows();
 			VectorReal ess(num_variables);
@@ -231,6 +199,42 @@ namespace bcm3 {
 				}
 			}
 #endif
+		}
+
+		if (!gmm) {
+			// If the GMM fitting failed, or if we didn't have any samples to work with because it's the first initialization,
+			// we start with vector sampler with a single component with diagonal covariance equal to prior variance
+			VectorReal mean(num_variables);
+			MatrixReal covariance(num_variables, num_variables);
+
+			covariance.setZero();
+			for (size_t i = 0; i < variable_indices.size(); i++) {
+				Real prior_mean;
+				if (!prior->EvaluateMarginalMean(variable_indices[i], prior_mean)) {
+					// TODO - somehow come up with something reasonable?
+					prior_mean = 0.0;
+				}
+
+				Real prior_var;
+				if (!prior->EvaluateMarginalVariance(variable_indices[i], prior_var)) {
+					// TODO - somehow come up with something reasonable?
+					prior_var = 1.0;
+				}
+
+				mean(i) = prior_mean;
+				covariance(i, i) = prior_var;
+			}
+
+			std::vector<VectorReal> means(1, mean);
+			std::vector<MatrixReal> covs(1, covariance);
+			VectorReal weights;
+			weights.setConstant(1, 1);
+
+			gmm = std::make_shared<GMM>();
+			if (!gmm->Set(means, covs, weights)) {
+				LOGERROR("Creation of GMM failed");
+				return false;
+			}
 		}
 
 		scales.setConstant(gmm->GetNumComponents(), 2.38 / sqrt(num_variables));
