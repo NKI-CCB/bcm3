@@ -189,8 +189,9 @@ bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetS
 
 bool Cell::SetInitialConditionsFromOtherCell(const Cell* other)
 {
-	// There's no direct set function?
-	N_VAddConst(other->cvode_y, 0.0, cvode_y);
+	for (size_t i = 0; i < model->GetNumCVodeSpecies(); i++) {
+		NV_Ith_S(cvode_y, i) = other->cvode_end_y(i);
+	}
 	constant_species_y = other->constant_species_y;
 
 #if 1
@@ -338,41 +339,43 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 		if (DNA_replication_ix != std::numeric_limits<size_t>::max() && replication_start_time != replication_start_time) {
 			Real s = NV_Ith_S(cvode_y, DNA_replication_ix);
 			if (s > 1e-4) {
-				replication_start_time = current_simulation_time;
+				replication_start_time = InterpolateEventTime(DNA_replication_ix, 1e-4, true, prev_time);
 			}
 		}
 		if (DNA_replicated_ix != std::numeric_limits<size_t>::max() && replication_finish_time != replication_finish_time) {
 			Real s = NV_Ith_S(cvode_y, DNA_replicated_ix);
 			if (s > 1.95) {
-				replication_finish_time = current_simulation_time;
+				replication_finish_time = InterpolateEventTime(DNA_replicated_ix, 1.95, true, prev_time);
 			}
 		}
 		if (PCNA_gfp_ix != std::numeric_limits<size_t>::max() && PCNA_gfp_increase_time != PCNA_gfp_increase_time) {
 			Real s = NV_Ith_S(cvode_y, PCNA_gfp_ix);
 			if (s > 0.5) {
-				PCNA_gfp_increase_time = current_simulation_time;
+				PCNA_gfp_increase_time = InterpolateEventTime(PCNA_gfp_ix, 0.5, true, prev_time);
 			}
 		}
 		if (nuclear_envelope_ix != std::numeric_limits<size_t>::max() && nuclear_envelope_breakdown_time != nuclear_envelope_breakdown_time) {
 			Real s = NV_Ith_S(cvode_y, nuclear_envelope_ix);
 			if (s < 0.5) {
-				nuclear_envelope_breakdown_time = current_simulation_time;
-				Real interp_time = InterpolateEventTime(nuclear_envelope_ix, 0.5, false, prev_time);
-				printf("NEBD time %.16g; interpolated time %.16g; hcur %5g\n", nuclear_envelope_breakdown_time, interp_time, hcur);
+				nuclear_envelope_breakdown_time = InterpolateEventTime(nuclear_envelope_ix, 0.5, false, prev_time);
 			}
 		}
 		if (chromatid_separation_ix != std::numeric_limits<size_t>::max() && anaphase_onset_time != anaphase_onset_time) {
 			if (NV_Ith_S(cvode_y, chromatid_separation_ix) > 1e-3) {
-				anaphase_onset_time = current_simulation_time;
+				anaphase_onset_time = InterpolateEventTime(chromatid_separation_ix, 1e-3, true, prev_time);
 			}
 		}
 		if (cytokinesis_ix != std::numeric_limits<size_t>::max()) {
 			if (NV_Ith_S(cvode_y, cytokinesis_ix) > 1.0) {
+				achieved_time = InterpolateEventTime(cytokinesis_ix, 1.0, true, prev_time);
+				CalculateEndY(achieved_time);
 				divide = true;
 			}
 		}
 		if (apoptosis_ix != std::numeric_limits<size_t>::max()) {
 			if (NV_Ith_S(cvode_y, apoptosis_ix) > 1.0) {
+				achieved_time = InterpolateEventTime(apoptosis_ix, 1.0, true, prev_time);
+				CalculateEndY(achieved_time);
 				die = true;
 			}
 		}
@@ -598,7 +601,7 @@ Real Cell::InterpolateEventTime(size_t species_ix, Real threshold, bool above, R
 	Real time = prev_time + dt;
 
 	bool crossed = true;
-	for (ptrdiff_t iter = 0; iter < 10; iter++) {
+	for (int iter = 0; iter < 10; iter++) {
 		/* Allow for some slack */
 		Real tfuzz = 100.0 * cvt.cv_uround * fabs(cvt.cv_tn) + fabs(cvt.cv_hu);
 		if (cvt.cv_hu < 0.0) {
@@ -638,4 +641,33 @@ Real Cell::InterpolateEventTime(size_t species_ix, Real threshold, bool above, R
 	}
 	
 	return time;
+}
+
+void Cell::CalculateEndY(Real end_time)
+{
+	CVodeTimepoint& cvt = cvode_timepoints[cvode_steps];
+
+	cvode_end_y.setConstant(model->GetNumCVodeSpecies(), 0.0);
+
+	/* Allow for some slack */
+	Real tfuzz = 100.0 * cvt.cv_uround * fabs(cvt.cv_tn) + fabs(cvt.cv_hu);
+	if (cvt.cv_hu < 0.0) {
+		tfuzz = -tfuzz;
+	}
+	Real tp = cvt.cv_tn - cvt.cv_hu - tfuzz;
+	Real tn1 = cvt.cv_tn + tfuzz;
+
+	/* Sum the differentiated interpolating polynomial */
+	CVodeMem cv_mem = (CVodeMem)cvode_mem;
+	Real s = (end_time - cvt.cv_tn) / cvt.cv_h;
+	Real x = 0.0;
+	for (int j = cvt.cv_q; j >= 0; j--) {
+		Real cval = 1.0;
+		for (int i = j; i >= j + 1; i--)
+			cval *= i;
+		for (int i = 0; i < j; i++)
+			cval *= s;
+
+		cvode_end_y += cval * cvode_timepoints_zn[j].col(cvode_steps);
+	}
 }
