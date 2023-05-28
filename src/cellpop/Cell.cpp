@@ -5,13 +5,14 @@
 #include "SBMLSpecies.h"
 #include "VariabilityDescription.h"
 #include <sunnonlinsol/sunnonlinsol_newton.h>
+#include <fstream>
 #include "../../dependencies/cvode-5.3.0/src/cvode/cvode_impl.h"
 
 size_t Cell::total_num_simulations = 0;
 size_t Cell::cvode_max_steps_reached = 0;
 size_t Cell::cvode_min_timestep_reached = 0;
 const bool Cell::use_generated_code = 1;
-static const int max_cvode_steps = 5000;
+static const int max_cvode_steps = 8000;
 
 Cell::CVodeTimepoint::CVodeTimepoint()
 	: cvode_time(0.0)
@@ -37,6 +38,26 @@ int Cell::static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_d
 	} else {
 		cell->model->CalculateDerivativePublic(t, NV_DATA_S(y), NV_DATA_S(ydot), cell->constant_species_y.data(), cell->cell_specific_transformed_variables.data(), cell->cell_specific_non_sampled_transformed_variables.data());
 	}
+
+#if 0
+	if (count < 5000) {
+		std::ofstream file("tmp.txt", std::ios::app);
+		file.precision(18);
+		file << t << "\t";
+		for (int i = 0; i < NV_LENGTH_S(y); i++) {
+			file << NV_Ith_S(y, i) << "\t";
+		}
+		for (int i = 0; i < NV_LENGTH_S(ydot); i++) {
+			file << NV_Ith_S(ydot, i) << "\t";
+		}
+		file << std::endl;
+		count++;
+	}
+	//if (count == 488) {
+	//	exit(1);
+	//}
+#endif
+
 	return 0;
 }
 
@@ -45,6 +66,21 @@ int Cell::static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac,
 	Cell* cell = reinterpret_cast<Cell*>(user_data);
 	cell->SetTreatmentConcentration(t);
 	cell->jacobian(Jac, NV_DATA_S(y), cell->constant_species_y.data(), cell->cell_specific_transformed_variables.data(), cell->cell_specific_non_sampled_transformed_variables.data());
+
+#if 0
+	std::ofstream file("tmp_jac.txt", std::ios::app);
+	file.precision(18);
+	file << "Jacobian; t=" << t << std::endl;
+	file << "y=" << EIGV(y).transpose() << std::endl;
+	file << EIGMAT(Jac) << std::endl;
+
+	Real test = -((0.008333 * 1.0) * (1.000000 - ((EIGV(y)[43] + EIGV(y)[44]) + EIGV(y)[47]))) - (0.001155 * 1.0);
+	Real test2 = -(0.008333 * (1.000000 - ((EIGV(y)[43] + EIGV(y)[44]) + EIGV(y)[47]))) - 0.001155;
+
+	file << "Test =" << test << std::endl;
+	file << "Test2=" << test2 << std::endl;
+#endif
+
 	return 0;
 }
 
@@ -117,7 +153,7 @@ Cell::~Cell()
 	realtype hcur;
 	realtype tcur;
 	CVodeGetIntegratorStats(cvode_mem, &nsteps, &nfevals, &nlinsetups, &netfails, &qlast, &qcur, &hinused, &hlast, &hcur, &tcur);
-	printf("%d %d %d %d %d %d %g %g %g %g", nsteps, nfevals, nlinsetups, netfails, qlast, qcur, hinused, hlast, hcur, tcur);
+	printf("%d %d %d %d %d %d %g %g %g %g\n", nsteps, nfevals, nlinsetups, netfails, qlast, qcur, hinused, hlast, hcur, tcur);
 #endif
 
 	SUNMatDestroy(J);
@@ -278,9 +314,25 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 			break;
 		}
 
+#if 0
+		Real hcur;
+		CVodeGetCurrentStep(cvode_mem, &hcur);
+		int qcur;
+		CVodeGetCurrentOrder(cvode_mem, &qcur);
+
+		std::ofstream file("tmp.txt", std::ios::app);
+		file.precision(18);
+		file << "CVode step " << std::to_string(cvode_steps + 1);
+		file << "; time=" << current_simulation_time;
+		file << " hcur=" << hcur;
+		file << " qcur=" << qcur;
+		file <<std::endl;
+		//file << "cvode_y=" << EIGV(cvode_y).transpose() << std::endl;
+		file.close();
+#endif
+
 		// Store relevant information for interpolation at any timepoint later
 		RetrieveCVodeInterpolationInfo();
-		cvode_steps++;
 		min_step_size = (std::min)(min_step_size, current_simulation_time - prev_time);
 
 		if (DNA_replication_ix != std::numeric_limits<size_t>::max() && replication_start_time != replication_start_time) {
@@ -305,6 +357,8 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 			Real s = NV_Ith_S(cvode_y, nuclear_envelope_ix);
 			if (s < 0.5) {
 				nuclear_envelope_breakdown_time = current_simulation_time;
+				Real interp_time = InterpolateEventTime(nuclear_envelope_ix, 0.5, false, prev_time);
+				printf("NEBD time %.16g; interpolated time %.16g; hcur %5g\n", nuclear_envelope_breakdown_time, interp_time, hcur);
 			}
 		}
 		if (chromatid_separation_ix != std::numeric_limits<size_t>::max() && anaphase_onset_time != anaphase_onset_time) {
@@ -327,8 +381,11 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 			completed = true;
 			break;
 		}
+
+		cvode_steps++;
 	}
 
+	//printf("Simulation steps: %zu\n", cvode_steps);
 	achieved_time = current_simulation_time + creation_time;
 	return result;
 }
@@ -531,4 +588,54 @@ void Cell::RetrieveCVodeInterpolationInfo()
 		}
 #endif
 	}
+}
+
+Real Cell::InterpolateEventTime(size_t species_ix, Real threshold, bool above, Real prev_time)
+{
+	CVodeTimepoint& cvt = cvode_timepoints[cvode_steps];
+
+	Real dt = (current_simulation_time - prev_time) * 0.5;
+	Real time = prev_time + dt;
+
+	bool crossed = true;
+	for (ptrdiff_t iter = 0; iter < 10; iter++) {
+		/* Allow for some slack */
+		Real tfuzz = 100.0 * cvt.cv_uround * fabs(cvt.cv_tn) + fabs(cvt.cv_hu);
+		if (cvt.cv_hu < 0.0) {
+			tfuzz = -tfuzz;
+		}
+		Real tp = cvt.cv_tn - cvt.cv_hu - tfuzz;
+		Real tn1 = cvt.cv_tn + tfuzz;
+
+		/* Sum the differentiated interpolating polynomial */
+		CVodeMem cv_mem = (CVodeMem)cvode_mem;
+		Real s = (time - cvt.cv_tn) / cvt.cv_h;
+		Real x = 0.0;
+		for (int j = cvt.cv_q; j >= 0; j--) {
+			Real cval = 1.0;
+			for (int i = j; i >= j + 1; i--)
+				cval *= i;
+			for (int i = 0; i < j; i++)
+				cval *= s;
+
+			x += cval * cvode_timepoints_zn[j](species_ix, cvode_steps);
+		}
+
+		dt *= 0.5;
+		if (above) {
+			if (x > threshold) {
+				time -= dt;
+			} else {
+				time += dt;
+			}
+		} else {
+			if (x < threshold) {
+				time -= dt;
+			} else {
+				time += dt;
+			}
+		}
+	}
+	
+	return time;
 }
