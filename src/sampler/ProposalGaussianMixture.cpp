@@ -175,9 +175,9 @@ namespace bcm3 {
 						LOG("GMM num_components=%2zu - AIC=%.6g, adjusted AIC=%.6g", num_components[i], test_gmm_k->GetAIC(), adjusted_AIC);
 					}
 
-					if (adjusted_AIC < best_aic) {
+					if (test_gmm_k->GetAIC() < best_aic) {
 						gmm = test_gmm_k;
-						best_aic = adjusted_AIC;
+						best_aic = test_gmm_k->GetAIC();
 					}
 				} else {
 					if (log_info) {
@@ -189,7 +189,7 @@ namespace bcm3 {
 #if 1
 			if (log_info) {
 				if (gmm) {
-					LOG("Selected GMM with %zu components", gmm->GetNumComponents());
+					LOG("Selected GMM with %zu components (selection through full AIC)", gmm->GetNumComponents());
 					for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
 						std::stringstream str;
 						str << gmm->GetMean(i).transpose();
