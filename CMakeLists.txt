@@ -19,6 +19,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_SHARED_LIBRARY_SUFFIX .so)
 
 # Optimization settings
 if(CMAKE_HOST_WIN32)
@@ -26,8 +27,7 @@ if(CMAKE_HOST_WIN32)
 endif(CMAKE_HOST_WIN32)
 if(CMAKE_HOST_UNIX)
     set(CMAKE_BUILD_TYPE Release)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 endif(CMAKE_HOST_UNIX)
 
 add_subdirectory(dependencies/cluster-1.52a/src)

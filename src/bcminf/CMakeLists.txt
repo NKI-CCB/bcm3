@@ -7,7 +7,7 @@ target_sources(bcminf
 
 target_include_directories(bcminf
   PRIVATE
-    ../likelihoods
+  ../likelihoods
 )
 
 target_link_libraries(bcminf
@@ -16,4 +16,4 @@ target_link_libraries(bcminf
 )
 
 set_target_properties(bcminf PROPERTIES DEBUG_POSTFIX d)
-set_target_properties(bcminf PROPERTIES RUNTIME_OUTPUT_DIRECTORY ../../../bin)
+set_target_properties(bcminf PROPERTIES RUNTIME_OUTPUT_DIRECTORY ../bin)

@@ -38,8 +38,6 @@ private:
 	void SetMutations();
 	void SetTreatmentConcentration(Real t);
 	void RetrieveCVodeInterpolationInfo();
-	Real InterpolateEventTime(size_t species_ix, Real threshold, bool above, Real prev_time);
-	void CalculateEndY(Real end_time);
 	static int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data);
 	static int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3);
 
@@ -52,7 +50,6 @@ private:
 	SUNLinearSolver LS;
 	SUNNonlinearSolver NLS;
 	N_Vector cvode_y;
-	OdeVectorReal cvode_end_y;
 	OdeVectorReal constant_species_y;
 	SUNMatrix J;
 	bool cvode_initialized;

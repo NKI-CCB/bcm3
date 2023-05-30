@@ -131,8 +131,6 @@ namespace bcm3 {
 
 	bool ProposalGaussianMixture::InitializeImpl(const MatrixReal& history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)
 	{
-		gmm.reset();
-
 		if (history.rows() >= 2) {
 			// Calculate effective sample size
 			size_t num_history_samples = history.rows();
@@ -161,6 +159,7 @@ namespace bcm3 {
 
 			// Fit GMMs for increasing number of components and select the one with the lowest AIC
 			Real best_aic = std::numeric_limits<Real>::infinity();
+			gmm.reset();
 			static const size_t num_components[7] = { 1, 2, 3, 4, 5, 8, 13 };
 			for (size_t i = 0; i < 7; i++) {
 				std::shared_ptr<GMM> test_gmm_k = std::make_shared<GMM>();
@@ -175,9 +174,9 @@ namespace bcm3 {
 						LOG("GMM num_components=%2zu - AIC=%.6g, adjusted AIC=%.6g", num_components[i], test_gmm_k->GetAIC(), adjusted_AIC);
 					}
 
-					if (test_gmm_k->GetAIC() < best_aic) {
+					if (adjusted_AIC < best_aic) {
 						gmm = test_gmm_k;
-						best_aic = test_gmm_k->GetAIC();
+						best_aic = adjusted_AIC;
 					}
 				} else {
 					if (log_info) {
@@ -186,21 +185,17 @@ namespace bcm3 {
 				}
 			}
 
-#if 1
+#if 0
 			if (log_info) {
-				if (gmm) {
-					LOG("Selected GMM with %zu components (selection through full AIC)", gmm->GetNumComponents());
-					for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
-						std::stringstream str;
-						str << gmm->GetMean(i).transpose();
-						LOG("Mean component %zd: %s", i, str.str().c_str());
+				LOG("Selected GMM with %zu components", gmm->GetNumComponents());
+				for (ptrdiff_t i = 0; i < gmm->GetNumComponents(); i++) {
+					std::stringstream str;
+					str << gmm->GetMean(i).transpose();
+					LOG("Mean component %zd: %s", i, str.str().c_str());
 
-						std::stringstream().swap(str);
-						str << gmm->GetCovariance(i);
-						LOG("Covariance component %zd:\n%s", i, str.str().c_str());
-					}
-				} else {
-					LOG("Unable to fit even a single Gaussian, resorting to a single Gaussian with covariance based on the prior");
+					std::stringstream().swap(str);
+					str << gmm->GetCovariance(i);
+					LOG("Covariance component %zd:\n%s", i, str.str().c_str());
 				}
 			}
 #endif

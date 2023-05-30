@@ -68,9 +68,9 @@ extern "C" {
 		}
 
 		const MatrixReal& simtraj = ll->GetSimulatedTrajectories();
-		for (size_t i = 0; i < 100; i++) {
-			for (size_t j = 0; j < 4; j++) {
-				out_values[j * 100 + i] = simtraj(j, i);
+		for (size_t i = 0; i < 33; i++) {
+			for (size_t j = 0; j < 6; j++) {
+				out_values[j * 33 + i] = simtraj(j, i);
 			}
 		}
 

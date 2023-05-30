@@ -757,9 +757,6 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "cmake_minimum_required(VERSION 3.16)\n";
 		f << "project(generated_derivatives CXX)\n";
 		f << "\n";
-		f << "if(CMAKE_HOST_WIN32)\n";
-		f << "	set(CMAKE_CXX_FLAGS \"/arch:AVX\")\n";
-		f << "endif(CMAKE_HOST_WIN32)\n";
 		f << "if(CMAKE_HOST_UNIX)\n";
 		f << "	set(CMAKE_BUILD_TYPE Release)\n";
 		f << "	set(CMAKE_CXX_FLAGS \"-O3 -std=c++11 -march=native\")\n";
