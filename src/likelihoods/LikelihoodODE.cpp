@@ -86,7 +86,10 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
     bcm3::CSVParser parser;
-    parser.Parse("/Users/huubvdent/Documents/Internship/BCM_RUNS/MAPK_ERK_v4/data_10_fit/normalized_oscillations.csv", ",", false);
+    parser.Parse(cwd.string(), ",", false);
+
+    
+    // parser.Parse("/Users/huubvdent/Documents/Internship/BCM_RUNS/MAPK_ERK_v4/data_0_fit/normalized_oscillations.csv", ",", false);
 
     // Integrate the ODE system and calculate the likelihood based on the solution
     // In this example we compare the first dynamic variable to a cosine
