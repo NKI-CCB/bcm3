@@ -63,15 +63,13 @@ std::unique_ptr<fISAExperiment> fISAExperiment::Create(const boost::property_tre
 
 		if (type == "single_condition") {
 			experiment = std::make_unique<fISAExperimentSingleCondition>();
-		}
 #if TODO
 		else if (type == "drug_range") {
 			experiment = std::make_unique<fISAExperimentDrugRange>(numthreads);
-		} else if (type == "incucyte_sequential") {
-			experiment = std::make_unique<fISAExperimentIncucyteSequential>(numthreads);
-		}
 #endif
-		else {
+		} else if (type == "incucyte_sequential") {
+			experiment = std::make_unique<fISAExperimentIncucyteSequential>();
+		} else {
 			LOGERROR("Unknown experiment type \"%s\"", type.c_str());
 			return NULL;
 		}
