@@ -26,7 +26,7 @@ if(CMAKE_HOST_WIN32)
     add_definitions(/arch:AVX)
 endif(CMAKE_HOST_WIN32)
 if(CMAKE_HOST_UNIX)
-    set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_BUILD_TYPE Debug)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 endif(CMAKE_HOST_UNIX)
 
