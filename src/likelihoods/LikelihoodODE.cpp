@@ -16,8 +16,8 @@ LikelihoodODE::~LikelihoodODE()
 
 bool LikelihoodODE::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm)
 {
-    size_t num_dynamic_variables = 6;
-    size_t num_inference_variables = 16;
+    size_t num_dynamic_variables = 10;
+    size_t num_inference_variables = 14;
 
     this->varset = varset;
     if (varset->GetNumVariables() != num_inference_variables) {
@@ -67,21 +67,21 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
         parameter_values(i) = varset->TransformVariable(i, values(i));
     }
 
-    // // The initial conditions can be dependent on the parameters
-    // OdeVectorReal initial_conditions(4);
-    // initial_conditions(0) = parameter_values(9);
-    // initial_conditions(1) = parameter_values(10);
-    // initial_conditions(2) = parameter_values(11);
-    // initial_conditions(3) = parameter_values(12);
-
     // The initial conditions can be dependent on the parameters
-    OdeVectorReal initial_conditions(6);
+    OdeVectorReal initial_conditions(4);
     initial_conditions(0) = parameter_values(10);
     initial_conditions(1) = parameter_values(11);
     initial_conditions(2) = parameter_values(12);
     initial_conditions(3) = parameter_values(13);
-    initial_conditions(4) = parameter_values(14);
-    initial_conditions(5) = parameter_values(15);
+
+    // // The initial conditions can be dependent on the parameters
+    // OdeVectorReal initial_conditions(6);
+    // initial_conditions(0) = parameter_values(10);
+    // initial_conditions(1) = parameter_values(11);
+    // initial_conditions(2) = parameter_values(12);
+    // initial_conditions(3) = parameter_values(13);
+    // initial_conditions(4) = parameter_values(14);
+    // initial_conditions(5) = parameter_values(15);
 
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
@@ -97,8 +97,8 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
         logp = 0.0;
         for (size_t i = 0; i < timepoints.size(); i++) {
             // Real cosvalue = 100.0 * cos(timepoints(i) / 1140) + 150.0;
-            Real datavalue = parser.GetEntry(10, i);
-            logp += bcm3::LogPdfTnu3(datavalue, simulated_trajectories(0, i), 20.0);
+            Real datavalue = parser.GetEntry(13, i);
+            logp += bcm3::LogPdfTnu3(datavalue, simulated_trajectories(0, i), parameter_values[9]);
         }
     } else {
         logp = -std::numeric_limits<Real>::infinity();
@@ -107,77 +107,77 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
 	return true;
 }
 
-// bool LikelihoodODE::CalculateDerivative_v3(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user)
-// {
-//     // Calculate the right-hand side of the differential equation
-//     // The current timepoint and values of the dynamic variables are provided in t and y
-//     // The derivative should be stored in dydt
-
-//     Real mek_kcat_erk = parameter_values[0];
-//     Real mek_km_erk = parameter_values[1];
-//     Real vmax_erk_dephos = parameter_values[2];
-//     Real km_erk_dephos = parameter_values[3];
-//     Real erk_vmax_mek = parameter_values[4];
-//     Real erk_km_mek = parameter_values[5];
-//     Real erk_kI = parameter_values[6];
-//     Real vmax_mek_dephos = parameter_values[7];
-//     Real km_mek_dephos = parameter_values[8];
-    
-//     Real erk_pp = y[0];
-//     Real mek_pp = y[1];
-//     Real erk = y[2];
-//     Real mek = y[3];
-
-//     Real& derk_pp = dydt[0];
-//     Real& dmek_pp = dydt[1];
-//     Real& derk = dydt[2];
-//     Real& dmek = dydt[3];
-    
-//     derk_pp = mek_kcat_erk * mek_pp * erk / (mek_km_erk + erk) - vmax_erk_dephos * erk_pp / (km_erk_dephos + erk_pp);
-//     dmek_pp = erk_vmax_mek * mek / (erk_km_mek * (1 + erk_pp / erk_kI) + mek) - vmax_mek_dephos * mek_pp / (km_mek_dephos + mek_pp);
-//     derk = vmax_erk_dephos * erk_pp / (km_erk_dephos + erk_pp) - mek_kcat_erk * mek_pp * erk / (mek_km_erk + erk);
-//     dmek = vmax_mek_dephos * mek_pp / (km_mek_dephos + mek_pp) - erk_vmax_mek * mek / (erk_km_mek * (1 + erk_pp / erk_kI) + mek);
-
-//     return true;
-// }
-
 bool LikelihoodODE::CalculateDerivative(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user)
 {
     // Calculate the right-hand side of the differential equation
     // The current timepoint and values of the dynamic variables are provided in t and y
     // The derivative should be stored in dydt
 
-    Real erk_dephos = parameter_values[0];
-    Real erk_kI_raf = parameter_values[1];
-    Real erk_km_raf = parameter_values[2];
-    Real erk_vmax_raf = parameter_values[3];
-    Real mek_dephos = parameter_values[4];
-    Real mek_kcat_erk = parameter_values[5];
-    Real mek_km_erk = parameter_values[6];
-    Real raf_dephos = parameter_values[7];
-    Real raf_kcat_mek = parameter_values[8];
-    Real raf_km_mek = parameter_values[9];
-
+    Real mek_kcat_erk = parameter_values[0];
+    Real mek_km_erk = parameter_values[1];
+    Real vmax_erk_dephos = parameter_values[2];
+    Real km_erk_dephos = parameter_values[3];
+    Real erk_vmax_mek = parameter_values[4];
+    Real erk_km_mek = parameter_values[5];
+    Real erk_kI = parameter_values[6];
+    Real vmax_mek_dephos = parameter_values[7];
+    Real km_mek_dephos = parameter_values[8];
+    
     Real erk_pp = y[0];
     Real mek_pp = y[1];
-    Real raf_pp = y[2];
-    Real erk = y[3];
-    Real mek = y[4];
-    Real raf = y[5];
+    Real erk = y[2];
+    Real mek = y[3];
 
     Real& derk_pp = dydt[0];
     Real& dmek_pp = dydt[1];
-    Real& draf_pp = dydt[2];
-    Real& derk = dydt[3];
-    Real& dmek = dydt[4];
-    Real& draf = dydt[5];
+    Real& derk = dydt[2];
+    Real& dmek = dydt[3];
     
-    derk_pp = mek_kcat_erk * mek_pp * erk / (erk + mek_km_erk) - erk_pp * erk_dephos;
-    dmek_pp = - mek_pp * mek_dephos + raf_kcat_mek * raf_pp * mek /(mek + raf_km_mek);
-    draf_pp = raf_dephos * raf_pp - erk_vmax_raf * raf / (erk_km_raf * (1 + erk_pp / erk_kI_raf) + raf);
-    derk = mek_kcat_erk * mek_pp * erk / (erk + mek_km_erk) + erk_pp * erk_dephos;
-    dmek = mek_pp * mek_dephos - raf_kcat_mek * raf_pp * mek / (mek + raf_km_mek);
-    draf = raf_dephos * raf_pp + erk_vmax_raf * raf / (erk_km_raf * (1 + erk_pp / erk_kI_raf) + raf);
+    derk_pp = mek_kcat_erk * mek_pp * erk / (mek_km_erk + erk) - vmax_erk_dephos * erk_pp / (km_erk_dephos + erk_pp);
+    dmek_pp = erk_vmax_mek * mek / (erk_km_mek * (1 + erk_pp / erk_kI) + mek) - vmax_mek_dephos * mek_pp / (km_mek_dephos + mek_pp);
+    derk = vmax_erk_dephos * erk_pp / (km_erk_dephos + erk_pp) - mek_kcat_erk * mek_pp * erk / (mek_km_erk + erk);
+    dmek = vmax_mek_dephos * mek_pp / (km_mek_dephos + mek_pp) - erk_vmax_mek * mek / (erk_km_mek * (1 + erk_pp / erk_kI) + mek);
 
     return true;
 }
+
+// bool LikelihoodODE::CalculateDerivative(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user)
+// {
+//     // Calculate the right-hand side of the differential equation
+//     // The current timepoint and values of the dynamic variables are provided in t and y
+//     // The derivative should be stored in dydt
+
+//     Real erk_dephos = parameter_values[0];
+//     Real erk_kI_raf = parameter_values[1];
+//     Real erk_km_raf = parameter_values[2];
+//     Real erk_vmax_raf = parameter_values[3];
+//     Real mek_dephos = parameter_values[4];
+//     Real mek_kcat_erk = parameter_values[5];
+//     Real mek_km_erk = parameter_values[6];
+//     Real raf_dephos = parameter_values[7];
+//     Real raf_kcat_mek = parameter_values[8];
+//     Real raf_km_mek = parameter_values[9];
+
+//     Real erk_pp = y[0];
+//     Real mek_pp = y[1];
+//     Real raf_pp = y[2];
+//     Real erk = y[3];
+//     Real mek = y[4];
+//     Real raf = y[5];
+
+//     Real& derk_pp = dydt[0];
+//     Real& dmek_pp = dydt[1];
+//     Real& draf_pp = dydt[2];
+//     Real& derk = dydt[3];
+//     Real& dmek = dydt[4];
+//     Real& draf = dydt[5];
+    
+//     derk_pp = mek_kcat_erk * mek_pp * erk / (erk + mek_km_erk) - erk_pp * erk_dephos;
+//     dmek_pp = - mek_pp * mek_dephos + raf_kcat_mek * raf_pp * mek /(mek + raf_km_mek);
+//     draf_pp = raf_dephos * raf_pp - erk_vmax_raf * raf / (erk_km_raf * (1 + erk_pp / erk_kI_raf) + raf);
+//     derk = mek_kcat_erk * mek_pp * erk / (erk + mek_km_erk) + erk_pp * erk_dephos;
+//     dmek = mek_pp * mek_dephos - raf_kcat_mek * raf_pp * mek / (mek + raf_km_mek);
+//     draf = raf_dephos * raf_pp + erk_vmax_raf * raf / (erk_km_raf * (1 + erk_pp / erk_kI_raf) + raf);
+
+//     return true;
+// }
