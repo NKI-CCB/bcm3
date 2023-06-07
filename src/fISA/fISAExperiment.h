@@ -140,6 +140,9 @@ protected:
 	std::vector<ModelConditions> conditions;
 	std::vector<Real> transformed_values;
 
+	VectorReal cell_line_logp;
+	std::vector<uint64> evaluation_tasks;
+
 #if 0
 	std::vector<size_t> cell_lines_bootstrap_count;
 	size_t safe_bayes_ix;

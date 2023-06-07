@@ -38,8 +38,6 @@ protected:
 	std::vector<DataPart> data;
 
 	std::vector<ParallelData> parallel_data;
-	VectorReal cell_line_logp;
-	std::vector<uint64> evaluation_tasks;
 	std::vector<VectorReal> stored_activities;
 	std::vector<VectorReal> stored_modeled_data_values;
 
