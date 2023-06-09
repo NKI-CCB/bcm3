@@ -8,20 +8,88 @@
 #include <boost/property_tree/xml_parser.hpp>
 #include "CSVParser.h"
 
-#if TODO
-
 #define USE_VINE_COPULAS 0
 #define USE_MVT 0
 
-fISAExperimentIncucyteSequential::fISAExperimentIncucyteSequential(size_t numthreads)
-	: fISAExperiment(numthreads)
-	, relative_experiment(NULL)
-	, data_weight(1.0)
+fISAExperimentIncucyteSequential::fISAExperimentIncucyteSequential()
+	: relative_experiment(NULL)
+	, drug_model_ix(std::numeric_limits<size_t>::max())
 {
 }
 
 fISAExperimentIncucyteSequential::~fISAExperimentIncucyteSequential()
 {
+}
+
+bool fISAExperimentIncucyteSequential::StartEvaluateLogProbability(const VectorReal& values, const std::vector< std::unique_ptr<fISAExperiment> >& other_experiments)
+{
+	for (size_t vi = 0; vi < varset->GetNumVariables(); vi++) {
+		transformed_values[vi] = varset->TransformVariable(vi, values[vi]);
+		if (transformed_values[vi] == std::numeric_limits<Real>::infinity()) {
+			LOGWARNING("Overflow of parameter %u after transformation of value %g; truncating to highest floating point value", vi, values[vi]);
+			transformed_values[vi] = std::numeric_limits<Real>::max();
+		} else if (transformed_values[vi] == -std::numeric_limits<Real>::infinity()) {
+			LOGWARNING("Negative overflow of parameter %u after transformation of value %g; truncating to lowest floating point value", vi, values[vi]);
+			transformed_values[vi] = std::numeric_limits<Real>::lowest();
+		}
+	}
+
+	for (ptrdiff_t ci = 0; ci < cell_lines.size(); ci++) {
+		bcm3::TTask task = boost::bind(&fISAExperimentIncucyteSequential::EvaluateCellLine, this, boost::placeholders::_1, boost::placeholders::_2);
+		evaluation_tasks[ci] = task_manager->AddTask(task, (void*)ci);
+	}
+
+	return true;
+}
+
+bool fISAExperimentIncucyteSequential::FinishEvaluateLogProbability(const VectorReal& values, Real& logp, const std::vector< std::unique_ptr<fISAExperiment> >& other_experiments)
+{
+	logp = 0.0;
+	for (ptrdiff_t ci = 0; ci < cell_lines.size(); ci++) {
+		bool result = task_manager->WaitTask(evaluation_tasks[ci]);
+		if (result) {
+			logp += cell_line_logp(ci);
+		} else {
+			LOGERROR("Evaluation %u failed", ci);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void fISAExperimentIncucyteSequential::GetObservedData(size_t data_ix, MatrixReal& out_values) const
+{
+	out_values.resize(cell_lines.size(), 1);
+	for (ptrdiff_t ci = 0; ci < cell_lines.size(); ci++) {
+		size_t dci = data_ix / 2;
+		if (data_ix % 2 == 0) {
+			out_values(ci, 0) = data.gmms[ci * drug_concentrations.size() + dci].mup[0];
+		} else {
+			out_values(ci, 0) = data.gmms[ci * drug_concentrations.size() + dci].mua[0];
+		}
+	}
+}
+
+void fISAExperimentIncucyteSequential::GetModeledData(size_t threadix, size_t data_ix, VectorReal& out_values) const
+{
+	out_values.resize(cell_lines.size());
+	for (ptrdiff_t ci = 0; ci < cell_lines.size(); ci++) {
+		size_t dci = data_ix / 2;
+		if (data_ix % 2 == 0) {
+			out_values(ci) = modeled_data_values[ci][dci](0);
+		} else {
+			out_values(ci) = modeled_data_values[ci][dci](1);
+		}
+	}
+}
+
+void fISAExperimentIncucyteSequential::GetModeledActivities(size_t threadix, MatrixReal& out_values) const
+{
+	out_values.resize(cell_lines.size(), network->GetMoleculeCount());
+	for (ptrdiff_t ci = 0; ci < cell_lines.size(); ci++) {
+		out_values.row(ci) = activities[ci][0];
+	}
 }
 
 bool fISAExperimentIncucyteSequential::LoadTypeSpecificNodes(const boost::property_tree::ptree& xml_node, const bcm3::NetCDFDataFile& datafile)
@@ -59,16 +127,20 @@ bool fISAExperimentIncucyteSequential::LoadTypeSpecificNodes(const boost::proper
 	return result;
 }
 
-bool fISAExperimentIncucyteSequential::InitializeParallelData()
+bool fISAExperimentIncucyteSequential::InitializeParallelData(size_t evaluation_threads)
 {
-	parallel_data.resize(numthreads);
-	for (size_t threadix = 0; threadix < numthreads; threadix++) {
-		parallel_data[threadix].transformed_values.resize(varset->GetNumVariables(), std::numeric_limits<Real>::quiet_NaN());
-		parallel_data[threadix].activities.resize(cell_lines.size());
-		parallel_data[threadix].modeled_data_values.resize(cell_lines.size());
-		for (size_t ci = 0; ci < cell_lines.size(); ci++) {
-			parallel_data[threadix].activities[ci].resize(drug_concentrations.size(), VectorReal::Constant(network->GetMoleculeCount(), std::numeric_limits<Real>::quiet_NaN()));
-			parallel_data[threadix].modeled_data_values[ci].resize(drug_concentrations.size(), VectorReal::Constant(2, std::numeric_limits<Real>::quiet_NaN()));
+	parallel_data.resize(evaluation_threads);
+
+	cell_line_logp.setZero(cell_lines.size());
+	evaluation_tasks.resize(cell_lines.size(), 0);
+	activities.resize(cell_lines.size());
+	modeled_data_values.resize(cell_lines.size());
+	for (ptrdiff_t ci = 0; ci < cell_lines.size(); ci++) {
+		activities[ci].resize(drug_concentrations.size());
+		modeled_data_values[ci].resize(drug_concentrations.size());
+		for (ptrdiff_t dci = 0; dci < drug_concentrations.size(); dci++) {
+			activities[ci][dci] = VectorReal::Constant(network->GetMoleculeCount(), std::numeric_limits<Real>::quiet_NaN());
+			modeled_data_values[ci][dci] = VectorReal::Constant(2, std::numeric_limits<Real>::quiet_NaN());
 		}
 	}
 
@@ -133,11 +205,11 @@ bool fISAExperimentIncucyteSequential::ParseDataNode(const boost::property_tree:
 	bcm3::CSVParser parser;
 	parser.Parse(data_file_base, "\t");
 
-	for (size_t i = 0; i < cell_line_count; i++) {
+	for (ptrdiff_t i = 0; i < cell_line_count; i++) {
 		std::string cell_line;
 		result &= datafile.GetValue(Name, "cell_lines", i, cell_line);
 
-		for (int ci = 0; ci < drug_concentrations.size(); ci++) {
+		for (ptrdiff_t ci = 0; ci < drug_concentrations.size(); ci++) {
 			for (int ki = 0; ki < 3; ki++) {
 				DataPart::gmm& gm = data.gmms[i * drug_concentrations.size() + ci];
 
@@ -164,9 +236,15 @@ bool fISAExperimentIncucyteSequential::ParseDataNode(const boost::property_tree:
 		// Make sure the other experiment is defined before this one
 		bool found = false;
 		for (std::vector< std::unique_ptr<fISAExperiment> >::const_iterator ei = other_experiments.begin(); ei != other_experiments.end(); ++ei) {
-			if (ei->get()->GetName() == relative_to_experiment && (relative_experiment = dynamic_cast<fISAExperimentSingleCondition*>(ei->get())) != NULL) {
-				found = true;
-				break;
+			if (ei->get()->GetName() == relative_to_experiment) {
+				relative_experiment = dynamic_cast<const fISAExperimentSingleCondition*>(ei->get());
+				if (relative_experiment == NULL) {
+					LOGERROR("Relative experiment \"%s\" is not a single condition experiment", relative_to_experiment.c_str());
+					return false;
+				} else {
+					found = true;
+					break;
+				}
 			}
 		}
 		if (!found) {
@@ -175,101 +253,89 @@ bool fISAExperimentIncucyteSequential::ParseDataNode(const boost::property_tree:
 		}
 	}
 
-	data_weight = xml_node.get<Real>("<xmlattr>.weight", 1.0);
-
 	return result;
 }
 
-bool fISAExperimentIncucyteSequential::EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp, const std::vector< std::unique_ptr<fISAExperiment> >& other_experiments)
+bool fISAExperimentIncucyteSequential::EvaluateCellLine(void* cell_line_ix_as_ptr, size_t eval_thread_ix)
 {
-	ParallelData& pd = parallel_data[threadix];
+	ParallelDataBase& pd = parallel_data[eval_thread_ix];
 
-	for (size_t vi = 0; vi < varset->GetNumVariables(); vi++) {
-		pd.transformed_values[vi] = varset->TransformVariable(vi, values[vi]);
-	}
+	size_t cell_line_ix = (size_t)cell_line_ix_as_ptr;
 
-	logp = 0.0;
-	for (size_t ci = 0; ci < cell_lines.size(); ci++) {
-		for (int dci = 0; dci < drug_concentrations.size(); dci++) {
-			VectorReal& activities = pd.activities[ci][dci];
+	Real logp = 0.0;
+	for (ptrdiff_t dci = 0; dci < drug_concentrations.size(); dci++) {
+		VectorReal& activities = this->activities[cell_line_ix][dci];
 
-			// Calculate model activities
-			PrepareActivitiesCalculation(activities, pd.expression, pd.transformed_values.data(), ci);
-			activities(drug_model_ix) = drug_concentrations(dci);
-			if (network->Calculate(threadix, activities, pd.expression, pd.transformed_values.data())) {
-				Real proliferation = activities(data.model_ix);
-				Real apoptosis = activities(data.model_ix2);
+		// Calculate model activities
+		PrepareActivitiesCalculation(activities, pd.expression, transformed_values.data(), cell_line_ix);
+		activities(drug_model_ix) = drug_concentrations(dci);
+		if (network->Calculate(eval_thread_ix, activities, pd.expression, transformed_values.data())) {
+			Real proliferation = activities(data.model_ix);
+			Real apoptosis = activities(data.model_ix2);
 
-				pd.modeled_data_values[ci][dci](0) = proliferation;
-				pd.modeled_data_values[ci][dci](1) = apoptosis;
+			modeled_data_values[cell_line_ix][dci](0) = proliferation;
+			modeled_data_values[cell_line_ix][dci](1) = apoptosis;
 
-#if 0
-				if (relative_experiment) {
-					const Real relative_reference_proliferation = relative_experiment->parallel_data[threadix].activities[ci](data.model_ix);
-					proliferation = proliferation - relative_reference_proliferation;
-				}
-#endif
+			if (relative_experiment) {
+				const Real relative_reference_proliferation = relative_experiment->stored_activities[cell_line_ix](data.model_ix);
+				proliferation = proliferation - relative_reference_proliferation;
+			}
 
-				Real thisp;
-				Real x[2] = { proliferation, apoptosis };
+			Real thisp;
+			Real x[2] = { proliferation, apoptosis };
 #if USE_VINE_COPULAS
-				try {
-					if (!data.vinecops[ci * 9 + dci].EvaluateLogPDF(x, thisp)) {
-						logp = -std::numeric_limits<Real>::infinity();
-						break;
-					} else {
-						logp += data_weight * thisp;
-					}
-				} catch (std::exception&) {
+			try {
+				if (!data.vinecops[ci * 9 + dci].EvaluateLogPDF(x, thisp)) {
 					logp = -std::numeric_limits<Real>::infinity();
 					break;
+				} else {
+					logp += thisp;
 				}
-#elif USE_MVT
-				const DataPart::tdist& td =	data.tdists[ci * 9 + dci];
-				const Real lognc = log(sqrt(td.invcov.determinant()) / (2 * M_PI));
-				const Real tx = proliferation - td.mup;
-				const Real ta = apoptosis - td.mua;
-				thisp = lognc -
-						log1p(	(1.0/3.0) * td.invcov(0, 0) * tx * tx + 
-								(1.0/3.0) * td.invcov(1, 1) * ta * ta +
-								(1.0/3.0) * td.invcov(0, 1) * tx * ta +
-								(1.0/3.0) * td.invcov(1, 0) * tx * ta ) *
-						2.5;
-				logp += data_weight * thisp;
-#else
-				const DataPart::gmm& gm = data.gmms[ci * drug_concentrations.size() + dci];
-				if (gm.mua[1] == gm.mua[1] && gm.mup[1] == gm.mup[1]) {
-					thisp = -std::numeric_limits<Real>::infinity();
-					for (int ki = 0; ki < 3; ki++) {
-						const Real tx = proliferation - gm.mup[ki];
-						const Real ta = apoptosis - gm.mua[ki];
-						//const Real kp = gm.logncweight[ki] - 0.5 * (gm.invcov[ki](0, 0) * tx * tx +
-						//											gm.invcov[ki](1, 1) * ta * ta +
-						//											gm.invcov[ki](1, 0) * ta * tx +
-						//											gm.invcov[ki](0, 1) * tx * ta );
-						if (gm.weights[ki] > 0) {
-							const Real kp = gm.logncweight[ki] - 2.5 * log1p((1.0 / 3.0) * gm.invcov[ki](0, 0) * tx * tx +
-								(1.0 / 3.0) * gm.invcov[ki](1, 1) * ta * ta +
-								(1.0 / 3.0) * gm.invcov[ki](1, 0) * ta * tx +
-								(1.0 / 3.0) * gm.invcov[ki](0, 1) * tx * ta);
-							thisp = bcm3::logsum(thisp, kp);
-						}
-					}
-					logp += data_weight * (1.0 / drug_concentrations.size()) * thisp;
-				}
-#endif
-			} else {
+			} catch (std::exception&) {
 				logp = -std::numeric_limits<Real>::infinity();
 				break;
 			}
-		}
-
-		if (logp == -std::numeric_limits<Real>::infinity()) {
+#elif USE_MVT
+			const DataPart::tdist& td = data.tdists[ci * 9 + dci];
+			const Real lognc = log(sqrt(td.invcov.determinant()) / (2 * M_PI));
+			const Real tx = proliferation - td.mup;
+			const Real ta = apoptosis - td.mua;
+			thisp = lognc -
+				log1p((1.0 / 3.0) * td.invcov(0, 0) * tx * tx +
+				(1.0 / 3.0) * td.invcov(1, 1) * ta * ta +
+					(1.0 / 3.0) * td.invcov(0, 1) * tx * ta +
+					(1.0 / 3.0) * td.invcov(1, 0) * tx * ta) *
+				2.5;
+			logp += thisp;
+#else
+			const DataPart::gmm& gm = data.gmms[cell_line_ix * drug_concentrations.size() + dci];
+			if (gm.mua[1] == gm.mua[1] && gm.mup[1] == gm.mup[1]) {
+				thisp = -std::numeric_limits<Real>::infinity();
+				for (int ki = 0; ki < 3; ki++) {
+					const Real tx = proliferation - gm.mup[ki];
+					const Real ta = apoptosis - gm.mua[ki];
+					//const Real kp = gm.logncweight[ki] - 0.5 * (gm.invcov[ki](0, 0) * tx * tx +
+					//											gm.invcov[ki](1, 1) * ta * ta +
+					//											gm.invcov[ki](1, 0) * ta * tx +
+					//											gm.invcov[ki](0, 1) * tx * ta );
+					if (gm.weights[ki] > 0) {
+						const Real kp = gm.logncweight[ki] - 2.5 * log1p((1.0 / 3.0) * gm.invcov[ki](0, 0) * tx * tx +
+							(1.0 / 3.0) * gm.invcov[ki](1, 1) * ta * ta +
+							(1.0 / 3.0) * gm.invcov[ki](1, 0) * ta * tx +
+							(1.0 / 3.0) * gm.invcov[ki](0, 1) * tx * ta);
+						thisp = bcm3::logsum(thisp, kp);
+					}
+				}
+				logp += thisp;
+			}
+#endif
+		} else {
+			logp = -std::numeric_limits<Real>::infinity();
 			break;
 		}
 	}
 
+	cell_line_logp(cell_line_ix) = logp;
+
 	return true;
 }
-
-#endif
