@@ -5,109 +5,109 @@ model_get_var_ix <- function(model, var_name) {
   match(var_name, model$variables)
 }
 
-variable_mean <- function(model, var_ix=NULL, var_name=NULL)
+variable_mean <- function(model, var_ix=NULL, var_name=NULL, temperature_ix = dim(model$posterior$samples)[2])
 {
   if (!is.null(var_name)) {
     var_ix <- model_get_var_ix(model, var_name)
   }
   if (!is.null(var_ix)) {
     varattrs <- model$prior$variable_attrs[[var_ix]]
-    variable_statistic(model$posterior$samples[,var_ix], varattrs, statistic="mean")
+    variable_statistic(model$posterior$samples[var_ix, temperature_ix, ], varattrs, temperature_ix=temperature_ix, statistic="mean")
   } else {
     stop("Either a variable index or a variable name has to be specified")
   }
 }
 
-variable_sd <- function(model, var_ix=NULL, var_name=NULL)
+variable_sd <- function(model, var_ix=NULL, var_name=NULL, temperature_ix = dim(model$posterior$samples)[2])
 {
   if (!is.null(var_name)) {
     var_ix <- model_get_var_ix(model, var_name)
   }
   if (!is.null(var_ix)) {
     varattrs <- model$prior$variable_attrs[[var_ix]]
-    variable_statistic(model$posterior$samples[,var_ix], varattrs, statistic="sd")
+    variable_statistic(model$posterior$samples[var_ix, temperature_ix, ], varattrs, temperature_ix=temperature_ix, statistic="sd")
   } else {
     stop("Either a variable index or a variable name has to be specified")
   }
 }
 
-variable_median <- function(model, var_ix=NULL, var_name=NULL)
+variable_median <- function(model, var_ix=NULL, var_name=NULL, temperature_ix = dim(model$posterior$samples)[2])
 {
   if (!is.null(var_name)) {
     var_ix <- model_get_var_ix(model, var_name)
   }
   if (!is.null(var_ix)) {
     varattrs <- model$prior$variable_attrs[[var_ix]]
-    variable_statistic(model$posterior$samples[,var_ix], varattrs, statistic="median")
+    variable_statistic(model$posterior$samples[var_ix, temperature_ix, ], varattrs, temperature_ix=temperature_ix, statistic="median")
   } else {
     stop("Either a variable index or a variable name has to be specified")
   }
 }
 
-variable_quantile <- function(model, var_ix=NULL, var_name=NULL, q)
+variable_quantile <- function(model, var_ix=NULL, var_name=NULL, temperature_ix = dim(model$posterior$samples)[2], q)
 {
   if (!is.null(var_name)) {
     var_ix <- model_get_var_ix(model, var_name)
   }
   if (!is.null(var_ix)) {
     varattrs <- model$prior$variable_attrs[[var_ix]]
-    variable_statistic(model$posterior$samples[,var_ix], varattrs, statistic="quantile", q=q)
+    variable_statistic(model$posterior$samples[var_ix, temperature_ix, ], varattrs, temperature_ix=temperature_ix, statistic="quantile", q=q)
   } else {
     stop("Either a variable index or a variable name has to be specified")
   }
 }
 
-variable_autocorrelation <- function(model, var_ix=NULL, var_name=NULL, lag)
+variable_autocorrelation <- function(model, var_ix=NULL, var_name=NULL, temperature_ix = dim(model$posterior$samples)[2], lag)
 {
   if (!is.null(var_name)) {
     var_ix <- model_get_var_ix(model, var_name)
   }
   if (!is.null(var_ix)) {
     varattrs <- model$prior$variable_attrs[[var_ix]]
-    variable_statistic(model$posterior$samples[,var_ix], varattrs, statistic="autocorrelation", lag=lag)
+    variable_statistic(model$posterior$samples[var_ix, temperature_ix, ], varattrs, temperature_ix=temperature_ix, statistic="autocorrelation", lag=lag)
   } else {
     stop("Either a variable index or a variable name has to be specified")
   }
 }
 
-variable_decorrelation_lag <- function(model, var_ix=NULL, var_name=NULL)
+variable_decorrelation_lag <- function(model, var_ix=NULL, var_name=NULL, temperature_ix = dim(model$posterior$samples)[2])
 {
   if (!is.null(var_name)) {
     var_ix <- model_get_var_ix(model, var_name)
   }
   if (!is.null(var_ix)) {
     varattrs <- model$prior$variable_attrs[[var_ix]]
-    variable_statistic(model$posterior$samples[,var_ix], varattrs, statistic="decorr_lag")
+    variable_statistic(model$posterior$samples[var_ix, temperature_ix, ], varattrs, temperature_ix=temperature_ix, statistic="decorr_lag")
   } else {
     stop("Either a variable index or a variable name has to be specified")
   }
 }
 
-variable_effective_sample_size <- function(model, var_ix=NULL, var_name=NULL)
+variable_effective_sample_size <- function(model, var_ix=NULL, var_name=NULL, temperature_ix = dim(model$posterior$samples)[2])
 {
   if (!is.null(var_name)) {
     var_ix <- model_get_var_ix(model, var_name)
   }
   if (!is.null(var_ix)) {
     varattrs <- model$prior$variable_attrs[[var_ix]]
-    variable_statistic(model$posterior$samples[,var_ix], varattrs, statistic="ess")
+    variable_statistic(model$posterior$samples[var_ix, temperature_ix, ], varattrs, temperature_ix=temperature_ix, statistic="ess")
   } else {
     stop("Either a variable index or a variable name has to be specified")
   }
 }
 
-variable_summary <- function(model)
+variable_summary <- function(model, temperature_ix = dim(model$posterior$samples)[2])
 {
   df <- data.frame(row.names=model$variables)
   for (j in 1:model$nvar) {
-    df$mean[j] <- variable_mean(model, j)
-    df$sd[j] <- variable_sd(model, j)
-    df$median[j] <- variable_median(model, j)
-    df$q025[j] <- variable_quantile(model, j, q=0.025)
-    df$q975[j] <- variable_quantile(model, j, q=0.975)
-    df$autocorrelation_lag1[j] <- variable_autocorrelation(model, j, lag=1)
-    df$decorrelation_lag[j] <- variable_decorrelation_lag(model, j)
-    df$ess[j] <- variable_effective_sample_size(model, j)
+    df$mean[j] <- variable_mean(model, j, temperature_ix=temperature_ix)
+    df$sd[j] <- variable_sd(model, j, temperature_ix=temperature_ix)
+    df$median[j] <- variable_median(model, j, temperature_ix=temperature_ix)
+    df$q025[j] <- variable_quantile(model, j, temperature_ix=temperature_ix, q=0.025)
+    df$q975[j] <- variable_quantile(model, j, temperature_ix=temperature_ix, q=0.975)
+    df$autocorrelation_lag1[j] <- variable_autocorrelation(model, j, temperature_ix=temperature_ix, lag=1)
+    df$decorrelation_lag[j] <- variable_decorrelation_lag(model, j, temperature_ix=temperature_ix)
+    df$ess[j] <- variable_effective_sample_size(model, j, temperature_ix=temperature_ix)
   }
   return(df)
 }
