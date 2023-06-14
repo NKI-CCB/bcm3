@@ -164,7 +164,8 @@ namespace bcm3 {
 			static const size_t num_components[7] = { 1, 2, 3, 4, 5, 8, 13 };
 			for (size_t i = 0; i < 7; i++) {
 				std::shared_ptr<GMM> test_gmm_k = std::make_shared<GMM>();
-				if (min_ess < num_components[i] * (1 + num_variables)) {
+				if ((i >= 1 && min_ess < num_components[i] * (1 + num_variables)) ||
+					(i == 0 && min_ess < 5 && min_ess < num_variables / 2)) {
 					if (log_info) {
 						LOG("GMM num_components=%2zu - not enough effective samples", num_components[i], test_gmm_k->GetAIC());
 					}
