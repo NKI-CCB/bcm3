@@ -25,9 +25,11 @@ bool fISAExperimentSingleCondition::StartEvaluateLogProbability(const VectorReal
 		}
 	}
 
-	for (size_t ci = 0; ci < cell_lines.size(); ci++) {
-		bcm3::TTask task = boost::bind(&fISAExperimentSingleCondition::EvaluateCellLine, this, boost::placeholders::_1, boost::placeholders::_2);
-		evaluation_tasks[ci] = task_manager->AddTask(task, (void*)ci);
+	if (network->GetNumEvaluationThreads() > 1) {
+		for (size_t ci = 0; ci < cell_lines.size(); ci++) {
+			bcm3::TTask task = boost::bind(&fISAExperimentSingleCondition::EvaluateCellLine, this, boost::placeholders::_1, boost::placeholders::_2);
+			evaluation_tasks[ci] = task_manager->AddTask(task, (void*)ci);
+		}
 	}
 
 	return true;
@@ -37,7 +39,12 @@ bool fISAExperimentSingleCondition::FinishEvaluateLogProbability(const VectorRea
 {
 	logp = 0.0;
 	for (size_t ci = 0; ci < cell_lines.size(); ci++) {
-		bool result = task_manager->WaitTask(evaluation_tasks[ci]);
+		bool result = true;
+		if (network->GetNumEvaluationThreads() > 1) {
+			result = task_manager->WaitTask(evaluation_tasks[ci]);
+		} else {
+			result = fISAExperimentSingleCondition::EvaluateCellLine((void*)ci, 0);
+		}
 		if (result) {
 			logp += cell_line_logp(ci);
 		} else {
