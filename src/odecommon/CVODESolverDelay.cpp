@@ -15,6 +15,12 @@ static int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_
 	return solver->cvode_rhs_fn(t, y, ydot);
 }
 
+static int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3)
+{
+	CVODESolverDelay* solver = reinterpret_cast<CVODESolverDelay*>(user_data);
+	return solver->cvode_jac_fn(t, y, fy, Jac);
+}
+
 CVODESolverDelay::CVODESolverDelay()
 	: cvode_mem(NULL)
 	, LS(NULL)
@@ -85,6 +91,11 @@ bool CVODESolverDelay::Initialize(size_t N, void* user)
 	//SUNNonlinSolSetInfoFile_Newton(NLS, infofp);
 	CVodeSetNonlinearSolver(cvode_mem, NLS);
 
+	if (jacobian) {
+		CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
+		CVodeSetMaxStepsBetweenJac(cvode_mem, 10);
+	}
+
 	return true;
 }
 
@@ -122,6 +133,11 @@ void CVODESolverDelay::SetKeepHistory(Real duration)
 void CVODESolverDelay::SetDerivativeFunction(TDeriviativeFunction f)
 {
 	derivative = f;
+}
+
+void CVODESolverDelay::SetJacobianFunction(TJacobianFunction f)
+{
+	jacobian = f;
 }
 
 void CVODESolverDelay::SetDebugLogging(bool log)
@@ -170,11 +186,11 @@ bool CVODESolverDelay::Simulate(const Real* initial_conditions, const VectorReal
 	// Simulate the system one step at a time
 	while (1) {
 		OdeReal tret;
-		if (debug_log) {
-			LOG("%6g - %g - %.12g %.12g %.12g", timepoints[tpi], tret, NV_Ith_S(y, 0), NV_Ith_S(y,1), NV_Ith_S(y,2));
-		}
 
 		int result = CVode(cvode_mem, (OdeReal)timepoints[tpi], (N_Vector)y, &tret, CV_ONE_STEP);
+		if (debug_log) {
+			LOG("%6g - %g - %.12g %.12g %.12g", timepoints[tpi], tret, NV_Ith_S(y, 0), NV_Ith_S(y, 1), NV_Ith_S(y, 2));
+		}
 		if (result == CV_TSTOP_RETURN) {
 			// We've met a discontinuity
 			
@@ -386,4 +402,22 @@ int CVODESolverDelay::cvode_rhs_fn(OdeReal t, void* y_nvector, void* ydot_nvecto
 	} else {
 		return -1;
 	}
+}
+
+int CVODESolverDelay::cvode_jac_fn(OdeReal t, void* y_nvector, void* fy_nvector, void* Jac_matrix)
+{
+	if (!jacobian) {
+		return -2;
+	}
+
+#if CVODE_USE_EIGEN_SOLVER
+	bool result = jacobian(t, NV_DATA_S(((N_Vector)y_nvector)), NV_DATA_S(((N_Vector)fy_nvector)), history_time, history_y, current_dci, EIGMAT(((SUNMatrix)Jac_matrix)), user_data);
+	if (result) {
+		return 0;
+} else {
+		return -1;
+	}
+#else
+	return -3;
+#endif
 }

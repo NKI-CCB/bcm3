@@ -52,6 +52,7 @@ bool LikelihoodIncucytePopulation::Initialize(std::shared_ptr<const bcm3::Variab
 	}
 
 	experiments.resize(num_experiments);
+	size_t max_timepoints = 0;
 	for (size_t ei = 0; ei < experiments.size(); ei++) {
 		Experiment& e = experiments[ei];
 		e.experiment_ix = ei;
@@ -110,15 +111,21 @@ bool LikelihoodIncucytePopulation::Initialize(std::shared_ptr<const bcm3::Variab
 			e.modeled_cell_treatments[threadix].negative_control = Well(e.num_timepoints, 1);
 			e.modeled_cell_treatments[threadix].ctb.resize(e.num_concentrations);
 		}
+		max_timepoints = std::max(max_timepoints, e.num_timepoints);
 	}
 
 	// Allocate structures for parallel evaluation
 	for (size_t threadix = 0; threadix < evaluation_threads; threadix++) {
 		CVODESolverDelay::TDeriviativeFunction derivative = boost::bind(&LikelihoodIncucytePopulation::CalculateDerivative, this, _1, _2, _3, _4, _5, _6, _7);
+		CVODESolverDelay::TJacobianFunction jacobian = boost::bind(&LikelihoodIncucytePopulation::CalculateJacobian, this, _1, _2, _3, _4, _5, _6, _7, _8);
 		solvers[threadix].SetDerivativeFunction(derivative);
+		solvers[threadix].SetJacobianFunction(jacobian);
 		solvers[threadix].Initialize(3, NULL);
 		solvers[threadix].SetTolerance(1e-6, 1e-2);
 
+		parallel_data[threadix].initial_conditions.setZero(3);
+		parallel_data[threadix].discontinuities_time.setZero(2);
+		parallel_data[threadix].output.setZero(3, max_timepoints);
 		parallel_data[threadix].delay_y = VectorReal::Zero(3);
 
 		// TODO - random number seed
@@ -270,90 +277,6 @@ bool LikelihoodIncucytePopulation::EvaluateLogProbability(size_t threadix, const
 
 	return true;
 }
-
-#if 0
-bool LikelihoodIncucytePopulation::SetupAdditionalOutput(bcm::NetCDFDataFile* file, size_t sample_count)
-{
-	bool result = true;
-	
-	std::vector<unsigned int> sampleix(sample_count);
-	for (size_t i = 0; i < sample_count; i++) {
-		sampleix[i] = (unsigned int)i+1;
-	}
-	
-	result &= file->CreateGroup("output_values");
-
-	for (size_t ei = 0; ei < experiments.size(); ei++) {
-		Experiment& e = experiments[ei];
-
-		const std::string group_name = std::string("output_values/experiment") + std::to_string((uint64)ei+1);
-		result &= file->CreateGroup(group_name);
-		
-		result &= file->CreateDimension(group_name, "sample_ix", sampleix);
-		result &= file->CreateDimension(group_name, "time", e.observed_timepoints);
-		result &= file->CreateDimension(group_name, "drug_concentrations", e.concentrations);
-
-		result &= file->CreateVariable(group_name, "cell_count", "sample_ix", "time", "drug_concentrations");
-		result &= file->CreateVariable(group_name, "apoptotic_cell_count", "sample_ix", "time", "drug_concentrations");
-		result &= file->CreateVariable(group_name, "debris", "sample_ix", "time", "drug_concentrations");
-		result &= file->CreateVariable(group_name, "confluence", "sample_ix", "time", "drug_concentrations");
-		result &= file->CreateVariable(group_name, "apoptosis_marker", "sample_ix", "time", "drug_concentrations");
-
-		result &= file->CreateVariable(group_name, "pc_cell_count", "sample_ix", "time");
-		result &= file->CreateVariable(group_name, "pc_apoptotic_cell_count", "sample_ix", "time");
-		result &= file->CreateVariable(group_name, "pc_debris", "sample_ix", "time");
-		result &= file->CreateVariable(group_name, "pc_confluence", "sample_ix", "time");
-		result &= file->CreateVariable(group_name, "pc_apoptosis_marker", "sample_ix", "time");
-
-		result &= file->CreateVariable(group_name, "nc_cell_count", "sample_ix", "time");
-		result &= file->CreateVariable(group_name, "nc_apoptotic_cell_count", "sample_ix", "time");
-		result &= file->CreateVariable(group_name, "nc_debris", "sample_ix", "time");
-		result &= file->CreateVariable(group_name, "nc_confluence", "sample_ix", "time");
-		result &= file->CreateVariable(group_name, "nc_apoptosis_marker", "sample_ix", "time");
-
-		result &= file->CreateVariable(group_name, "cell_titer_blue_norm", "sample_ix", "drug_concentrations");
-	}
-
-	return result;
-}
-
-void LikelihoodIncucytePopulation::HandleAdditionalOutput(bcm::NetCDFDataFile* file, size_t sample_ix, const Real* values)
-{
-	size_t offset = 0;
-	for (size_t ei = 0; ei < experiments.size(); ei++) {
-		Experiment& e = experiments[ei];
-		const std::string group_name = std::string("output_values/experiment") + std::to_string((uint64)ei+1);
-		file->PutValue(group_name, "sample_ix", sample_ix, (unsigned int)sample_ix);
-
-		for (size_t ti = 0; ti < e.num_timepoints; ti++) {
-			file->PutValue(group_name, "pc_cell_count",				sample_ix, ti, values[offset + e.num_timepoints*0 + ti]);
-			file->PutValue(group_name, "pc_apoptotic_cell_count",	sample_ix, ti, values[offset + e.num_timepoints*1 + ti]);
-			file->PutValue(group_name, "pc_debris",					sample_ix, ti, values[offset + e.num_timepoints*2 + ti]);
-			file->PutValue(group_name, "pc_confluence",				sample_ix, ti, values[offset + e.num_timepoints*3 + ti]);
-			file->PutValue(group_name, "pc_apoptosis_marker",		sample_ix, ti, values[offset + e.num_timepoints*4 + ti]);
-			
-			file->PutValue(group_name, "nc_cell_count",				sample_ix, ti, values[offset + e.num_timepoints*5 + e.num_timepoints*0 + ti]);
-			file->PutValue(group_name, "nc_apoptotic_cell_count",	sample_ix, ti, values[offset + e.num_timepoints*5 + e.num_timepoints*1 + ti]);
-			file->PutValue(group_name, "nc_debris",					sample_ix, ti, values[offset + e.num_timepoints*5 + e.num_timepoints*2 + ti]);
-			file->PutValue(group_name, "nc_confluence",				sample_ix, ti, values[offset + e.num_timepoints*5 + e.num_timepoints*3 + ti]);
-			file->PutValue(group_name, "nc_apoptosis_marker",		sample_ix, ti, values[offset + e.num_timepoints*5 + e.num_timepoints*4 + ti]);
-
-			for (size_t ci = 0; ci < e.num_concentrations; ci++) {
-				file->PutValue(group_name, "cell_count",			sample_ix, ti, ci, values[offset + (2+ci)*e.num_timepoints*5 + e.num_timepoints*0 + ti]);
-				file->PutValue(group_name, "apoptotic_cell_count",	sample_ix, ti, ci, values[offset + (2+ci)*e.num_timepoints*5 + e.num_timepoints*1 + ti]);
-				file->PutValue(group_name, "debris",				sample_ix, ti, ci, values[offset + (2+ci)*e.num_timepoints*5 + e.num_timepoints*2 + ti]);
-				file->PutValue(group_name, "confluence",			sample_ix, ti, ci, values[offset + (2+ci)*e.num_timepoints*5 + e.num_timepoints*3 + ti]);
-				file->PutValue(group_name, "apoptosis_marker",		sample_ix, ti, ci, values[offset + (2+ci)*e.num_timepoints*5 + e.num_timepoints*4 + ti]);
-			}
-		}
-		for (size_t ci = 0; ci < e.num_concentrations; ci++) {
-			file->PutValue(group_name, "cell_titer_blue_norm", sample_ix, ci, values[offset + (2+e.num_concentrations)*e.num_timepoints*5 + ci]);
-		}
-		
-		offset += (e.num_concentrations+2)*e.num_timepoints*5 + e.num_concentrations;
-	}
-}
-#endif
 
 bool LikelihoodIncucytePopulation::SimulateWell(size_t threadix, Experiment& e, Well& w, bool pao, bool drug, bool single_drug, Real drug_proliferation_rate, Real drug_apoptosis_rate, const VectorReal& values)
 {
@@ -598,19 +521,21 @@ bool LikelihoodIncucytePopulation::SimulateWellDeterministic(size_t threadix, Ex
 	Real seeding_density_deviation = values[varset->GetVariableIndex(std::string("seeding_density_deviation_") + std::to_string((uint64)e.experiment_ix + 1))];
 	Real dead_cell_fraction = values[varset->GetVariableIndex("starting_dead_cell_fraction")];
 	
-	VectorReal initial_conditions = VectorReal::Zero(3);
+	VectorReal& initial_conditions = pd.initial_conditions;
 	initial_conditions(0) = e.seeding_density * bcm3::fastpow10(seeding_density_deviation);
 	initial_conditions(1) = dead_cell_fraction * initial_conditions(0);
 	initial_conditions(0) -= initial_conditions(1);
 	
-	VectorReal discontinuities_time;
+	VectorReal& discontinuities_time = pd.discontinuities_time;
 	if (pao || drug) {
-		discontinuities_time = VectorReal::Zero(2);
+		discontinuities_time.resize(2);
 		discontinuities_time(0) = pd.drug_start_time;
 		discontinuities_time(1) = pd.drug_start_time + pd.drug_effect_time;
+	} else {
+		discontinuities_time.resize(0);
 	}
 
-	MatrixReal output = MatrixReal::Zero(3, e.num_timepoints);
+	MatrixReal& output = pd.output;
 	
 	solvers[threadix].SetUserData((void*)threadix);
 	bool result = solvers[threadix].Simulate(initial_conditions.data(), e.observed_timepoints, discontinuities_time, output);
@@ -724,35 +649,73 @@ bool LikelihoodIncucytePopulation::CalculateDerivative(OdeReal t, const OdeReal*
 	size_t threadix = (size_t)user;
 	ParallelData& pd = parallel_data[threadix];
 
-	const OdeReal proliferation_rate = (OdeReal)pd.proliferation_rate;
-	const OdeReal apoptosis_rate = (OdeReal)pd.apoptosis_rate;
-	const OdeReal apoptosis_duration = (OdeReal)pd.apoptosis_duration;
-	const OdeReal apoptosis_remove_rate = (OdeReal)pd.apoptosis_remove_rate;
-
-	if (!CVODESolverDelay::InterpolateHistory(t - apoptosis_duration, history_t, history_y, pd.delay_y)) {
+	OdeReal proliferation_rate = (OdeReal)pd.proliferation_rate;
+	OdeReal apoptosis_rate = (OdeReal)pd.apoptosis_rate;
+	OdeReal apoptosis_remove_rate = (OdeReal)pd.apoptosis_remove_rate;
+	if (!CVODESolverDelay::InterpolateHistory(t - (OdeReal)pd.apoptosis_duration, history_t, history_y, pd.delay_y)) {
 		return false;
 	}
+	CalculateDrugEffect(proliferation_rate, apoptosis_rate, y, pd, t, current_dci);
+	CalculateContactInhibition(proliferation_rate, y, pd);
 
-	OdeReal effective_proliferation_rate = proliferation_rate;
-	OdeReal effective_apoptosis_rate = apoptosis_rate;
-	
-	// Drug effect
+	dydt[0] = (proliferation_rate - apoptosis_rate) * y[0];
+	dydt[1] = apoptosis_rate * y[0] - apoptosis_remove_rate * pd.delay_y(1);
+	dydt[2] = apoptosis_remove_rate * pd.delay_y(1);
+
+	return true;
+}
+
+bool LikelihoodIncucytePopulation::CalculateJacobian(OdeReal t, const OdeReal* y, const OdeReal* dydt, const std::vector< OdeReal >& history_t, const std::vector< OdeVectorReal >& history_y, size_t current_dci, OdeMatrixReal& jac, void* user)
+{
+	size_t threadix = (size_t)user;
+	ParallelData& pd = parallel_data[threadix];
+
+	OdeReal proliferation_rate = (OdeReal)pd.proliferation_rate;
+	OdeReal apoptosis_rate = (OdeReal)pd.apoptosis_rate;
+	OdeReal apoptosis_remove_rate = (OdeReal)pd.apoptosis_remove_rate;
+#if 0
+	if (!CVODESolverDelay::InterpolateHistory(t - (OdeReal)pd.apoptosis_duration, history_t, history_y, pd.delay_y)) {
+		return false;
+	}
+#endif
+	CalculateDrugEffect(proliferation_rate, apoptosis_rate, y, pd, t, current_dci);
+	CalculateContactInhibition(proliferation_rate, y, pd);
+
+	jac(0, 0) = (proliferation_rate - apoptosis_rate);
+	jac(0, 1) = 0.0;
+	jac(0, 2) = 0.0;
+
+	jac(1, 0) = apoptosis_rate;
+	jac(1, 1) = 0.0;// -apoptosis_remove_rate;
+	jac(1, 2) = 0.0;
+
+	jac(2, 0) = 0.0;
+	jac(2, 1) = 0.0;//apoptosis_remove_rate;
+	jac(2, 2) = 0.0;
+
+	return true;
+}
+
+void LikelihoodIncucytePopulation::CalculateDrugEffect(Real& proliferation_rate, Real& apoptosis_rate, const Real* y, const ParallelData& pd, Real t, size_t current_dci)
+{
 	if (pd.drug || pd.pao) {
 		if (current_dci == 0) {
 			// No drug yet
 		} else if (current_dci == 1) {
 			// Increasing drug effect
 			OdeReal drug_time_effect = (t - (OdeReal)pd.drug_start_time) / (OdeReal)pd.drug_effect_time;
-			effective_proliferation_rate = ((OdeReal)1.0 - drug_time_effect) * proliferation_rate + drug_time_effect * (OdeReal)pd.drug_proliferation_rate;
-			effective_apoptosis_rate = ((OdeReal)1.0 - drug_time_effect) * apoptosis_rate + drug_time_effect * (OdeReal)pd.drug_apoptosis_rate;
+			proliferation_rate = ((OdeReal)1.0 - drug_time_effect) * proliferation_rate + drug_time_effect * (OdeReal)pd.drug_proliferation_rate;
+			apoptosis_rate = ((OdeReal)1.0 - drug_time_effect) * apoptosis_rate + drug_time_effect * (OdeReal)pd.drug_apoptosis_rate;
 		} else if (current_dci == 2) {
 			// Full effect
-			effective_proliferation_rate = (OdeReal)pd.drug_proliferation_rate;
-			effective_apoptosis_rate = (OdeReal)pd.drug_apoptosis_rate;
+			proliferation_rate = (OdeReal)pd.drug_proliferation_rate;
+			apoptosis_rate = (OdeReal)pd.drug_apoptosis_rate;
 		}
 	}
+}
 
-	// Contact inhibition
+void LikelihoodIncucytePopulation::CalculateContactInhibition(Real& proliferation_rate, const Real* y, const ParallelData& pd)
+{
 	OdeReal confluence = (OdeReal)(0.01 * (y[0] * pd.cell_size + y[1] * pd.apoptotic_cell_size + y[2] * pd.debris_size));
 	if (confluence > pd.contact_inhibition_start) {
 		// ci = strength of contact inhbition, ci == 1 means the growth is fully inhibited.
@@ -761,14 +724,8 @@ bool LikelihoodIncucytePopulation::CalculateDerivative(OdeReal t, const OdeReal*
 		//OdeReal proliferation_ci = ci * (OdeReal)effective_proliferation_rate;
 		//effective_proliferation_rate -= proliferation_ci * (OdeReal)(1.0 - pd.contact_inhibition_apoptosis_rate);
 		//effective_apoptosis_rate += proliferation_ci * (OdeReal)pd.contact_inhibition_apoptosis_rate;
-		effective_proliferation_rate *= (1.0 - ci);
+		proliferation_rate *= (1.0 - ci);
 	}
-
-	dydt[0] = (effective_proliferation_rate - effective_apoptosis_rate) * y[0];
-	dydt[1] = effective_apoptosis_rate * y[0] - apoptosis_remove_rate * pd.delay_y(1);
-	dydt[2] = apoptosis_remove_rate * pd.delay_y(1);
-
-	return true;
 }
 
 MatrixReal LikelihoodIncucytePopulation::GetSimulatedCellCount() const

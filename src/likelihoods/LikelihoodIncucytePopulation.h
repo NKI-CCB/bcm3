@@ -72,6 +72,10 @@ private:
 		Real drug_apoptosis_rate;
 		VectorReal delay_y;
 
+		VectorReal initial_conditions;
+		VectorReal discontinuities_time;
+		MatrixReal output;
+
 		bool pao;
 		bool drug;
 
@@ -98,6 +102,9 @@ private:
 	bool SimulateWellDeterministic(size_t threadix, Experiment& e, Well& w, bool pao, bool drug, bool single_drug, Real drug_proliferation_rate, Real drug_apoptosis_rate, const VectorReal& values);
 	bool SimulateWellStochastic(size_t threadix, Experiment& e, Well& w, bool pao, bool drug, bool single_drug, Real drug_proliferation_rate, Real drug_apoptosis_rate, const VectorReal& values);
 	bool CalculateDerivative(OdeReal t, const OdeReal* y, const std::vector< OdeReal >& history_t, const std::vector< OdeVectorReal >& history_y, size_t current_dci, OdeReal* dydt, void* user);
+	bool CalculateJacobian(OdeReal t, const OdeReal* y, const OdeReal* dydt, const std::vector< OdeReal >& history_t, const std::vector< OdeVectorReal >& history_y, size_t current_dci, OdeMatrixReal& jac, void* user);
+	void CalculateDrugEffect(Real& proliferation_rate, Real& apoptotis_rate, const Real* y, const ParallelData& pd, Real t, size_t current_dci);
+	void CalculateContactInhibition(Real& proliferation_rate, const Real* y, const ParallelData& pd);
 
 	std::shared_ptr<const bcm3::VariableSet> varset;
 	size_t evaluation_threads;
