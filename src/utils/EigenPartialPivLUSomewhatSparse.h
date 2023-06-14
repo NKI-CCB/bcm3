@@ -95,11 +95,5 @@ public:
 		return *this;
 	}
 
-	template<typename InputType>
-	PartialPivLUExtended& calculate_inverse(const Eigen::EigenBase<InputType>& matrix)
-	{
-		Eigen::internal::compute_inverse<MatrixReal, MatrixReal, 3>::run(matrix, EIGSOL(S).inverse);
-	}
-
 	MatrixReal inverse;
 };
