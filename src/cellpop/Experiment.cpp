@@ -570,6 +570,7 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "#include <cmath>\n";
 		f << "#include \"sundials/sundials_matrix.h\"\n";
 		f << "#include <Eigen/Dense>\n";
+		f << "typedef Eigen::VectorXd VectorReal;\n";
 		f << "typedef Eigen::MatrixXd MatrixReal;\n";
 		f << "#include \"LinearAlgebraSelector.h\"\n";
 		f << std::endl;
