@@ -3,6 +3,8 @@
 #include "NetCDFDataFile.h"
 #include "ProbabilityDistributions.h"
 
+#define DIRICHLET_APOPTOSIS 1
+
 LikelihoodIncucytePopulation::Well::Well(size_t num_timepoints, size_t num_replicates)
 {
 	cell_count = VectorReal::Zero(num_timepoints);
@@ -116,8 +118,8 @@ bool LikelihoodIncucytePopulation::Initialize(std::shared_ptr<const bcm3::Variab
 
 	// Allocate structures for parallel evaluation
 	for (size_t threadix = 0; threadix < evaluation_threads; threadix++) {
-		CVODESolverDelay::TDeriviativeFunction derivative = boost::bind(&LikelihoodIncucytePopulation::CalculateDerivative, this, _1, _2, _3, _4, _5, _6, _7);
-		CVODESolverDelay::TJacobianFunction jacobian = boost::bind(&LikelihoodIncucytePopulation::CalculateJacobian, this, _1, _2, _3, _4, _5, _6, _7, _8);
+		CVODESolverDelay::TDeriviativeFunction derivative = boost::bind(&LikelihoodIncucytePopulation::CalculateDerivative, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6, boost::placeholders::_7);
+		CVODESolverDelay::TJacobianFunction jacobian = boost::bind(&LikelihoodIncucytePopulation::CalculateJacobian, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6, boost::placeholders::_7, boost::placeholders::_8);
 		solvers[threadix].SetDerivativeFunction(derivative);
 		solvers[threadix].SetJacobianFunction(jacobian);
 		solvers[threadix].Initialize(3, NULL);
@@ -186,8 +188,8 @@ bool LikelihoodIncucytePopulation::EvaluateLogProbability(size_t threadix, const
 			relative_drug_proliferation_rate = (std::max)(relative_drug_proliferation_rate - values[varset->GetVariableIndex(std::string("drug_proliferation_rate_") + std::to_string((uint64)ci + 1))], 0.0);
 			Real drug_proliferation_rate = relative_drug_proliferation_rate * values[varset->GetVariableIndex("proliferation_rate")];
 #if DIRICHLET_APOPTOSIS
-			relative_drug_apoptosis_rate = (std::min)(relative_drug_apoptosis_rate + values[varset->GetVariableIndex(std::string("drug_apoptosis_rate_") + std::to_string((uint64)ci + 1))], 1.0 - base_apoptosis_rate);
-			Real drug_apoptosis_rate = values[varset->GetVariableIndex(std::string("drug_apoptosis_rate_") + std::to_string((uint64)ci + 1)) + base_apoptosis_rate;
+			relative_drug_apoptosis_rate = relative_drug_apoptosis_rate + values[varset->GetVariableIndex(std::string("drug_apoptosis_rate_") + std::to_string((uint64)ci + 1))];
+			Real drug_apoptosis_rate = values[varset->GetVariableIndex("drug_apoptosis_rate")] * relative_drug_apoptosis_rate + base_apoptosis_rate;
 #else
 			drug_apoptosis_rate += values[varset->GetVariableIndex(std::string("drug_apoptosis_rate_") + std::to_string((uint64)ci + 1))];
 #endif
