@@ -17,7 +17,7 @@ LikelihoodODE::~LikelihoodODE()
 bool LikelihoodODE::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm)
 {
     size_t num_dynamic_variables = 8;
-    size_t num_inference_variables = 22;
+    size_t num_inference_variables = 20;
 
     this->varset = varset;
     if (varset->GetNumVariables() != num_inference_variables) {
@@ -68,14 +68,14 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
 
     // The initial conditions can be dependent on the parameters
     OdeVectorReal initial_conditions(8);
-    initial_conditions(0) = parameter_values(14);
-    initial_conditions(1) = parameter_values(15);
-    initial_conditions(2) = parameter_values(16);
-    initial_conditions(3) = parameter_values(17);
-    initial_conditions(4) = parameter_values(18);
-    initial_conditions(5) = parameter_values(19);
-    initial_conditions(6) = parameter_values(20);
-    initial_conditions(7) = parameter_values(21);
+    initial_conditions(0) = parameter_values(12);
+    initial_conditions(1) = parameter_values(13);
+    initial_conditions(2) = parameter_values(14);
+    initial_conditions(3) = parameter_values(15);
+    initial_conditions(4) = parameter_values(16);
+    initial_conditions(5) = parameter_values(17);
+    initial_conditions(6) = parameter_values(18);
+    initial_conditions(7) = parameter_values(19);
 
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
@@ -91,7 +91,7 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
         for (size_t i = 0; i < timepoints.size(); i++) {
             // Real cosvalue = 100.0 * cos(timepoints(i) / 1140) + 150.0;
             Real datavalue = parser.GetEntry(0, i);
-            logp += bcm3::LogPdfTnu3(datavalue, parameter_values(11) * simulated_trajectories(0, i) + parameter_values(12), parameter_values(13));
+            logp += bcm3::LogPdfTnu3(datavalue, 0.01 * simulated_trajectories(0, i), parameter_values(11));
         }
     } else {
         logp = -std::numeric_limits<Real>::infinity();
