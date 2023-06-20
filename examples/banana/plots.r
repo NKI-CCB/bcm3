@@ -1,7 +1,7 @@
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/load.r", sep=""))
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/plots_functions.r", sep=""))
 
-model <- bcm3.load.results(".", "output_6chains_2expsteps")
+model <- bcm3.load.results(".", "output_t6_n5_e1")
 
 sample_ix <- (dim(model$posterior$samples)[3]/2+1):(dim(model$posterior$samples)[3])
 temperature_ix <- dim(model$posterior$samples)[2]
@@ -11,22 +11,25 @@ plot(t(model$posterior$samples[,temperature_ix,sample_ix]))
 plot_trace(model, var_ix=1)
 plot_trace(model, var_ix=2)
 
-adaptation_iter <- 2
+library(ellipse)
+library(pals)
+
+clustcols <- brewer.set1(13)
+adaptation_iter <- 1
+
 i <- 1
 j <- 2
-x <- model$sampler_adaptation[[adaptation_iter]]$clustering_input_samples[i,] * model$sampler_adaptation[[adaptation_iter]]$clustering_input_sample_scaling[i]
-y <- model$sampler_adaptation[[adaptation_iter]]$clustering_input_samples[j,] * model$sampler_adaptation[[adaptation_iter]]$clustering_input_sample_scaling[j]
-plot(x, y, col=model$sampler_adaptation[[adaptation_iter]]$assignment+1, pch=20)
+x <- model$posterior$samples[i,temperature_ix,adapt_sample_ix]
+y <- model$posterior$samples[j,temperature_ix,adapt_sample_ix]
 
-nclusters <- length(unique(model$sampler_adaptation[[adaptation_iter]]$assignment))
+adapt_group <- model$sampler_adaptation[["adapt1"]][["block1"]]
+nclusters <- (length(adapt_group)-2)/3
 
-library(ellipse)
+plot(x, y, pch='.')
 for (clusti in 1:nclusters) {
-  clust_sample_ix <- which(model$sampler_adaptation[[adaptation_iter]]$assignment == clusti-1)
-  clustx <- x[clust_sample_ix]
-  clusty <- y[clust_sample_ix]
-  name <- paste("cluster", clusti-1, "_covariance", sep="")
-  cov <- model$sampler_adaptation[[adaptation_iter]][[name]][c(i,j),c(i,j)]
-  ell <- ellipse(cov, centre = c(mean(clustx), mean(clusty)), level=0.6, draw=F)
-  lines(ell, col=clusti)
+  mean <- adapt_group[[paste("cluster", clusti-1, "_mean", sep="")]][c(i,j)]
+  cov <- adapt_group[[paste("cluster", clusti-1, "_covariance", sep="")]][c(i,j),c(i,j)]
+  ell <- ellipse(cov, centre = mean, level=0.6, draw=F)
+  lines(ell, col=clustcols[clusti], lwd=2)
 }
+

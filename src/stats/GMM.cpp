@@ -219,6 +219,7 @@ namespace bcm3 {
 		VectorReal d = VectorReal(samples.cols());
 		VectorReal d2 = VectorReal(samples.cols());
 
+		// Weighted incremental algorithm listed on https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
 		Real wsum = 0;
 		for (size_t i = 0; i < num_samples; i++) {
 			x = samples.row(i);
@@ -248,26 +249,53 @@ namespace bcm3 {
 		}
 
 		// Get the final covariance estimate
-		covariance /= wsum;
+		covariance /= (wsum - 1);
 
 		// Regularization
 		Real n_eff = wsum / ess_factor;
-		if (n_eff < samples.cols()) {
-			// Less samples than variables; have to settle for a diagonal matrix
+		if (n_eff < 2) {
+			// Too few effective samples; have to settle for a diagonal matrix
 			VectorReal tmp = covariance.diagonal();
 			covariance = tmp.asDiagonal();
 		} else {
+			// We'll do regularization on the correlation matrix, so calculate the correlation matrix first
+			VectorReal sd(samples.cols());
+			for (ptrdiff_t i = 0; i < samples.cols(); i++) {
+				sd(i) = sqrt(covariance(i, i));
+			}
+
+			MatrixReal correlation(samples.cols(), samples.cols());
+			for (ptrdiff_t i = 0; i < samples.cols(); i++) {
+				correlation(i, i) = 1.0;
+				for (ptrdiff_t j = i; j < samples.cols(); j++) {
+					correlation(i, j) = covariance(i, j) / (sd(i) * sd(j));
+					correlation(j, i) = correlation(i, j);
+				}
+			}
+
 			// Eigenvalue shrinkage based on Theorem 3.1 from 
 			// Dey, D. K., and Srinivasan, C. (1985) Estimation of a Covariance Matrix under Stein’s Loss. Ann. Statist.
 			// Also refered to by
 			// Ledoit, O., and Wolf, M. (2004) A well-conditioned estimator for large-dimensional covariance matrices. Journal of Multivariate Analysis.
+			// But adapted to use the effective sample size rather than the actual sample size
 			Eigen::SelfAdjointEigenSolver<MatrixReal> eig;
-			eig.compute(covariance);
+			eig.compute(correlation);
 			VectorReal shrunk_eigval = eig.eigenvalues();
-			for (size_t i = 0; i < shrunk_eigval.size(); i++) {
-				shrunk_eigval((shrunk_eigval.size() - 1) - i) *= n_eff / (n_eff + samples.cols() + 1 - 2 * i);
+			size_t n_eff_int = (size_t)std::floor(n_eff);
+			if (n_eff_int < shrunk_eigval.size()) {
+				for (size_t i = 0; i < n_eff_int; i++) {
+					shrunk_eigval((shrunk_eigval.size() - 1) - i) *= n_eff / (n_eff + samples.cols() + 1 - 2 * i);
+				}
+				for (size_t i = n_eff_int; i < shrunk_eigval.size(); i++) {
+					shrunk_eigval(i) = 0.0;
+				}
+			} else {
+				for (size_t i = 0; i < shrunk_eigval.size(); i++) {
+					shrunk_eigval((shrunk_eigval.size() - 1) - i) *= n_eff / (n_eff + samples.cols() + 1 - 2 * i);
+				}
 			}
-			covariance = eig.eigenvectors() * shrunk_eigval.asDiagonal() * eig.eigenvectors().transpose();
+			correlation = eig.eigenvectors() * shrunk_eigval.asDiagonal() * eig.eigenvectors().transpose();
+			covariance = sd.asDiagonal() * correlation * sd.asDiagonal();
 			covariance.diagonal().array() += 1e-8;
 		}
 	}
