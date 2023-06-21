@@ -287,7 +287,7 @@ namespace bcm3 {
 					shrunk_eigval((shrunk_eigval.size() - 1) - i) *= n_eff / (n_eff + samples.cols() + 1 - 2 * i);
 				}
 				for (size_t i = n_eff_int; i < shrunk_eigval.size(); i++) {
-					shrunk_eigval(i) = 0.0;
+					shrunk_eigval((shrunk_eigval.size() - 1) - i) = 0.0;
 				}
 			} else {
 				for (size_t i = 0; i < shrunk_eigval.size(); i++) {
