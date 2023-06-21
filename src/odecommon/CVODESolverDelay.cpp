@@ -170,12 +170,10 @@ bool CVODESolverDelay::Simulate(const Real* initial_conditions, const VectorReal
 
 	// Store initial condition in history
 	history_time.reserve(max_steps);
-	history_y.reserve(max_steps);
+	history_y.setConstant(N, max_steps, std::numeric_limits<Real>::quiet_NaN());
 	history_time.resize(1, 0.0);
-	history_y.resize(1);
-	history_y.back().resize(N);
 	for (size_t i = 0; i < N; i++) {
-		history_y.back()(i) = NV_Ith_S(y, i);
+		history_y(i,0) = NV_Ith_S(y, i);
 	}
 
 	current_dci = 0;
@@ -262,32 +260,25 @@ bool CVODESolverDelay::Simulate(const Real* initial_conditions, const VectorReal
 
 		// Store history
 		history_time.push_back(tret);
-		history_y.resize(history_y.size() + 1);
-		history_y.back().resize(N);
 		for (size_t i = 0; i < N; i++) {
-			history_y.back()(i) = NV_Ith_S(y, i);
+			history_y(i, history_time.size() - 1) = NV_Ith_S(y, i);
 		}
 	}
 
 	return true;
 }
 
-bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< OdeReal >& history_t, const std::vector< OdeVectorReal >& history_y, OdeVectorReal& out)
+bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< OdeReal >& history_t, const OdeMatrixReal& history_y, OdeVectorReal& out)
 {
 	if (history_t.empty()) {
 		LOGERROR("No history supplied");
 		return false;
 	}
-	if (history_t.size() != history_y.size()) {
-		LOGERROR("History sizes do not match");
-		return false;
-	}
 
-#if 1
 	if (t <= history_t.front()) {
-		out = history_y.front();
+		out = history_y.col(0);
 	} else if (t >= history_t.back()) {
-		out = history_y.back();
+		out = history_y.col(history_t.size() - 1);
 	} else {
 		size_t imin = 0;
 		size_t imax = history_t.size();
@@ -302,11 +293,11 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 			}
 
 			if (history_t[ti] == t) {
-				out = history_y[ti];
+				out = history_y.col(ti);
 				break;
 			} else if (history_t[ti] > t) {
 				if (ti == 0) {
-					out = history_y.front();
+					out = history_y.col(0);
 					break;
 				} else {
 					if (history_t[ti-1] < t) {
@@ -315,8 +306,8 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 						OdeReal time_im1 = history_t[ti-1];
 						OdeReal a = (t - time_im1) / (time_i - time_im1);
 
-						const OdeVectorReal& y_i = history_y[ti];
-						const OdeVectorReal& y_im1 = history_y[ti-1];
+						const OdeVectorReal& y_i = history_y.col(ti);
+						const OdeVectorReal& y_im1 = history_y.col(ti-1);
 						out = y_im1;
 						for (int j = 0; j < y_i.size(); j++) {
 							out(j) += a * (y_i(j) - y_im1(j));
@@ -329,7 +320,7 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 				}
 			} else {
 				if (ti == history_t.size() - 1) {
-					out = history_y[ti];
+					out = history_y.col(ti);
 					break;
 				} else {
 					if (history_t[ti+1] > t) {
@@ -338,8 +329,8 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 						OdeReal time_im1 = history_t[ti];
 						OdeReal a = (t - time_im1) / (time_i - time_im1);
 
-						const OdeVectorReal& y_i = history_y[ti+1];
-						const OdeVectorReal& y_im1 = history_y[ti];
+						const OdeVectorReal& y_i = history_y.col(ti+1);
+						const OdeVectorReal& y_im1 = history_y.col(ti);
 						out = y_im1;
 						for (int j = 0; j < y_i.size(); j++) {
 							out(j) += a * (y_i(j) - y_im1(j));
@@ -353,34 +344,6 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 			}
 		}
 	}
-#else
-	for (size_t i = 0; i < history_t.size(); i++) {
-		if (history_t[i] == t) {
-			out = history_y[i];
-			break;
-		}
-
-		if (t < history_t[i]) {
-			if (i == 0) {
-				out = history_y[i];
-				return true;
-			} else {
-				OdeReal time_i = history_t[i];
-				OdeReal time_im1 = history_t[i-1];
-				OdeReal a = (t - time_im1) / (time_i - time_im1);
-
-				const OdeVectorReal& y_i = history_y[i];
-				const OdeVectorReal& y_im1 = history_y[i-1];
-				out = y_im1;
-				for (int j = 0; j < y_i.size(); j++) {
-					out(j) += a * (y_i(j) - y_im1(j));
-				}
-				return true;
-			}
-		}
-	}
-	out = history_y.back();
-#endif
 	
 	return true;
 }
