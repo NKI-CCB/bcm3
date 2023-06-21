@@ -17,6 +17,7 @@ library(pals)
 clustcols <- brewer.set1(13)
 adaptation_iter <- 1
 
+adapt_sample_ix <- 1:2000
 i <- 1
 j <- 2
 x <- model$posterior$samples[i,temperature_ix,adapt_sample_ix]
