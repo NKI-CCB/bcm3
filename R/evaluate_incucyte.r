@@ -6,13 +6,13 @@ bcm3.incucyte.get.likelihood <- function(bcm3, param.values) {
   return(res[[3]])
 }
 
-bcm3.incucyte.get.simulated.trajectories <- function(bcm3, param.values) {
+bcm3.incucyte.get.simulated.trajectories <- function(bcm3, param.values, experiment_ix = 1) {
   traj_buffer <- rep(0.0, 5 * 100 * 11)
-  res <- .C("bcm3_rbridge_incucyte_get_simulated_trajectories", bcm3$.cpp, as.numeric(param.values), traj_buffer, as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
-  if (res[[5]] != 0) {
-    stop(paste("BCM3 C++ bridge error:", res[[5]]))
+  res <- .C("bcm3_rbridge_incucyte_get_simulated_trajectories", bcm3$.cpp, as.numeric(param.values), traj_buffer, as.integer(experiment_ix), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
+  if (res[[6]] != 0) {
+    stop(paste("BCM3 C++ bridge error:", res[[6]]))
   }
-  num_timepoints <- res[[4]]
+  num_timepoints <- res[[5]]
   arr <- array(res[[3]], dim=c(num_timepoints,11,5))
   result <- list()
   result$cell_count <- arr[,,1]
@@ -23,11 +23,11 @@ bcm3.incucyte.get.simulated.trajectories <- function(bcm3, param.values) {
   return(result)
 }
 
-bcm3.incucyte.get.simulated.ctb <- function(bcm3, param.values) {
+bcm3.incucyte.get.simulated.ctb <- function(bcm3, param.values, experiment_ix = 1) {
   ctb_buffer <- rep(0.0, 9)
-  res <- .C("bcm3_rbridge_incucyte_get_simulated_ctb", bcm3$.cpp, as.numeric(param.values), ctb_buffer, as.integer(0), PACKAGE="bcmrbridge")
-  if (res[[4]] != 0) {
-    stop(paste("BCM3 C++ bridge error:", res[[4]]))
+  res <- .C("bcm3_rbridge_incucyte_get_simulated_ctb", bcm3$.cpp, as.numeric(param.values), ctb_buffer, as.integer(experiment_ix), as.integer(0), PACKAGE="bcmrbridge")
+  if (res[[5]] != 0) {
+    stop(paste("BCM3 C++ bridge error:", res[[5]]))
   }
   return(res[[3]])
 }

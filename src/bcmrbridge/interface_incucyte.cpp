@@ -53,7 +53,7 @@ extern "C" {
 		*retval = 0;
 	}
 
-	void bcm3_rbridge_incucyte_get_simulated_trajectories(char** bcm3info_ptr, double* param_values, double* out_values, int* num_timepoints, int* retval)
+	void bcm3_rbridge_incucyte_get_simulated_trajectories(char** bcm3info_ptr, double* param_values, double* out_values, int* experiment_ix, int* num_timepoints, int* retval)
 	{
 		bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
 		std::shared_ptr<LikelihoodIncucytePopulation> ll = GetLikelihood(info, retval);
@@ -68,11 +68,11 @@ extern "C" {
 		}
 
 		const MatrixReal matrices[5] = {
-			ll->GetSimulatedCellCount(),
-			ll->GetSimulatedApoptoticCellCount(),
-			ll->GetSimulatedDebris(),
-			ll->GetSimulatedConfluence(),
-			ll->GetSimulatedApoptosisMarker()
+			ll->GetSimulatedCellCount(*experiment_ix - 1),
+			ll->GetSimulatedApoptoticCellCount(*experiment_ix - 1),
+			ll->GetSimulatedDebris(*experiment_ix - 1),
+			ll->GetSimulatedConfluence(*experiment_ix - 1),
+			ll->GetSimulatedApoptosisMarker(*experiment_ix - 1)
 		};
 		if (matrices[0].rows() * matrices[0].cols() > 100 * 11) {
 			LOGERROR("Simulated trajectories too large - increase buffer size");
@@ -92,7 +92,7 @@ extern "C" {
 		*retval = 0;
 	}
 
-	void bcm3_rbridge_incucyte_get_simulated_ctb(char** bcm3info_ptr, double* param_values, double* out_values, int* retval)
+	void bcm3_rbridge_incucyte_get_simulated_ctb(char** bcm3info_ptr, double* param_values, double* out_values, int* experiment_ix, int* retval)
 	{
 		bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
 		std::shared_ptr<LikelihoodIncucytePopulation> ll = GetLikelihood(info, retval);
@@ -106,7 +106,7 @@ extern "C" {
 			return;
 		}
 
-		const VectorReal ctb = ll->GetSimulatedCTB();
+		const VectorReal ctb = ll->GetSimulatedCTB(*experiment_ix-1);
 		if (ctb.size() > 9) {
 			LOGERROR("Simulated CTB vector too large - increase buffer size");
 			*retval = -5;

@@ -4,6 +4,7 @@
 #include "ProbabilityDistributions.h"
 
 #define DIRICHLET_APOPTOSIS 1
+#define SCURVE_DRUG_EFFECT 1
 
 LikelihoodIncucytePopulation::Well::Well(size_t num_timepoints, size_t num_replicates)
 {
@@ -16,7 +17,6 @@ LikelihoodIncucytePopulation::Well::Well(size_t num_timepoints, size_t num_repli
 
 LikelihoodIncucytePopulation::LikelihoodIncucytePopulation(size_t numthreads, size_t evaluation_threads)
 	: evaluation_threads(1)
-	, stochastic(false)
 	, use_pao_control(true)
 	, num_combo_drugs(0)
 {
@@ -146,22 +146,38 @@ bool LikelihoodIncucytePopulation::EvaluateLogProbability(size_t threadix, const
 	const Real sigma_confluence = values[varset->GetVariableIndex("sigma_confluence")];
 	const Real sigma_apoptosis_marker = values[varset->GetVariableIndex("sigma_apoptosis_marker")];
 	const Real sigma_ctb = values[varset->GetVariableIndex("sigma_ctb")];
-	const Real tdist_nu3_C = bcm3::LogPdfT_CalcC(3.0);
 
 	bool result = true;
 	logp = 0.0;
 
 	for (size_t ei = 0; ei < experiments.size(); ei++) {
 		Experiment& e = experiments[ei];
+		CellTreatment& ct = e.modeled_cell_treatments[threadix];
 
-		result &= SimulateWell(threadix, e, e.modeled_cell_treatments[threadix].negative_control, false, false, false, std::numeric_limits<Real>::quiet_NaN(), std::numeric_limits<Real>::quiet_NaN(), values);
+		result &= SimulateWell(threadix, e, ct.negative_control, false, false, false, std::numeric_limits<Real>::quiet_NaN(), std::numeric_limits<Real>::quiet_NaN(), values);
 
 		if (use_pao_control) {
 			const Real pao_proliferation_rate = 0.0;//values[varset->GetVariableIndex("pao_proliferation_rate")];
-			const Real pao_apoptosis_rate = stochastic ? 1.0 : values[varset->GetVariableIndex("pao_apoptosis_rate")];
-			result &= SimulateWell(threadix, e, e.modeled_cell_treatments[threadix].positive_control, true, false, false, pao_proliferation_rate, pao_apoptosis_rate, values);
+			const Real pao_apoptosis_rate = values[varset->GetVariableIndex("pao_apoptosis_rate")];
+			result &= SimulateWell(threadix, e, ct.positive_control, true, false, false, pao_proliferation_rate, pao_apoptosis_rate, values);
 		}
 
+#if SCURVE_DRUG_EFFECT
+		for (size_t ci = 0; ci < 9; ci++) {
+			Real ic50 = values[varset->GetVariableIndex("drug_proliferation_rate_ic50")];
+			Real steepness = exp(values[varset->GetVariableIndex("drug_proliferation_rate_steepness")]);
+			Real maxeffect = values[varset->GetVariableIndex("drug_proliferation_rate_maxeffect")];
+			Real relative_drug_proliferation_rate = (1.0 - maxeffect) + maxeffect / (exp(steepness * (e.concentrations[ci] - ic50)) + 1.0);
+			Real drug_proliferation_rate = values[varset->GetVariableIndex("proliferation_rate")] * relative_drug_proliferation_rate;
+
+			ic50 = values[varset->GetVariableIndex("drug_apoptosis_rate_ic50")];
+			steepness = exp(values[varset->GetVariableIndex("drug_apoptosis_rate_steepness")]);
+			maxeffect = values[varset->GetVariableIndex("drug_apoptosis_rate_maxeffect")];
+			Real drug_apoptosis_rate = maxeffect - maxeffect / (exp(steepness * (e.concentrations[ci] - ic50)) + 1.0);
+
+			result &= SimulateWell(threadix, e, ct.drug_treatment[ci], false, true, false, drug_proliferation_rate, drug_apoptosis_rate, values);
+		}
+#else
 #if DIRICHLET_APOPTOSIS
 		Real relative_drug_proliferation_rate = 1.0;
 		Real base_apoptosis_rate = values[varset->GetVariableIndex("apoptosis_rate")] * values[varset->GetVariableIndex("proliferation_rate")];
@@ -194,44 +210,45 @@ bool LikelihoodIncucytePopulation::EvaluateLogProbability(size_t threadix, const
 			drug_apoptosis_rate += values[varset->GetVariableIndex(std::string("drug_apoptosis_rate_") + std::to_string((uint64)ci + 1))];
 #endif
 
-			result &= SimulateWell(threadix, e, e.modeled_cell_treatments[threadix].drug_treatment[ci], false, true, false, drug_proliferation_rate, drug_apoptosis_rate, values);
+			result &= SimulateWell(threadix, e, ct.drug_treatment[ci], false, true, false, drug_proliferation_rate, drug_apoptosis_rate, values);
 
 			if (ci-- == 0) {
 				break;
 			}
 		}
+#endif
 
 		if (num_combo_drugs == 1) {
 			Real single_drug_proliferation_rate = values[varset->GetVariableIndex("drug_proliferation_rate_single")] * values[varset->GetVariableIndex("proliferation_rate")];
 			Real single_drug_apoptosis_rate = values[varset->GetVariableIndex("drug_apoptosis_rate_single")] +
 				values[varset->GetVariableIndex("apoptosis_rate")] * values[varset->GetVariableIndex("proliferation_rate")];
-			result &= SimulateWell(threadix, e, e.modeled_cell_treatments[threadix].drug_treatment[e.num_concentrations - 1], false, true, true, single_drug_proliferation_rate, single_drug_apoptosis_rate, values);
+			result &= SimulateWell(threadix, e, ct.drug_treatment[e.num_concentrations - 1], false, true, true, single_drug_proliferation_rate, single_drug_apoptosis_rate, values);
 		} else if (num_combo_drugs == 2) {
 			Real single_drug_proliferation_rate = values[varset->GetVariableIndex("drug_proliferation_rate_single1")] * values[varset->GetVariableIndex("proliferation_rate")];
 			Real single_drug_apoptosis_rate = values[varset->GetVariableIndex("drug_apoptosis_rate_single1")] +
 				values[varset->GetVariableIndex("apoptosis_rate")] * values[varset->GetVariableIndex("proliferation_rate")];
-			result &= SimulateWell(threadix, e, e.modeled_cell_treatments[threadix].drug_treatment[e.num_concentrations - 1], false, true, true, single_drug_proliferation_rate, single_drug_apoptosis_rate, values);
+			result &= SimulateWell(threadix, e, ct.drug_treatment[e.num_concentrations - 1], false, true, true, single_drug_proliferation_rate, single_drug_apoptosis_rate, values);
 
 			single_drug_proliferation_rate = values[varset->GetVariableIndex("drug_proliferation_rate_single2")] * values[varset->GetVariableIndex("proliferation_rate")];
 			single_drug_apoptosis_rate = values[varset->GetVariableIndex("drug_apoptosis_rate_single2")] +
 				values[varset->GetVariableIndex("apoptosis_rate")] * values[varset->GetVariableIndex("proliferation_rate")];
-			result &= SimulateWell(threadix, e, e.modeled_cell_treatments[threadix].drug_treatment[e.num_concentrations - 2], false, true, true, single_drug_proliferation_rate, single_drug_apoptosis_rate, values);
+			result &= SimulateWell(threadix, e, ct.drug_treatment[e.num_concentrations - 2], false, true, true, single_drug_proliferation_rate, single_drug_apoptosis_rate, values);
 
 			single_drug_proliferation_rate = values[varset->GetVariableIndex("drug_proliferation_rate_dual")] * values[varset->GetVariableIndex("proliferation_rate")];
 			single_drug_apoptosis_rate = values[varset->GetVariableIndex("drug_apoptosis_rate_dual")] +
 				values[varset->GetVariableIndex("apoptosis_rate")] * values[varset->GetVariableIndex("proliferation_rate")];
-			result &= SimulateWell(threadix, e, e.modeled_cell_treatments[threadix].drug_treatment[e.num_concentrations - 3], false, true, true, single_drug_proliferation_rate, single_drug_apoptosis_rate, values);
+			result &= SimulateWell(threadix, e, ct.drug_treatment[e.num_concentrations - 3], false, true, true, single_drug_proliferation_rate, single_drug_apoptosis_rate, values);
 		}
 
 		// Calculate CTB
 		for (size_t ci = 0; ci < e.num_concentrations; ci++) {
 			// Assume all cells have died in the positive control
-			if (e.modeled_cell_treatments[threadix].negative_control.cell_count[e.num_timepoints - 1] > 0.0) {
-				e.modeled_cell_treatments[threadix].ctb(ci) = e.modeled_cell_treatments[threadix].drug_treatment[ci].cell_count[e.num_timepoints - 1] /
-					e.modeled_cell_treatments[threadix].negative_control.cell_count[e.num_timepoints - 1];
-} else {
+			if (ct.negative_control.cell_count[e.num_timepoints - 1] > 0.0) {
+				ct.ctb(ci) = ct.drug_treatment[ci].cell_count[e.num_timepoints - 1] /
+					ct.negative_control.cell_count[e.num_timepoints - 1];
+			} else {
 				// All cells have died in the negative control as well with these parameters - can't calculate CTB
-				e.modeled_cell_treatments[threadix].ctb(ci) = 0.0;
+				ct.ctb(ci) = 0.0;
 			}
 		}
 
@@ -241,35 +258,35 @@ bool LikelihoodIncucytePopulation::EvaluateLogProbability(size_t threadix, const
 
 			if (use_pao_control) {
 				Well& observed_pcw = e.observed_cell_treatment.positive_control;
-				Well& modeled_pcw = e.modeled_cell_treatments[threadix].positive_control;
+				Well& modeled_pcw = ct.positive_control;
 				for (size_t ti = 0; ti < e.num_timepoints; ti++) {
 					for (size_t repi = 0; repi < 4; repi++) {
-						logp += factor * bcm3::LogPdfT(observed_pcw.confluence(ti, repi), modeled_pcw.confluence(ti), sigma_confluence, 3.0, tdist_nu3_C, true);
-						logp += factor * bcm3::LogPdfT(observed_pcw.apoptosis_marker(ti, repi), modeled_pcw.apoptosis_marker(ti), sigma_apoptosis_marker, 3.0, tdist_nu3_C, true);
+						logp += factor * bcm3::LogPdfTnu3(observed_pcw.confluence(ti, repi), modeled_pcw.confluence(ti), sigma_confluence, true);
+						logp += factor * bcm3::LogPdfTnu3(observed_pcw.apoptosis_marker(ti, repi), modeled_pcw.apoptosis_marker(ti), sigma_apoptosis_marker, true);
 					}
 				}
 			}
 
 			Well& observed_ncw = e.observed_cell_treatment.negative_control;
-			Well& modeled_ncw = e.modeled_cell_treatments[threadix].negative_control;
+			Well& modeled_ncw = ct.negative_control;
 			for (size_t ti = 0; ti < e.num_timepoints; ti++) {
 				for (size_t repi = 0; repi < 4; repi++) {
-					logp += factor * bcm3::LogPdfT(observed_ncw.confluence(ti, repi), modeled_ncw.confluence(ti), sigma_confluence, 3.0, tdist_nu3_C, true);
-					logp += factor * bcm3::LogPdfT(observed_ncw.apoptosis_marker(ti, repi), modeled_ncw.apoptosis_marker(ti), sigma_apoptosis_marker, 3.0, tdist_nu3_C, true);
+					logp += factor * bcm3::LogPdfTnu3(observed_ncw.confluence(ti, repi), modeled_ncw.confluence(ti), sigma_confluence, true);
+					logp += factor * bcm3::LogPdfTnu3(observed_ncw.apoptosis_marker(ti, repi), modeled_ncw.apoptosis_marker(ti), sigma_apoptosis_marker, true);
 				}
 			}
 
 			for (size_t ci = 0; ci < e.num_concentrations; ci++) {
 				Well& observed_w = e.observed_cell_treatment.drug_treatment[ci];
-				Well& modeled_w = e.modeled_cell_treatments[threadix].drug_treatment[ci];
+				Well& modeled_w = ct.drug_treatment[ci];
 				for (size_t ti = 0; ti < e.num_timepoints; ti++) {
 					for (size_t repi = 0; repi < 4; repi++) {
-						logp += factor * bcm3::LogPdfT(observed_w.confluence(ti, repi), modeled_w.confluence(ti), sigma_confluence, 3.0, tdist_nu3_C, true);
-						logp += factor * bcm3::LogPdfT(observed_w.apoptosis_marker(ti, repi), modeled_w.apoptosis_marker(ti), sigma_apoptosis_marker, 3.0, tdist_nu3_C, true);
+						logp += factor * bcm3::LogPdfTnu3(observed_w.confluence(ti, repi), modeled_w.confluence(ti), sigma_confluence, true);
+						logp += factor * bcm3::LogPdfTnu3(observed_w.apoptosis_marker(ti, repi), modeled_w.apoptosis_marker(ti), sigma_apoptosis_marker, true);
 					}
 				}
 
-				logp += bcm3::LogPdfT(e.observed_cell_treatment.ctb(ci), e.modeled_cell_treatments[threadix].ctb(ci), sigma_ctb, 3.0, tdist_nu3_C, true);
+				logp += bcm3::LogPdfTnu3(e.observed_cell_treatment.ctb(ci), ct.ctb(ci), sigma_ctb, true);
 			}
 		} else {
 			logp = -std::numeric_limits<Real>::infinity();
@@ -281,206 +298,6 @@ bool LikelihoodIncucytePopulation::EvaluateLogProbability(size_t threadix, const
 }
 
 bool LikelihoodIncucytePopulation::SimulateWell(size_t threadix, Experiment& e, Well& w, bool pao, bool drug, bool single_drug, Real drug_proliferation_rate, Real drug_apoptosis_rate, const VectorReal& values)
-{
-	if (stochastic) {
-		return SimulateWellStochastic(threadix, e, w, pao, drug, single_drug, drug_proliferation_rate, drug_apoptosis_rate, values);
-	} else {
-		return SimulateWellDeterministic(threadix, e, w, pao, drug, single_drug, drug_proliferation_rate, drug_apoptosis_rate, values);
-	}
-}
-
-bool LikelihoodIncucytePopulation::SimulateWellStochastic(size_t threadix, Experiment& e, Well& w, bool pao, bool drug, bool single_drug, Real drug_proliferation_rate, Real drug_apoptosis_rate, const VectorReal& values)
-{
-	const Real cell_size = values[varset->GetVariableIndex("cell_size")];
-	const Real apoptotic_cell_size = values[varset->GetVariableIndex("apoptotic_cell_size")];
-	const Real debris_size = values[varset->GetVariableIndex("debris_size")] * cell_size;
-	const Real apoptosis_marker_size = values[varset->GetVariableIndex("apoptosis_marker_size")] * apoptotic_cell_size;
-	const Real drug_apoptosis_marker_size = values[varset->GetVariableIndex("apoptosis_marker_size")] * apoptotic_cell_size;
-
-	const Real proliferation_rate = values[varset->GetVariableIndex("proliferation_rate")];
-	const Real apoptosis_rate = values[varset->GetVariableIndex("apoptosis_rate")] * proliferation_rate;
-	const Real apoptosis_duration = values[varset->GetVariableIndex("apoptosis_duration")];
-	const Real apoptosis_remove_rate = values[varset->GetVariableIndex("apoptosis_remove_rate")];
-
-	const Real pao_effect_time = values[varset->GetVariableIndex("pao_effect_time")];
-
-	const Real dt = 1.0;
-	const Real cell_cycle_duration = log(2.0) / proliferation_rate;
-	const Real drug_cell_cycle_duration = log(2.0) / drug_proliferation_rate;
-
-	std::vector<StochasticCell> population;
-	population.reserve(1000);
-
-	// Initialize population
-	size_t starting_cell_count = 100;//(size_t)(values[varset->GetVariableIndex(std::string("starting_cell_count_") + std::to_string((uint64)e.experiment_ix + 1))]);
-	population.resize(starting_cell_count);
-	for (size_t i = 0; i < population.size(); i++) {
-		StochasticCell& c = population[i];
-		c.cell_cycle_progression = i / (Real)population.size();
-		c.apoptosis_progression = 0.0;
-		c.size = cell_size * (1.0 + c.cell_cycle_progression);
-		c.docetaxel_mitosos_block = 0.0;
-		c.debris = false;
-	}
-	
-	// Update cell counts & observables
-	w.cell_count(0) = 0.0;
-	w.apoptotic_cell_count(0) = 0.0;
-	w.debris(0) = 0.0;
-	w.confluence(0) = 0.0;
-	w.apoptosis_marker(0) = 0.0;
-	for (size_t i = 0; i < population.size(); i++) {
-		StochasticCell& c = population[i];
-
-		// Add to confluence & apoptosis count
-		if (c.debris) {
-			w.debris(0) += 1.0;
-		} else if (c.apoptosis_progression > 0.0) {
-			w.apoptotic_cell_count(0) += 1.0;
-			w.confluence(0) += apoptotic_cell_size * c.size;
-			if (c.docetaxel_mitosos_block > 0.0) {
-				w.apoptosis_marker(0) += apoptosis_marker_size;
-			} else {
-				w.apoptosis_marker(0) += apoptosis_marker_size;
-			}
-		} else {
-			w.cell_count(0) += 1.0;
-			w.confluence(0) += c.size;
-		}
-	}
-	w.confluence(0) += w.debris(0) * debris_size;
-
-	// Simulate time course
-	Real current_time = 0.0;
-	Real next_time = e.observed_timepoints(0);
-	size_t ti = 1;
-
-	while (1) {
-		current_time += dt;
-
-		size_t add_new = 0;
-				
-		Real chance_of_dying = dt * apoptosis_rate;
-		if (pao) {
-			// PAO
-			Real pao_effect;
-			Real pao_start = e.time_of_drug_treatment;
-			if (current_time < pao_start) {
-				pao_effect = 0.0;
-			} else if (current_time > pao_start + pao_effect_time) {
-				pao_effect = 1.0;
-			} else {
-				pao_effect = (current_time - pao_start) / pao_effect_time;
-			}
-			chance_of_dying += pao_effect;
-		} else if (drug) {
-			if (drug_name != "paclitaxel" && current_time > e.time_of_drug_treatment) {
-				chance_of_dying += dt * drug_apoptosis_rate;
-			}
-		}
-
-		for (size_t i = 0; i < population.size(); i++) {
-			StochasticCell& c = population[i];
-
-			if (c.debris) {
-			} else if (c.apoptosis_progression > 0.0) {
-				// Apoptosis progression
-				c.apoptosis_progression += dt / apoptosis_duration;
-				if (c.apoptosis_progression > 1.0) {
-					Real chance_of_debris = dt * apoptosis_remove_rate;
-					if (parallel_data[threadix].rng.GetReal() <= chance_of_debris) {
-						c.debris = true;
-					}
-				}
-			} else {
-				Real r = parallel_data[threadix].rng.GetReal();
-				if (r <= chance_of_dying) {
-					// New cell death
-					c.apoptosis_progression = (r / chance_of_dying) * dt / apoptosis_duration;
-				} else {
-					if (c.docetaxel_mitosos_block > 0.0) {
-						// Continue mitosis block
-						c.docetaxel_mitosos_block += dt;
-					} else {
-						// Cell growth & cell cycle progression
-						if (drug && current_time >= e.time_of_drug_treatment) {
-							c.cell_cycle_progression += dt / drug_cell_cycle_duration;
-							
-							if (drug_name == "paclitaxel" && current_time > e.time_of_drug_treatment) {
-								// Enter mitosis block?
-								Real r = parallel_data[threadix].rng.GetReal();
-								Real chance_of_mitosis_block = dt * drug_apoptosis_rate;
-								if (r <= chance_of_mitosis_block) {
-									c.docetaxel_mitosos_block = (r / chance_of_mitosis_block) * dt;
-								}
-							}
-						} else {
-							c.cell_cycle_progression += dt / cell_cycle_duration;
-						}
-						c.size = cell_size * (1.0 + c.cell_cycle_progression);
-
-						// Cell division
-						if (c.cell_cycle_progression > 1.0 && c.docetaxel_mitosos_block == 0) {
-							c.cell_cycle_progression = 0.0;
-							c.size = cell_size;
-							add_new++;
-						}
-					}
-				}
-			}
-		}
-
-		population.resize(population.size() + add_new);
-		for (size_t i = population.size() - add_new; i < population.size(); i++) {
-			StochasticCell& c = population[i];
-			c.cell_cycle_progression = 0.0;
-			c.apoptosis_progression = 0.0;
-			c.size = cell_size;
-			c.docetaxel_mitosos_block = 0.0;
-			c.debris = false;
-		}
-		
-		if (current_time >= next_time) {
-			// Update cell counts & observables
-			w.cell_count(ti) = 0.0;
-			w.apoptotic_cell_count(ti) = 0.0;
-			w.debris(ti) = 0.0;
-			w.confluence(ti) = 0.0;
-			w.apoptosis_marker(ti) = 0.0;
-			for (size_t i = 0; i < population.size(); i++) {
-				StochasticCell& c = population[i];
-
-				// Add to confluence & apoptosis count
-				if (c.debris) {
-					w.debris(ti) += 1.0;
-				} else if (c.apoptosis_progression > 0.0) {
-					w.apoptotic_cell_count(ti) += 1.0;
-					w.confluence(ti) += apoptotic_cell_size * c.size;
-					if (c.docetaxel_mitosos_block > 0.0) {
-						w.apoptosis_marker(ti) += apoptosis_marker_size;
-					} else {
-						w.apoptosis_marker(ti) += apoptosis_marker_size;
-					}
-				} else {
-					w.cell_count(ti) += 1.0;
-					w.confluence(ti) += c.size;
-				}
-			}
-			w.confluence(ti) += w.debris(ti) * debris_size;
-
-			ti++;
-			if (ti < e.num_timepoints) {
-				next_time = e.observed_timepoints(ti);
-			} else {
-				break;
-			}
-		}
-	}
-
-	return true;
-}
-
-bool LikelihoodIncucytePopulation::SimulateWellDeterministic(size_t threadix, Experiment& e, Well& w, bool pao, bool drug, bool single_drug, Real drug_proliferation_rate, Real drug_apoptosis_rate, const VectorReal& values)
 {
 	ParallelData& pd = parallel_data[threadix];
 
@@ -541,6 +358,7 @@ bool LikelihoodIncucytePopulation::SimulateWellDeterministic(size_t threadix, Ex
 	
 	solvers[threadix].SetUserData((void*)threadix);
 	bool result = solvers[threadix].Simulate(initial_conditions.data(), e.observed_timepoints, discontinuities_time, output);
+	//LOG("Success: %d; steps: %zu", (int)result, solvers[threadix].GetNumStepsTaken());
 	if (result) {
 		const Real cell_preadherence_size = values[varset->GetVariableIndex("cell_preadherence_size")];
 		const Real cell_size_decrease_time = values[varset->GetVariableIndex("cell_adherence_time")];
@@ -601,52 +419,8 @@ bool LikelihoodIncucytePopulation::SimulateWellDeterministic(size_t threadix, Ex
 	}
 	return result;
 }
-#if 0
-bool LikelihoodIncucytePopulation::GetOutput(size_t threadix, Real* output_values, size_t& numvalues)
-{
-	if (!output_values) {
-		for (size_t ei = 0; ei < experiments.size(); ei++) {
-			Experiment& e = experiments[ei];
-			numvalues += (e.num_concentrations+2)*e.num_timepoints*5 + e.num_concentrations;
-		}
-	} else {
-		size_t offset = 0; 
 
-		for (size_t ei = 0; ei < experiments.size(); ei++) {
-			Experiment& e = experiments[ei];
-			for (size_t ti = 0; ti < e.num_timepoints; ti++) {
-				output_values[offset + e.num_timepoints*0 + ti] = e.modeled_cell_treatments[threadix].positive_control.cell_count[ti];
-				output_values[offset + e.num_timepoints*1 + ti] = e.modeled_cell_treatments[threadix].positive_control.apoptotic_cell_count[ti];
-				output_values[offset + e.num_timepoints*2 + ti] = e.modeled_cell_treatments[threadix].positive_control.debris[ti];
-				output_values[offset + e.num_timepoints*3 + ti] = e.modeled_cell_treatments[threadix].positive_control.confluence(ti);
-				output_values[offset + e.num_timepoints*4 + ti] = e.modeled_cell_treatments[threadix].positive_control.apoptosis_marker(ti);
-			
-				output_values[offset + e.num_timepoints*5 + e.num_timepoints*0 + ti] = e.modeled_cell_treatments[threadix].negative_control.cell_count[ti];
-				output_values[offset + e.num_timepoints*5 + e.num_timepoints*1 + ti] = e.modeled_cell_treatments[threadix].negative_control.apoptotic_cell_count[ti];
-				output_values[offset + e.num_timepoints*5 + e.num_timepoints*2 + ti] = e.modeled_cell_treatments[threadix].negative_control.debris[ti];
-				output_values[offset + e.num_timepoints*5 + e.num_timepoints*3 + ti] = e.modeled_cell_treatments[threadix].negative_control.confluence(ti);
-				output_values[offset + e.num_timepoints*5 + e.num_timepoints*4 + ti] = e.modeled_cell_treatments[threadix].negative_control.apoptosis_marker(ti);
-		
-				for (size_t ci = 0; ci < e.num_concentrations; ci++) {
-					Well& w = e.modeled_cell_treatments[threadix].drug_treatment[ci];
-					output_values[offset + (2+ci)*e.num_timepoints*5 + e.num_timepoints*0 + ti] = w.cell_count[ti];
-					output_values[offset + (2+ci)*e.num_timepoints*5 + e.num_timepoints*1 + ti] = w.apoptotic_cell_count[ti];
-					output_values[offset + (2+ci)*e.num_timepoints*5 + e.num_timepoints*2 + ti] = w.debris[ti];
-					output_values[offset + (2+ci)*e.num_timepoints*5 + e.num_timepoints*3 + ti] = w.confluence(ti);
-					output_values[offset + (2+ci)*e.num_timepoints*5 + e.num_timepoints*4 + ti] = w.apoptosis_marker(ti);
-				}
-			}
-			for (size_t ci = 0; ci < e.num_concentrations; ci++) {
-				output_values[offset + (e.num_concentrations+2)*e.num_timepoints*5 + ci] = e.modeled_cell_treatments[threadix].ctb(ci);
-			}
-			offset += (e.num_concentrations+2)*e.num_timepoints*5 + e.num_concentrations;
-		}
-	}
-
-	return true;
-}
-#endif
-bool LikelihoodIncucytePopulation::CalculateDerivative(OdeReal t, const OdeReal* y, const std::vector< OdeReal >& history_t, const std::vector< OdeVectorReal >& history_y, size_t current_dci, OdeReal* dydt, void* user)
+bool LikelihoodIncucytePopulation::CalculateDerivative(OdeReal t, const OdeReal* y, const std::vector< OdeReal >& history_t, const OdeMatrixReal& history_y, size_t current_dci, OdeReal* dydt, void* user)
 {
 	size_t threadix = (size_t)user;
 	ParallelData& pd = parallel_data[threadix];
@@ -667,7 +441,7 @@ bool LikelihoodIncucytePopulation::CalculateDerivative(OdeReal t, const OdeReal*
 	return true;
 }
 
-bool LikelihoodIncucytePopulation::CalculateJacobian(OdeReal t, const OdeReal* y, const OdeReal* dydt, const std::vector< OdeReal >& history_t, const std::vector< OdeVectorReal >& history_y, size_t current_dci, OdeMatrixReal& jac, void* user)
+bool LikelihoodIncucytePopulation::CalculateJacobian(OdeReal t, const OdeReal* y, const OdeReal* dydt, const std::vector< OdeReal >& history_t, const OdeMatrixReal& history_y, size_t current_dci, OdeMatrixReal& jac, void* user)
 {
 	size_t threadix = (size_t)user;
 	ParallelData& pd = parallel_data[threadix];
@@ -730,9 +504,9 @@ void LikelihoodIncucytePopulation::CalculateContactInhibition(Real& proliferatio
 	}
 }
 
-MatrixReal LikelihoodIncucytePopulation::GetSimulatedCellCount() const
+MatrixReal LikelihoodIncucytePopulation::GetSimulatedCellCount(size_t experiment_ix) const
 {
-	const Experiment& e = experiments[0];
+	const Experiment& e = experiments[experiment_ix];
 	MatrixReal trajectories(e.num_timepoints, e.num_concentrations + 2);
 
 	for (ptrdiff_t i = 0; i < e.num_timepoints; i++) {
@@ -746,9 +520,9 @@ MatrixReal LikelihoodIncucytePopulation::GetSimulatedCellCount() const
 	return trajectories;
 }
 
-MatrixReal LikelihoodIncucytePopulation::GetSimulatedApoptoticCellCount() const
+MatrixReal LikelihoodIncucytePopulation::GetSimulatedApoptoticCellCount(size_t experiment_ix) const
 {
-	const Experiment& e = experiments[0];
+	const Experiment& e = experiments[experiment_ix];
 	MatrixReal trajectories(e.num_timepoints, e.num_concentrations + 2);
 
 	for (ptrdiff_t i = 0; i < e.num_timepoints; i++) {
@@ -762,9 +536,9 @@ MatrixReal LikelihoodIncucytePopulation::GetSimulatedApoptoticCellCount() const
 	return trajectories;
 }
 
-MatrixReal LikelihoodIncucytePopulation::GetSimulatedDebris() const
+MatrixReal LikelihoodIncucytePopulation::GetSimulatedDebris(size_t experiment_ix) const
 {
-	const Experiment& e = experiments[0];
+	const Experiment& e = experiments[experiment_ix];
 	MatrixReal trajectories(e.num_timepoints, e.num_concentrations + 2);
 
 	for (ptrdiff_t i = 0; i < e.num_timepoints; i++) {
@@ -778,9 +552,9 @@ MatrixReal LikelihoodIncucytePopulation::GetSimulatedDebris() const
 	return trajectories;
 }
 
-MatrixReal LikelihoodIncucytePopulation::GetSimulatedConfluence() const
+MatrixReal LikelihoodIncucytePopulation::GetSimulatedConfluence(size_t experiment_ix) const
 {
-	const Experiment& e = experiments[0];
+	const Experiment& e = experiments[experiment_ix];
 	MatrixReal trajectories(e.num_timepoints, e.num_concentrations + 2);
 
 	for (ptrdiff_t i = 0; i < e.num_timepoints; i++) {
@@ -794,9 +568,9 @@ MatrixReal LikelihoodIncucytePopulation::GetSimulatedConfluence() const
 	return trajectories;
 }
 
-MatrixReal LikelihoodIncucytePopulation::GetSimulatedApoptosisMarker() const
+MatrixReal LikelihoodIncucytePopulation::GetSimulatedApoptosisMarker(size_t experiment_ix) const
 {
-	const Experiment& e = experiments[0];
+	const Experiment& e = experiments[experiment_ix];
 	MatrixReal trajectories(e.num_timepoints, e.num_concentrations + 2);
 
 	for (ptrdiff_t i = 0; i < e.num_timepoints; i++) {
@@ -810,8 +584,8 @@ MatrixReal LikelihoodIncucytePopulation::GetSimulatedApoptosisMarker() const
 	return trajectories;
 }
 
-VectorReal LikelihoodIncucytePopulation::GetSimulatedCTB() const
+VectorReal LikelihoodIncucytePopulation::GetSimulatedCTB(size_t experiment_ix) const
 {
-	const Experiment& e = experiments[0];
+	const Experiment& e = experiments[experiment_ix];
 	return e.modeled_cell_treatments[0].ctb;
 }

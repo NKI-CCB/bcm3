@@ -17,12 +17,12 @@ public:
 	virtual bool IsReentrant() { return false; }
 	virtual bool EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp);
 
-	MatrixReal GetSimulatedCellCount() const;
-	MatrixReal GetSimulatedApoptoticCellCount() const;
-	MatrixReal GetSimulatedDebris() const;
-	MatrixReal GetSimulatedConfluence() const;
-	MatrixReal GetSimulatedApoptosisMarker() const;
-	VectorReal GetSimulatedCTB() const;
+	MatrixReal GetSimulatedCellCount(size_t experiment_ix) const;
+	MatrixReal GetSimulatedApoptoticCellCount(size_t experiment_ix) const;
+	MatrixReal GetSimulatedDebris(size_t experiment_ix) const;
+	MatrixReal GetSimulatedConfluence(size_t experiment_ix) const;
+	MatrixReal GetSimulatedApoptosisMarker(size_t experiment_ix) const;
+	VectorReal GetSimulatedCTB(size_t experiment_ix) const;
 
 private:
 	struct Well
@@ -42,6 +42,7 @@ private:
 		Well positive_control;
 		Well negative_control;
 		VectorReal ctb;
+		VectorReal drug_concentrations;
 	};
 
 	struct StochasticCell
@@ -99,10 +100,8 @@ private:
 	};
 
 	bool SimulateWell(size_t threadix, Experiment& e, Well& w, bool pao, bool drug, bool single_drug, Real drug_proliferation_rate, Real drug_apoptosis_rate, const VectorReal& values);
-	bool SimulateWellDeterministic(size_t threadix, Experiment& e, Well& w, bool pao, bool drug, bool single_drug, Real drug_proliferation_rate, Real drug_apoptosis_rate, const VectorReal& values);
-	bool SimulateWellStochastic(size_t threadix, Experiment& e, Well& w, bool pao, bool drug, bool single_drug, Real drug_proliferation_rate, Real drug_apoptosis_rate, const VectorReal& values);
-	bool CalculateDerivative(OdeReal t, const OdeReal* y, const std::vector< OdeReal >& history_t, const std::vector< OdeVectorReal >& history_y, size_t current_dci, OdeReal* dydt, void* user);
-	bool CalculateJacobian(OdeReal t, const OdeReal* y, const OdeReal* dydt, const std::vector< OdeReal >& history_t, const std::vector< OdeVectorReal >& history_y, size_t current_dci, OdeMatrixReal& jac, void* user);
+	bool CalculateDerivative(OdeReal t, const OdeReal* y, const std::vector< OdeReal >& history_t, const OdeMatrixReal& history_y, size_t current_dci, OdeReal* dydt, void* user);
+	bool CalculateJacobian(OdeReal t, const OdeReal* y, const OdeReal* dydt, const std::vector< OdeReal >& history_t, const OdeMatrixReal& history_y, size_t current_dci, OdeMatrixReal& jac, void* user);
 	void CalculateDrugEffect(Real& proliferation_rate, Real& apoptotis_rate, const Real* y, const ParallelData& pd, Real t, size_t current_dci);
 	void CalculateContactInhibition(Real& proliferation_rate, const Real* y, const ParallelData& pd);
 
@@ -111,7 +110,6 @@ private:
 
 	std::string drug_name;
 	std::string cell_line;
-	bool stochastic;
 	bool use_pao_control;
 	size_t num_combo_drugs;
 
