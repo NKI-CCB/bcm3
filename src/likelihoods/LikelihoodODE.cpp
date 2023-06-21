@@ -82,7 +82,7 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
     bcm3::CSVParser parser;
     parser.Parse(cwd.string(), ",", false);
 
-    // "/Users/huubvdent/Documents/Internship/BCM_RUNS/7d_runs_v7_3/example/normalized_oscillations.csv"
+    // "/Users/huubvdent/Documents/Internship/python ODE optimization/data/7d_0_1.csv"
 
     // Integrate the ODE system and calculate the likelihood based on the solution
     // In this example we compare the first dynamic variable to a cosine
