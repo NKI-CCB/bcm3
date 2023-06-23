@@ -71,6 +71,9 @@ bool LikelihoodIncucytePopulation::Initialize(std::shared_ptr<const bcm3::Variab
 
 		e.concentrations.resize(e.num_concentrations);
 		data.GetValues(group, "drug_concentrations", 0, e.num_concentrations, e.concentrations);
+		for (size_t ci = 0; ci < e.num_concentrations; ci++) {
+			e.concentrations(ci) = log10(e.concentrations(ci));
+		}
 
 		// Load observed data
 		e.observed_cell_treatment.drug_treatment.resize(e.num_concentrations, Well(e.num_timepoints, e.num_replicates));
@@ -310,7 +313,7 @@ bool LikelihoodIncucytePopulation::SimulateWell(size_t threadix, Experiment& e, 
 	}
 	pd.debris_size = values[varset->GetVariableIndex("debris_size")] * pd.cell_size;
 	const Real apoptosis_marker_size = values[varset->GetVariableIndex("apoptosis_marker_size")] * pd.cell_size;
-	const Real pao_apoptosis_marker_size = values[varset->GetVariableIndex("apoptosis_marker_size")] * pd.cell_size;
+	const Real pao_apoptosis_marker_size = values[varset->GetVariableIndex("pao_apoptosis_marker_size")] * pd.cell_size;
 	const Real debris_apoptosis_marker_size = values[varset->GetVariableIndex("debris_apoptosis_marker_size")] * apoptosis_marker_size;
 
 	pd.proliferation_rate = values[varset->GetVariableIndex("proliferation_rate")];
