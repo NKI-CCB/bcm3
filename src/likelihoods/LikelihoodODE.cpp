@@ -38,7 +38,7 @@ bool LikelihoodODE::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, 
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
     bcm3::CSVParser parser;
-    parser.Parse("/Users/huubvdent/Documents/Internship/python ODE optimization/data/7d_0_1.csv", ",", false);
+    parser.Parse(cwd.string(), ",", false);
     size_t num_timepoints = parser.GetNumColumns();
     timepoints.resize(num_timepoints);
     
@@ -78,7 +78,7 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
     bcm3::CSVParser parser;
-    parser.Parse("/Users/huubvdent/Documents/Internship/python ODE optimization/data/7d_0_1.csv", ",", false);
+    parser.Parse(cwd.string(), ",", false);
 
     // "/Users/huubvdent/Documents/Internship/python ODE optimization/data/7d_0_1.csv"
 
