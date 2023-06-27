@@ -16,8 +16,8 @@ LikelihoodODE::~LikelihoodODE()
 
 bool LikelihoodODE::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm)
 {
-    size_t num_dynamic_variables = 8;
-    size_t num_inference_variables = 32;
+    size_t num_dynamic_variables = 6;
+    size_t num_inference_variables = 22;
 
     this->varset = varset;
     if (varset->GetNumVariables() != num_inference_variables) {
@@ -67,15 +67,13 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
     }
 
     // The initial conditions can be dependent on the parameters
-    OdeVectorReal initial_conditions(8);
-    initial_conditions(0) = parameter_values(24);
-    initial_conditions(1) = parameter_values(25);
-    initial_conditions(2) = parameter_values(26);
-    initial_conditions(3) = parameter_values(27);
-    initial_conditions(4) = parameter_values(28);
-    initial_conditions(5) = parameter_values(29);
-    initial_conditions(6) = parameter_values(30);
-    initial_conditions(7) = parameter_values(31);
+    OdeVectorReal initial_conditions(6);
+    initial_conditions(0) = parameter_values(16);
+    initial_conditions(1) = parameter_values(17);
+    initial_conditions(2) = parameter_values(18);
+    initial_conditions(3) = parameter_values(19);
+    initial_conditions(4) = parameter_values(20);
+    initial_conditions(5) = parameter_values(21);
 
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
@@ -90,8 +88,8 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
         logp = 0.0;
         for (size_t i = 0; i < timepoints.size(); i++) {
             // Real cosvalue = 100.0 * cos(timepoints(i) / 1140) + 150.0;
-            Real datavalue = parser.GetEntry(1, i);
-            logp += bcm3::LogPdfTnu3(datavalue, parameter_values[21] * simulated_trajectories(0, i) + parameter_values[22], parameter_values(23));
+            Real datavalue = parser.GetEntry(0, i);
+            logp += bcm3::LogPdfTnu3(datavalue, parameter_values[13] * simulated_trajectories(0, i) + parameter_values[14], parameter_values(15));
         }
     } else {
         logp = -std::numeric_limits<Real>::infinity();
@@ -278,62 +276,107 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
 //     return true;
 // }
 
+// bool LikelihoodODE::CalculateDerivative(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user)
+// {
+//     // Calculate the right-hand side of the differential equation
+//     // The current timepoint and values of the dynamic variables are provided in t and y
+//     // The derivative should be stored in dydt
+//     // v8
+
+//     Real mekpp_kcat_erkpp = parameter_values[0];
+//     Real mekpp_km_erkpp = parameter_values[1];
+//     Real rafp_kcat_mekpp = parameter_values[2];
+//     Real rafp_km_mekpp = parameter_values[3];
+//     Real egf = parameter_values[4];
+//     Real mekpp_kcat_erkp  = parameter_values[5];
+//     Real mekpp_km_erkp = parameter_values[6];
+//     Real rafp_kcat_mekp  = parameter_values[7];
+//     Real rafp_km_mekp = parameter_values[8];
+//     Real egf_kcat_rafp  = parameter_values[9];
+//     Real egf_km_rafp = parameter_values[10];
+//     Real erkpp_kcat_raf = parameter_values[11];
+//     Real erkpp_km_raf  = parameter_values[12];
+//     Real erkpp_kcat = parameter_values[13];
+//     Real erkpp_km  = parameter_values[14];
+//     Real mekpp_kcat = parameter_values[15];
+//     Real mekpp_km  = parameter_values[16];
+//     Real erkp_kcat = parameter_values[17];
+//     Real erkp_km  = parameter_values[18];
+//     Real mekp_kcat = parameter_values[19];
+//     Real mekp_km  = parameter_values[20];
+
+//     Real erkpp = y[0];
+//     Real mekpp = y[1];
+//     Real erkp = y[2];
+//     Real mekp = y[3];
+//     Real rafp = y[4];
+//     Real erk = y[5];
+//     Real mek = y[6];
+//     Real raf = y[7];
+    
+//     Real& derkpp = dydt[0];
+//     Real& dmekpp = dydt[1];
+//     Real& derkp = dydt[2];
+//     Real& dmekp = dydt[3];
+//     Real& drafp = dydt[4];
+//     Real& derk = dydt[5];
+//     Real& dmek = dydt[6];
+//     Real& draf = dydt[7];
+
+//     derkpp = mekpp_kcat_erkpp * mekpp * erkp / (erkp + mekpp_km_erkpp) - erkpp_kcat * erkpp / (erkpp + erkpp_km);
+//     dmekpp = rafp_kcat_mekpp * rafp * mekp / (rafp_km_mekpp + mekp) - mekpp_kcat * mekpp / (mekpp + mekpp_km);
+//     derkp = erkpp_kcat * erkpp / (erkpp_km + erkpp) - mekpp_kcat_erkpp * mekpp * erkp / (erkp + mekpp_km_erkpp) + mekpp_kcat_erkp * mekpp * erk / (mekpp_km_erkp + erk) - erkp_kcat * erkp /(erkp_km + erkp);
+//     dmekp = mekpp_kcat * mekpp / (mekpp + mekpp_km) - rafp_kcat_mekpp * rafp * mekp / (rafp_km_mekpp + mekp) + rafp_kcat_mekp * rafp * mek / (rafp_km_mekp + mek) - mekp_kcat * mekp / (mekp + mekp_km);
+//     drafp = egf_kcat_rafp * egf * raf / (egf_km_rafp + raf) - erkpp_kcat_raf * erkpp * rafp / (erkpp_km_raf + rafp);
+//     derk = erkp_kcat * erkp /(erkp_km + erkp) - mekpp_kcat_erkp * mekpp * erk / (mekpp_km_erkp + erk);
+//     dmek = mekp_kcat * mekp / (mekp + mekp_km) - rafp_kcat_mekp * rafp * mek / (rafp_km_mekp + mek);
+//     draf = erkpp_kcat_raf * erkpp * rafp / (erkpp_km_raf + rafp) - egf_kcat_rafp * egf * raf / (egf_km_rafp + raf);
+
+//     return true;
+// }
+
 bool LikelihoodODE::CalculateDerivative(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user)
 {
     // Calculate the right-hand side of the differential equation
     // The current timepoint and values of the dynamic variables are provided in t and y
     // The derivative should be stored in dydt
-    // v7
+    // v8_small
 
-    Real mekpp_kcat_erkpp = parameter_values[0];
-    Real mekpp_km_erkpp = parameter_values[1];
-    Real rafp_kcat_mekpp = parameter_values[2];
-    Real rafp_km_mekpp = parameter_values[3];
-    Real egf = parameter_values[4];
-    Real mekpp_kcat_erkp  = parameter_values[5];
-    Real mekpp_km_erkp = parameter_values[6];
-    Real rafp_kcat_mekp  = parameter_values[7];
-    Real rafp_km_mekp = parameter_values[8];
-    Real egf_kcat_rafp  = parameter_values[9];
-    Real egf_km_rafp = parameter_values[10];
-    Real erkpp_kcat_raf = parameter_values[11];
-    Real erkpp_km_raf  = parameter_values[12];
-    Real erkpp_kcat = parameter_values[13];
-    Real erkpp_km  = parameter_values[14];
-    Real mekpp_kcat = parameter_values[15];
-    Real mekpp_km  = parameter_values[16];
-    Real erkp_kcat = parameter_values[17];
-    Real erkp_km  = parameter_values[18];
-    Real mekp_kcat = parameter_values[19];
-    Real mekp_km  = parameter_values[20];
+    Real egf_kcat_rafp = parameter_values[0];
+    Real egf_km_rafp = parameter_values[1];
+    Real egf = parameter_values[2];
+    Real erkpp_kcat_raf = parameter_values[3];
+    Real erkpp_km_raf = parameter_values[4];
+    Real rafp_kcat_mekpp = parameter_values[5];
+    Real rafp_km_mekpp = parameter_values[6];
+    Real mekpp_kcat = parameter_values[7];
+    Real mekpp_km = parameter_values[8];
+    Real mekpp_kcat_erkpp = parameter_values[9];
+    Real mekpp_km_erkpp = parameter_values[10];
+    Real erkpp_kcat = parameter_values[11];
+    Real erkpp_km = parameter_values[12];
 
     Real erkpp = y[0];
     Real mekpp = y[1];
-    Real erkp = y[2];
-    Real mekp = y[3];
-    Real rafp = y[4];
-    Real erk = y[5];
-    Real mek = y[6];
-    Real raf = y[7];
+    Real rafp = y[2];
+    Real erk = y[3];
+    Real mek = y[4];
+    Real raf = y[5];
     
     Real& derkpp = dydt[0];
     Real& dmekpp = dydt[1];
-    Real& derkp = dydt[2];
-    Real& dmekp = dydt[3];
-    Real& drafp = dydt[4];
-    Real& derk = dydt[5];
-    Real& dmek = dydt[6];
-    Real& draf = dydt[7];
+    Real& drafp = dydt[2];
+    Real& derk = dydt[3];
+    Real& dmek = dydt[4];
+    Real& draf = dydt[5];
 
-    derkpp = mekpp_kcat_erkpp * mekpp * erkp / (erkp + mekpp_km_erkpp) - erkpp_kcat * erkpp / (erkpp + erkpp_km);
-    dmekpp = rafp_kcat_mekpp * rafp * mekp / (rafp_km_mekpp + mekp) - mekpp_kcat * mekpp / (mekpp + mekpp_km);
-    derkp = erkpp_kcat * erkpp / (erkpp_km + erkpp) - mekpp_kcat_erkpp * mekpp * erkp / (erkp + mekpp_km_erkpp) + mekpp_kcat_erkp * mekpp * erk / (mekpp_km_erkp + erk) - erkp_kcat * erkp /(erkp_km + erkp);
-    dmekp = mekpp_kcat * mekpp / (mekpp + mekpp_km) - rafp_kcat_mekpp * rafp * mekp / (rafp_km_mekpp + mekp) + rafp_kcat_mekp * rafp * mek / (rafp_km_mekp + mek) - mekp_kcat * mekp / (mekp + mekp_km);
-    drafp = egf_kcat_rafp * egf * raf / (egf_km_rafp + raf) - erkpp_kcat_raf * erkpp * rafp / (erkpp_km_raf + rafp);
-    derk = erkp_kcat * erkp /(erkp_km + erkp) - mekpp_kcat_erkp * mekpp * erk / (mekpp_km_erkp + erk);
-    dmek = mekp_kcat * mekp / (mekp + mekp_km) - rafp_kcat_mekp * rafp * mek / (rafp_km_mekp + mek);
-    draf = erkpp_kcat_raf * erkpp * rafp / (erkpp_km_raf + rafp) - egf_kcat_rafp * egf * raf / (egf_km_rafp + raf);
-
+    derkpp = mekpp_kcat_erkpp * mekpp * erk / (erk + mekpp_km_erkpp) - erkpp_kcat * erkpp / (erkpp + erkpp_km);
+    dmekpp = rafp_kcat_mekpp * rafp * mek / (mek + rafp_km_mekpp) - mekpp_kcat * mekpp / (mekpp + mekpp_km);
+    drafp = egf_kcat_rafp * egf * raf / (raf + egf_km_rafp) - erkpp_kcat_raf * erkpp * rafp / (rafp + erkpp_km_raf);
+    derk = erkpp_kcat * erkpp / (erkpp + erkpp_km) - mekpp_kcat_erkpp * mekpp * erk / (erk + mekpp_km_erkpp);
+    dmek = mekpp_kcat * mekpp / (mekpp + mekpp_km) - rafp_kcat_mekpp * rafp * mek / (mek + rafp_km_mekpp);
+    draf = erkpp_kcat_raf * erkpp * rafp / (rafp + erkpp_km_raf) - egf_kcat_rafp * egf * raf / (raf + egf_km_rafp);
+    
     return true;
 }
 
