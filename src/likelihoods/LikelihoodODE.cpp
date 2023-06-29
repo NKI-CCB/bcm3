@@ -38,7 +38,7 @@ bool LikelihoodODE::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, 
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
     bcm3::CSVParser parser;
-    parser.Parse(cwd.string(), ",", false);
+    parser.Parse("/Users/huubvdent/Documents/Internship/python ODE optimization/data/7d_0_1.csv", ",", false);
     size_t num_timepoints = parser.GetNumColumns();
     timepoints.resize(num_timepoints);
     
@@ -68,17 +68,17 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
 
     // The initial conditions can be dependent on the parameters
     OdeVectorReal initial_conditions(6);
-    initial_conditions(0) = parameter_values(16);
-    initial_conditions(1) = parameter_values(17);
-    initial_conditions(2) = parameter_values(18);
-    initial_conditions(3) = parameter_values(19);
-    initial_conditions(4) = parameter_values(20);
-    initial_conditions(5) = parameter_values(21);
+    initial_conditions(0) = parameter_values(16) * parameter_values(17); //erkpp
+    initial_conditions(1) = parameter_values(18) * parameter_values(19); //mekpp
+    initial_conditions(2) = parameter_values(20) * parameter_values(21); //rafp
+    initial_conditions(3) = parameter_values(16) * (1 - parameter_values(17)); //erk
+    initial_conditions(4) = parameter_values(18) * (1 - parameter_values(19)); //mek
+    initial_conditions(5) = parameter_values(20) * (1 - parameter_values(21)); //raf
 
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
     bcm3::CSVParser parser;
-    parser.Parse(cwd.string(), ",", false);
+    parser.Parse("/Users/huubvdent/Documents/Internship/python ODE optimization/data/7d_0_1.csv", ",", false);
 
     // "/Users/huubvdent/Documents/Internship/python ODE optimization/data/7d_0_1.csv"
 
