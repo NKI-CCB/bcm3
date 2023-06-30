@@ -17,7 +17,7 @@ LikelihoodODE::~LikelihoodODE()
 bool LikelihoodODE::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm)
 {
     size_t num_dynamic_variables = 6;
-    size_t num_inference_variables = 17;
+    size_t num_inference_variables = 15;
 
     this->varset = varset;
     if (varset->GetNumVariables() != num_inference_variables) {
@@ -68,12 +68,12 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
 
     // The initial conditions can be dependent on the parameters
     OdeVectorReal initial_conditions(6);
-    initial_conditions(0) = parameter_values(11) * parameter_values(12); //erkpp
-    initial_conditions(1) = parameter_values(13) * parameter_values(14); //mekpp
-    initial_conditions(2) = parameter_values(15) * parameter_values(16); //rafp
-    initial_conditions(3) = parameter_values(11) * (1 - parameter_values(12)); //erk
-    initial_conditions(4) = parameter_values(13) * (1 - parameter_values(14)); //mek
-    initial_conditions(5) = parameter_values(15) * (1 - parameter_values(16)); //raf
+    initial_conditions(0) = parameter_values(9) * parameter_values(10); //erkpp
+    initial_conditions(1) = parameter_values(11) * parameter_values(12); //mekpp
+    initial_conditions(2) = parameter_values(13) * parameter_values(14); //rafp
+    initial_conditions(3) = parameter_values(9) * (1 - parameter_values(10)); //erk
+    initial_conditions(4) = parameter_values(11) * (1 - parameter_values(12)); //mek
+    initial_conditions(5) = parameter_values(13) * (1 - parameter_values(14)); //raf
 
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
@@ -89,7 +89,7 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
         for (size_t i = 0; i < timepoints.size(); i++) {
             // Real cosvalue = 100.0 * cos(timepoints(i) / 1140) + 150.0;
             Real datavalue = parser.GetEntry(0, i);
-            logp += bcm3::LogPdfTnu3(datavalue, parameter_values[8] * simulated_trajectories(0, i) + parameter_values[9], parameter_values(10));
+            logp += bcm3::LogPdfTnu3(datavalue, 0.001 * simulated_trajectories(0, i) + parameter_values[8], 0.025);
         }
     } else {
         logp = -std::numeric_limits<Real>::infinity();
