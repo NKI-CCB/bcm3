@@ -17,7 +17,7 @@ LikelihoodODE::~LikelihoodODE()
 bool LikelihoodODE::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm)
 {
     size_t num_dynamic_variables = 6;
-    size_t num_inference_variables = 22;
+    size_t num_inference_variables = 17;
 
     this->varset = varset;
     if (varset->GetNumVariables() != num_inference_variables) {
@@ -68,12 +68,12 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
 
     // The initial conditions can be dependent on the parameters
     OdeVectorReal initial_conditions(6);
-    initial_conditions(0) = parameter_values(16) * parameter_values(17); //erkpp
-    initial_conditions(1) = parameter_values(18) * parameter_values(19); //mekpp
-    initial_conditions(2) = parameter_values(20) * parameter_values(21); //rafp
-    initial_conditions(3) = parameter_values(16) * (1 - parameter_values(17)); //erk
-    initial_conditions(4) = parameter_values(18) * (1 - parameter_values(19)); //mek
-    initial_conditions(5) = parameter_values(20) * (1 - parameter_values(21)); //raf
+    initial_conditions(0) = parameter_values(11) * parameter_values(12); //erkpp
+    initial_conditions(1) = parameter_values(13) * parameter_values(14); //mekpp
+    initial_conditions(2) = parameter_values(15) * parameter_values(16); //rafp
+    initial_conditions(3) = parameter_values(11) * (1 - parameter_values(12)); //erk
+    initial_conditions(4) = parameter_values(13) * (1 - parameter_values(14)); //mek
+    initial_conditions(5) = parameter_values(15) * (1 - parameter_values(16)); //raf
 
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
@@ -89,7 +89,7 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
         for (size_t i = 0; i < timepoints.size(); i++) {
             // Real cosvalue = 100.0 * cos(timepoints(i) / 1140) + 150.0;
             Real datavalue = parser.GetEntry(0, i);
-            logp += bcm3::LogPdfTnu3(datavalue, parameter_values[13] * simulated_trajectories(0, i) + parameter_values[14], parameter_values(15));
+            logp += bcm3::LogPdfTnu3(datavalue, parameter_values[8] * simulated_trajectories(0, i) + parameter_values[9], parameter_values(10));
         }
     } else {
         logp = -std::numeric_limits<Real>::infinity();
@@ -343,18 +343,22 @@ bool LikelihoodODE::CalculateDerivative(OdeReal t, const OdeReal* y, OdeReal* dy
     // v8_small
 
     Real egf_kcat_rafp = parameter_values[0];
-    Real egf_km_rafp = parameter_values[1];
-    Real egf = parameter_values[2];
+    Real mekpp_kcat_erkpp = parameter_values[1];
+    Real rafp_kcat_mekpp = parameter_values[2];
     Real erkpp_kcat_raf = parameter_values[3];
-    Real erkpp_km_raf = parameter_values[4];
-    Real rafp_kcat_mekpp = parameter_values[5];
-    Real rafp_km_mekpp = parameter_values[6];
-    Real mekpp_kcat = parameter_values[7];
-    Real mekpp_km = parameter_values[8];
-    Real mekpp_kcat_erkpp = parameter_values[9];
-    Real mekpp_km_erkpp = parameter_values[10];
-    Real erkpp_kcat = parameter_values[11];
-    Real erkpp_km = parameter_values[12];
+    Real mekpp_kcat = parameter_values[4];
+    Real erkpp_kcat = parameter_values[5];
+
+    Real egf = parameter_values[6];
+
+    Real egf_km_rafp = parameter_values[7];
+    Real erkpp_km_raf = parameter_values[7];   
+    Real rafp_km_mekpp = parameter_values[7];
+    Real erkpp_km = parameter_values[7];
+    Real mekpp_km = parameter_values[7];
+    Real mekpp_km_erkpp = parameter_values[7];
+
+    
 
     Real erkpp = y[0];
     Real mekpp = y[1];
