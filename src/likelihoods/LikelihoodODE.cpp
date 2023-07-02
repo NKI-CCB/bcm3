@@ -17,7 +17,7 @@ LikelihoodODE::~LikelihoodODE()
 bool LikelihoodODE::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm)
 {
     size_t num_dynamic_variables = 6;
-    size_t num_inference_variables = 15;
+    size_t num_inference_variables = 12;
 
     this->varset = varset;
     if (varset->GetNumVariables() != num_inference_variables) {
@@ -68,12 +68,12 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
 
     // The initial conditions can be dependent on the parameters
     OdeVectorReal initial_conditions(6);
-    initial_conditions(0) = parameter_values(9) * parameter_values(10); //erkpp
-    initial_conditions(1) = parameter_values(11) * parameter_values(12); //mekpp
-    initial_conditions(2) = parameter_values(13) * parameter_values(14); //rafp
-    initial_conditions(3) = parameter_values(9) * (1 - parameter_values(10)); //erk
-    initial_conditions(4) = parameter_values(11) * (1 - parameter_values(12)); //mek
-    initial_conditions(5) = parameter_values(13) * (1 - parameter_values(14)); //raf
+    initial_conditions(0) = 1000 * parameter_values(9); //erkpp
+    initial_conditions(1) = 1000 * parameter_values(10); //mekpp
+    initial_conditions(2) = 1000 * parameter_values(11); //rafp
+    initial_conditions(3) = 1000 * (1 - parameter_values(9)); //erk
+    initial_conditions(4) = 1000 * (1 - parameter_values(10)); //mek
+    initial_conditions(5) = 1000 * (1 - parameter_values(11)); //raf
 
     boost::filesystem::path cwd = boost::filesystem::current_path() / "normalized_oscillations.csv";
     
