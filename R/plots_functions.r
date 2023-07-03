@@ -581,44 +581,6 @@ plot_variable_prior_impl <- function(varattrs, xlab="", ylim=NULL, plot=T)
   }
 }
 
-variable_statistic <- function(samples, xlab="", ylim=NULL, statistic, ...)
-{
-  if (statistic == "mean") {
-    return(mean(samples))
-  }
-  if (statistic == "median") {
-    return(median(samples))
-  }
-  if (statistic == "sd") {
-    return(sd(samples))
-  }
-  if (statistic == "quantile") {
-    arguments <- list(...)
-    return(quantile(samples, probs=arguments$q))
-  }
-  if (statistic == "autocorrelation") {
-    lag <- list(...)$lag
-    ac <- acf(samples, plot=F, lag.max=lag)$acf[lag+1]
-    return(ac)
-  }
-  if (statistic == "decorr_lag") {
-    ac <- acf(samples, plot=F, lag.max=length(samples)/2)
-    threshold <- 2.0 / sqrt(length(samples))
-    sign <- ac$acf < threshold
-    return(match(T, sign))
-  }
-  if (statistic == "ess") {
-    ac <- acf(samples, plot=F, lag.max=length(samples)/2)
-    first_neg <- Position(function(x) x < 0, ac$acf[,1,1])
-    if (first_neg > 2) {
-      ess <- length(samples) / (1 + 2*sum(ac$acf[2:(first_neg-1),1,1]))
-    } else {
-      ess <- length(samples)
-    }
-    return(ess)
-  }
-}
-
 png_tile <- function(filename, width, height, nplots)
 {
   png(filename, width=width, height=height)
