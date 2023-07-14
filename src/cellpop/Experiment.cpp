@@ -315,6 +315,16 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		return false;
 	}
 
+	int num_variables = varset -> GetNumVariables();
+	std::vector<std::string> variable_names = varset -> GetAllVariableNames();
+
+	for(int i = 0; i < num_variables; i++){
+		std::string name_var = variable_names[i];
+		if(name_var.substr(0,8).compare("species_") == 0){
+			set_init_map[GetCVodeSpeciesByName(name_var.substr(8))] = i;
+		}
+	}
+
 	initial_number_of_cells = xml_node.get<size_t>("<xmlattr>.num_cells", 1);
 	max_number_of_cells = xml_node.get<size_t>("<xmlattr>.max_cells", 20);
 	divide_cells = xml_node.get<bool>("<xmlattr>.divide_cells", true);
@@ -1066,7 +1076,7 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 			}
 		}
 	} else {
-		result &= cell->SetInitialConditionsFromModel(set_species_map, time);
+		result &= cell->SetInitialConditionsFromModel(set_species_map, set_init_map, transformed_values, time);
 		if (!sobol_sequence_values.empty()) {
 			sobol_sequence_ix = new_cell_ix;
 		}
