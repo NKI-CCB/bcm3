@@ -133,7 +133,7 @@ void Cell::SetDerivativeFunctions(derivative_fn fn, jacobian_fn jac)
 	jacobian = jac;
 }
 
-bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, Real time)
+bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const VectorReal& transformed_values, Real time)
 {
 	for (size_t i = 0; i < model->GetNumCVodeSpecies(); i++) {
 		NV_Ith_S(cvode_y, i) = model->GetCVodeSpecies(i)->GetInitialValue();
@@ -146,6 +146,10 @@ bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetS
 		if (time >= ssmi->second.begin_time && time < ssmi->second.end_time) {
 			NV_Ith_S(cvode_y, ssmi->first) = ssmi->second.value;
 		}
+	}
+
+	for(auto const& sic : set_init_map){
+		NV_Ith_S(cvode_y, sic.first) = transformed_values[sic.second];
 	}
 
 	return true;

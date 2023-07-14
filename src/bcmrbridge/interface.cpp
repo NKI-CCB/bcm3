@@ -25,7 +25,9 @@ bcm3info* GetBCM3InfoPtr(char** bcm3info_ptr, int* retval)
 extern "C" {
 
 void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn, char** likelihood_fn, char** arg1, int* num_threads, int* retval)
-{
+{	
+	
+
 	bcm3info* info = new bcm3info;
 	if (!info) {
 		*retval = -1;
@@ -33,6 +35,8 @@ void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn,
 	}
 
 	bcm3::logger->SetLogToFile(bcm3::Logger::Info, "bcm3rbridge.log");
+
+	LOG("1");
 
 	boost::filesystem::path cwd = boost::filesystem::current_path();
 	boost::filesystem::current_path(*base_folder);
@@ -62,6 +66,8 @@ void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn,
 		return;
 	}
 
+	LOG("2");
+
 	boost::program_options::options_description likelihood_options("Configuration", 120);
 	bcm3::LikelihoodFactory::AddOptionsDescription(likelihood_options);
 	boost::program_options::variables_map vm;
@@ -76,6 +82,8 @@ void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn,
 		return;
 	}
 	info->likelihood->PostInitialize();
+
+	LOG("3");
 	
 	snprintf(*bcm3info_ptr, 128, "%p", (void*)info);
 	boost::filesystem::current_path(cwd);
