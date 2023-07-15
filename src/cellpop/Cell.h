@@ -12,7 +12,7 @@ public:
 	Cell(const SBMLModel* model, const Experiment* experiment);
 	~Cell();
 
-	bool SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const VectorReal& transformed_values, Real time);
+	bool SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const std::map<size_t, std::vector<int>>& ratio_active_map, const std::map<size_t, std::vector<int>>& ratio_inactive_map, const VectorReal& transformed_values, Real time);
 	bool SetInitialConditionsFromOtherCell(const Cell* other);
 	bool Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_point);
 

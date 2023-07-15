@@ -133,7 +133,7 @@ void Cell::SetDerivativeFunctions(derivative_fn fn, jacobian_fn jac)
 	jacobian = jac;
 }
 
-bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const VectorReal& transformed_values, Real time)
+bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const std::map<size_t, std::vector<int>>& ratio_active_map,const std::map<size_t, std::vector<int>>& ratio_inactive_map, const VectorReal& transformed_values, Real time)
 {
 	for (size_t i = 0; i < model->GetNumCVodeSpecies(); i++) {
 		NV_Ith_S(cvode_y, i) = model->GetCVodeSpecies(i)->GetInitialValue();
@@ -150,6 +150,14 @@ bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetS
 
 	for(auto const& sic : set_init_map){
 		NV_Ith_S(cvode_y, sic.first) = transformed_values[sic.second];
+	}
+
+	for(auto const& ram : ratio_active_map){
+		NV_Ith_S(cvode_y, ram.first) = transformed_values[ram.second[0]] * transformed_values[ram.second[1]];
+	}
+
+	for(auto const& rim : ratio_inactive_map){
+		NV_Ith_S(cvode_y, rim.first) = (1 - transformed_values[rim.second[0]]) * transformed_values[rim.second[1]];
 	}
 
 	return true;
