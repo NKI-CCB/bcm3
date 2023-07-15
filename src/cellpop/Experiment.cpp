@@ -315,6 +315,8 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		return false;
 	}
 
+	//if any ratios are present they are mapped here
+	// if any initial values are present as parameters they are mapped here to the ODE model
 	int num_variables = varset -> GetNumVariables();
 	std::vector<std::string> variable_names = varset -> GetAllVariableNames();
 
@@ -323,7 +325,19 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		if(name_var.substr(0,8).compare("species_") == 0){
 			set_init_map[GetCVodeSpeciesByName(name_var.substr(8))] = i;
 		}
+		if(name_var.substr(0,6).compare("ratio_") == 0){
+			for(int j = 0; j < num_variables; j++){
+				std::string name_var_internal = variable_names[j];
+				if(name_var_internal.substr(0,6).compare("total_") == 0 && name_var.substr(6).compare(name_var_internal.substr(6)) == 0){
+					std::vector<int> v = {i, j};
+					ratio_active_map[GetCVodeSpeciesByName("active_" + name_var.substr(6))] = v;
+					ratio_inactive_map[GetCVodeSpeciesByName("inactive_" + name_var.substr(6))] = v;
+				}
+			}
+		}
 	}
+
+
 
 	initial_number_of_cells = xml_node.get<size_t>("<xmlattr>.num_cells", 1);
 	max_number_of_cells = xml_node.get<size_t>("<xmlattr>.max_cells", 20);
@@ -1076,7 +1090,7 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 			}
 		}
 	} else {
-		result &= cell->SetInitialConditionsFromModel(set_species_map, set_init_map, transformed_values, time);
+		result &= cell->SetInitialConditionsFromModel(set_species_map, set_init_map, ratio_active_map, ratio_inactive_map, transformed_values, time);
 		if (!sobol_sequence_values.empty()) {
 			sobol_sequence_ix = new_cell_ix;
 		}
