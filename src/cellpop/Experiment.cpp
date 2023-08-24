@@ -810,8 +810,19 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 					int result = system(("cd " + output_folder + " & \"" + vcvarsfn + "\" & cmake -G \"Visual Studio 17 2022\" . & msbuild generated_derivatives.sln /p:Configuration=Release").c_str());
 #endif
 				} else {
-					LOGERROR("Not sure where to find vcvars64.bat for compiling the code...");
-					return false;
+					vcvarsfn = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat";
+					FILE* file = fopen(vcvarsfn.c_str(), "r");
+					if (file) {
+						fclose(file);
+#if BUILD_DEBUG
+						int result = system(("cd " + output_folder + " & \"" + vcvarsfn + "\" & cmake -G \"Visual Studio 17 2022\" . & msbuild generated_derivatives.sln /p:Configuration=Debug").c_str());
+#else
+						int result = system(("cd " + output_folder + " & \"" + vcvarsfn + "\" & cmake -G \"Visual Studio 17 2022\" . & msbuild generated_derivatives.sln /p:Configuration=Release").c_str());
+#endif
+					} else {
+						LOGERROR("Not sure where to find vcvars64.bat for compiling the code...");
+						return false;
+					}
 				}
 			}
 		}
