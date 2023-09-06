@@ -465,20 +465,28 @@ std::string SBMLRatelawElementTimes::GenerateDerivative(size_t species_ix)
 	ASSERT(children.size() > 1);
 
 	std::vector<std::string> children_result;
-	bool nonzero = false;
+	int nonzerocount = 0;
 	for (size_t i = 0; i < children.size(); i++) {
 		std::string res = children[i]->GenerateDerivative(species_ix);
 		children_result.push_back(res);
 		if (!res.empty()) {
-			nonzero = true;
+			nonzerocount++;
 		}
 	}
 
-	if (nonzero) {
+	if (nonzerocount > 0) {
 		// Product rule
+		int nonzeroiter = 0;
 		std::string result = "(";
 		for (size_t i = 0; i < children.size(); i++) {
 			if (!children_result[i].empty()) {
+				if (nonzerocount > 1) {
+					if (nonzeroiter == 0) {
+						result += "(";
+					} else {
+						result += "+";
+					}
+				}
 				for (size_t j = 0; j < children.size(); j++) {
 					if (j != 0) {
 						result += "*";
@@ -489,6 +497,10 @@ std::string SBMLRatelawElementTimes::GenerateDerivative(size_t species_ix)
 						result += children[j]->GenerateEquation();
 					}
 				}
+				if (nonzerocount > 1 && nonzeroiter == nonzerocount-1) {
+					result += ")";
+				}
+				nonzeroiter++;
 			}
 		}
 		result += ")";
