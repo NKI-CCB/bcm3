@@ -2,8 +2,12 @@ add_library(likelihoods)
 
 target_sources(likelihoods
   PRIVATE
+    LikelihoodDummy.h
+    LikelihoodDummy.cpp
     LikelihoodFactory.h
     LikelihoodFactory.cpp
+    LikelihoodIncucytePopulation.h
+    LikelihoodIncucytePopulation.cpp
     LikelihoodODE.h
     LikelihoodODE.cpp
     LikelihoodPharmacokineticTrajectory.h

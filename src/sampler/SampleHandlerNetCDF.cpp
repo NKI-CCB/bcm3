@@ -97,16 +97,15 @@ namespace bcm3 {
 
 			if (!keep_output_open) {
 				netcdf_file.Close();
+			} else {
+				if (temperature_ix == sample_ix.size() - 1 && si % 10 == 0) {
+					netcdf_file.Sync();
+				}
 			}
 
 			sample_ix[temperature_ix]++;
-
-			if (temperature_ix == sample_ix.size() - 1 && si % 10 == 0) {
-				netcdf_file.Sync();
-			}
 		} else {
 			// This temperature is not stored in the output value
 		}
 	}
-
 }

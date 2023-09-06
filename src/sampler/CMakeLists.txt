@@ -16,6 +16,8 @@ target_sources(sampler
     DataReference.cpp
     Likelihood.h
     Likelihood.cpp
+    MultivariateMarginal.h
+    MultivariateMarginal.cpp
     Prior.h
     Prior.cpp
     PriorIndependence.h

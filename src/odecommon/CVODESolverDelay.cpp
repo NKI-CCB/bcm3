@@ -15,6 +15,12 @@ static int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_
 	return solver->cvode_rhs_fn(t, y, ydot);
 }
 
+static int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3)
+{
+	CVODESolverDelay* solver = reinterpret_cast<CVODESolverDelay*>(user_data);
+	return solver->cvode_jac_fn(t, y, fy, Jac);
+}
+
 CVODESolverDelay::CVODESolverDelay()
 	: cvode_mem(NULL)
 	, LS(NULL)
@@ -85,6 +91,11 @@ bool CVODESolverDelay::Initialize(size_t N, void* user)
 	//SUNNonlinSolSetInfoFile_Newton(NLS, infofp);
 	CVodeSetNonlinearSolver(cvode_mem, NLS);
 
+	if (jacobian) {
+		CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
+		CVodeSetMaxStepsBetweenJac(cvode_mem, 10);
+	}
+
 	return true;
 }
 
@@ -124,6 +135,11 @@ void CVODESolverDelay::SetDerivativeFunction(TDeriviativeFunction f)
 	derivative = f;
 }
 
+void CVODESolverDelay::SetJacobianFunction(TJacobianFunction f)
+{
+	jacobian = f;
+}
+
 void CVODESolverDelay::SetDebugLogging(bool log)
 {
 	debug_log = log;
@@ -154,12 +170,10 @@ bool CVODESolverDelay::Simulate(const Real* initial_conditions, const VectorReal
 
 	// Store initial condition in history
 	history_time.reserve(max_steps);
-	history_y.reserve(max_steps);
+	history_y.setConstant(N, max_steps, std::numeric_limits<Real>::quiet_NaN());
 	history_time.resize(1, 0.0);
-	history_y.resize(1);
-	history_y.back().resize(N);
 	for (size_t i = 0; i < N; i++) {
-		history_y.back()(i) = NV_Ith_S(y, i);
+		history_y(i,0) = NV_Ith_S(y, i);
 	}
 
 	current_dci = 0;
@@ -170,11 +184,11 @@ bool CVODESolverDelay::Simulate(const Real* initial_conditions, const VectorReal
 	// Simulate the system one step at a time
 	while (1) {
 		OdeReal tret;
-		if (debug_log) {
-			LOG("%6g - %g - %.12g %.12g %.12g", timepoints[tpi], tret, NV_Ith_S(y, 0), NV_Ith_S(y,1), NV_Ith_S(y,2));
-		}
 
 		int result = CVode(cvode_mem, (OdeReal)timepoints[tpi], (N_Vector)y, &tret, CV_ONE_STEP);
+		if (debug_log) {
+			LOG("%6g - %g - %.12g %.12g %.12g", timepoints[tpi], tret, NV_Ith_S(y, 0), NV_Ith_S(y, 1), NV_Ith_S(y, 2));
+		}
 		if (result == CV_TSTOP_RETURN) {
 			// We've met a discontinuity
 			
@@ -246,32 +260,25 @@ bool CVODESolverDelay::Simulate(const Real* initial_conditions, const VectorReal
 
 		// Store history
 		history_time.push_back(tret);
-		history_y.resize(history_y.size() + 1);
-		history_y.back().resize(N);
 		for (size_t i = 0; i < N; i++) {
-			history_y.back()(i) = NV_Ith_S(y, i);
+			history_y(i, history_time.size() - 1) = NV_Ith_S(y, i);
 		}
 	}
 
 	return true;
 }
 
-bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< OdeReal >& history_t, const std::vector< OdeVectorReal >& history_y, OdeVectorReal& out)
+bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< OdeReal >& history_t, const OdeMatrixReal& history_y, OdeVectorReal& out)
 {
 	if (history_t.empty()) {
 		LOGERROR("No history supplied");
 		return false;
 	}
-	if (history_t.size() != history_y.size()) {
-		LOGERROR("History sizes do not match");
-		return false;
-	}
 
-#if 1
 	if (t <= history_t.front()) {
-		out = history_y.front();
+		out = history_y.col(0);
 	} else if (t >= history_t.back()) {
-		out = history_y.back();
+		out = history_y.col(history_t.size() - 1);
 	} else {
 		size_t imin = 0;
 		size_t imax = history_t.size();
@@ -286,11 +293,11 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 			}
 
 			if (history_t[ti] == t) {
-				out = history_y[ti];
+				out = history_y.col(ti);
 				break;
 			} else if (history_t[ti] > t) {
 				if (ti == 0) {
-					out = history_y.front();
+					out = history_y.col(0);
 					break;
 				} else {
 					if (history_t[ti-1] < t) {
@@ -299,8 +306,8 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 						OdeReal time_im1 = history_t[ti-1];
 						OdeReal a = (t - time_im1) / (time_i - time_im1);
 
-						const OdeVectorReal& y_i = history_y[ti];
-						const OdeVectorReal& y_im1 = history_y[ti-1];
+						const OdeVectorReal& y_i = history_y.col(ti);
+						const OdeVectorReal& y_im1 = history_y.col(ti-1);
 						out = y_im1;
 						for (int j = 0; j < y_i.size(); j++) {
 							out(j) += a * (y_i(j) - y_im1(j));
@@ -313,7 +320,7 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 				}
 			} else {
 				if (ti == history_t.size() - 1) {
-					out = history_y[ti];
+					out = history_y.col(ti);
 					break;
 				} else {
 					if (history_t[ti+1] > t) {
@@ -322,8 +329,8 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 						OdeReal time_im1 = history_t[ti];
 						OdeReal a = (t - time_im1) / (time_i - time_im1);
 
-						const OdeVectorReal& y_i = history_y[ti+1];
-						const OdeVectorReal& y_im1 = history_y[ti];
+						const OdeVectorReal& y_i = history_y.col(ti+1);
+						const OdeVectorReal& y_im1 = history_y.col(ti);
 						out = y_im1;
 						for (int j = 0; j < y_i.size(); j++) {
 							out(j) += a * (y_i(j) - y_im1(j));
@@ -337,34 +344,6 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 			}
 		}
 	}
-#else
-	for (size_t i = 0; i < history_t.size(); i++) {
-		if (history_t[i] == t) {
-			out = history_y[i];
-			break;
-		}
-
-		if (t < history_t[i]) {
-			if (i == 0) {
-				out = history_y[i];
-				return true;
-			} else {
-				OdeReal time_i = history_t[i];
-				OdeReal time_im1 = history_t[i-1];
-				OdeReal a = (t - time_im1) / (time_i - time_im1);
-
-				const OdeVectorReal& y_i = history_y[i];
-				const OdeVectorReal& y_im1 = history_y[i-1];
-				out = y_im1;
-				for (int j = 0; j < y_i.size(); j++) {
-					out(j) += a * (y_i(j) - y_im1(j));
-				}
-				return true;
-			}
-		}
-	}
-	out = history_y.back();
-#endif
 	
 	return true;
 }
@@ -386,4 +365,22 @@ int CVODESolverDelay::cvode_rhs_fn(OdeReal t, void* y_nvector, void* ydot_nvecto
 	} else {
 		return -1;
 	}
+}
+
+int CVODESolverDelay::cvode_jac_fn(OdeReal t, void* y_nvector, void* fy_nvector, void* Jac_matrix)
+{
+	if (!jacobian) {
+		return -2;
+	}
+
+#if CVODE_USE_EIGEN_SOLVER
+	bool result = jacobian(t, NV_DATA_S(((N_Vector)y_nvector)), NV_DATA_S(((N_Vector)fy_nvector)), history_time, history_y, current_dci, EIGMAT(((SUNMatrix)Jac_matrix)), user_data);
+	if (result) {
+		return 0;
+} else {
+		return -1;
+	}
+#else
+	return -3;
+#endif
 }

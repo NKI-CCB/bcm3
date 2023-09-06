@@ -3,6 +3,8 @@
 
 #include "CellPopulationLikelihood.h"
 #include "fISALikelihood.h"
+#include "LikelihoodDummy.h"
+#include "LikelihoodIncucytePopulation.h"
 #include "LikelihoodODE.h"
 #include "LikelihoodPharmacokineticTrajectory.h"
 #include "LikelihoodPopPKTrajectory.h"
@@ -36,6 +38,10 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 			ll = std::make_shared<fISALikelihood>(sampling_threads, evaluation_threads);
 		} else if (type == "cell_population") {
 			ll = std::make_shared<CellPopulationLikelihood>(sampling_threads, evaluation_threads);
+		} else if (type == "dummy") {
+			ll = std::make_shared<LikelihoodDummy>(sampling_threads, evaluation_threads);
+		} else if (type == "incucyte_population") {
+			ll = std::make_shared<LikelihoodIncucytePopulation>(sampling_threads, evaluation_threads);
 		} else if (type == "ODE") {
 			ll = std::make_shared<LikelihoodODE>(sampling_threads, evaluation_threads);
 		} else if (type == "pharmacokinetic_trajectory") {

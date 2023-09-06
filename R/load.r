@@ -28,6 +28,13 @@ bcm3.load.results <- function(base_folder, output_folder, prior_file="prior.xml"
     model$posterior$lprior <- output_file[["samples/log_prior"]][,,drop=F]
     model$posterior$llikelihood <- output_file[["samples/log_likelihood"]][,,drop=F]
   }
+  
+  fill_value <- output_file[["samples/variable_values"]]$get_fill_value()
+  model$posterior$samples[model$posterior$samples == fill_value] <- NA
+  model$posterior$weights[model$posterior$weights == fill_value] <- NA
+  model$posterior$lprior[model$posterior$lprior == fill_value] <- NA
+  model$posterior$llikelihood[model$posterior$llikelihood == fill_value] <- NA
+  
   model$posterior$lposterior <- model$posterior$lprior + model$posterior$llikelihood
   model$posterior$lfracposterior <- matrix(NA, nrow(model$posterior$lprior), ncol(model$posterior$lprior))
   for (i in 1:length(model$posterior$temperatures)) {

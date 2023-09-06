@@ -4,6 +4,28 @@ class PartialPivLUExtended : public Eigen::PartialPivLU< MatrixReal >
 {
 public:
 	template<typename InputType>
+	PartialPivLUExtended& compute_select(const Eigen::EigenBase<InputType>& matrix)
+	{
+		if (matrix.rows() == 3) {
+			ASSERT(matrix.cols() == 3);
+			inverse.resize(3, 3);
+			Eigen::internal::compute_inverse<MatrixReal, MatrixReal, 3>::run(matrix, inverse);
+			return *this;
+		} else {
+			return compute_optimized(matrix);
+		}
+	}
+
+	void apply_select(const VectorReal& b, VectorReal& x)
+	{
+		if (b.size() == 3) {
+			x.noalias() = inverse * b;
+		} else {
+			x.noalias() = solve(b);
+		}
+	}
+
+	template<typename InputType>
 	PartialPivLUExtended& compute_optimized(const Eigen::EigenBase<InputType>& matrix)
 	{
 		m_lu = matrix.derived();
@@ -72,4 +94,6 @@ public:
 		m_isInitialized = true;
 		return *this;
 	}
+
+	MatrixReal inverse;
 };

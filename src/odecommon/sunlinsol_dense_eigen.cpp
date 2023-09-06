@@ -92,6 +92,7 @@ int SUNLinSolSetup_Dense_Eigen(SUNLinearSolver S, SUNMatrix A)
 		return(SUNLS_ILL_INPUT);
 	}
 
+	//EIGSOL(S).compute_select(EIGMAT(A));
 	EIGSOL(S).compute_optimized(EIGMAT(A));
 
 #if 0
@@ -111,7 +112,8 @@ int SUNLinSolSolve_Dense_Eigen(SUNLinearSolver S, SUNMatrix A, N_Vector x,
 	if ( (A == NULL) || (S == NULL) || (x == NULL) || (b == NULL) )
 		return(SUNLS_MEM_NULL);
 
-	EIGV(x) = EIGSOL(S).solve(EIGV(b));
+	//EIGSOL(S).apply_select(EIGV(b), EIGV(x));
+	EIGV(x).noalias() = EIGSOL(S).solve(EIGV(b));
 
 	return(SUNLS_SUCCESS);
 }

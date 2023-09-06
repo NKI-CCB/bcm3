@@ -256,6 +256,16 @@ namespace bcm3 {
 					new_var_values(b.variable_indices[i]) = block_new_position(i);
 				}
 
+				// Overwrite dirichlet residual if necessary
+				for (size_t dci = 0; dci < sampler->dirichlet_constraints.size(); dci++) {
+					const Sampler::DirichletConstraint& dc = sampler->dirichlet_constraints[dci];
+					Real sum = 0.0;
+					for (size_t dcvi = 0; dcvi < dc.var_ix.size() - 1; dcvi++) {
+						sum += new_var_values(dc.var_ix[dcvi]);
+					}
+					new_var_values(dc.residual_ix) = 1.0 - sum;
+				}
+
 				// Evaluate prior, likelihood & posterior
 				Real new_lprior = -std::numeric_limits<Real>::infinity(), new_llh = -std::numeric_limits<Real>::infinity();
 				if (!sampler->EvaluatePriorLikelihood(thread, new_var_values, new_lprior, new_llh)) {

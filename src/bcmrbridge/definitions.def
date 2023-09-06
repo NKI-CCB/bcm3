@@ -1,6 +1,9 @@
 EXPORTS
 	bcm3_rbridge_init
 	bcm3_rbridge_cleanup
+	bcm3_rbridge_incucyte_get_log_likelihood
+	bcm3_rbridge_incucyte_get_simulated_trajectories
+	bcm3_rbridge_incucyte_get_simulated_ctb
 	bcm3_rbridge_ODE_get_log_likelihood
 	bcm3_rbridge_ODE_get_simulated_trajectories
 	bcm3_rbridge_cellpop_get_log_likelihood
