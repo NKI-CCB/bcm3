@@ -49,6 +49,13 @@ namespace bcm3 {
 		std::shared_ptr<Prior> prior;
 		std::vector< std::shared_ptr<Likelihood> > parallel_likelihoods;
 
+		struct DirichletConstraint
+		{
+			ptrdiff_t residual_ix;
+			std::vector<ptrdiff_t> var_ix;
+		};
+		std::vector<DirichletConstraint> dirichlet_constraints;
+
 		// Sampling settings
 		size_t num_threads;
 		size_t num_samples;

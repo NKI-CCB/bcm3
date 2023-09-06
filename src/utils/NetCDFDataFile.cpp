@@ -779,6 +779,58 @@ bool NetCDFDataFile::GetDimensionIx(const std::string& group_name, const std::st
 	return false;
 }
 
+bool NetCDFDataFile::GetAttribute(const std::string& group_name, const std::string& attribute_name, Real& value) const
+{
+	int group = GetGroup(group_name);
+	size_t attrlen = -1;
+	int result = nc_inq_attlen(group, NC_GLOBAL, attribute_name.c_str(), &attrlen);
+	if (result != NC_NOERR) {
+		LOGERROR("Unable to retrieve length of attribute \"%s\" for group \"%s\", status: %d", attribute_name.c_str(), group_name.c_str(), result);
+		return false;
+	}
+	if (attrlen != 1) {
+		LOGERROR("Attribute \"%s\" for group \"%s\" has size %d, can only retrieve attributes of size 1", attribute_name.c_str(), group_name.c_str(), attrlen);
+		return false;
+	}
+
+	result = nc_get_att_double(group, NC_GLOBAL, attribute_name.c_str(), &value);
+	if (result != NC_NOERR) {
+		LOGERROR("Unable to retrieve attribute \"%s\" for group \"%s\", status: %d", attribute_name.c_str(), group_name.c_str(), result);
+		return false;
+	}
+	return true;
+}
+
+bool NetCDFDataFile::GetSubgroups(const std::string& group_name, std::vector<std::string>& groups)
+{
+	int group = GetGroup(group_name);
+	int numgroups;
+	int result = nc_inq_grps(group, &numgroups, nullptr);
+	if (result != NC_NOERR) {
+		LOGERROR("Error retrieving number of subgroups of group \"%s\"; status: %d", group_name.c_str(), result);
+		return false;
+	}
+
+	int* subgroup_ids = new int[numgroups];
+	result = nc_inq_grps(group, &numgroups, subgroup_ids);
+	if (result != NC_NOERR) {
+		LOGERROR("Error retrieving IDs of subgroups of group \"%s\"; status: %d", group_name.c_str(), result);
+		return false;
+	}
+
+	groups.resize(numgroups);
+	for (int i = 0; i < numgroups; i++) {
+		char subgroup_name[NC_MAX_NAME + 1];
+		subgroup_name[0] = 0;
+		result = nc_inq_grpname(subgroup_ids[i], subgroup_name);
+		if (result != NC_NOERR) {
+			LOGERROR("Error retrieving group name of subgroup %d when retrieving subgroups of group \"%s\"; status: %d", subgroup_ids[i], group_name.c_str(), result);
+		}
+		groups[i] = subgroup_name;
+	}
+	return true;
+}
+
 int NetCDFDataFile::GetGroup(const std::string& group_name) const
 {
 #if 1

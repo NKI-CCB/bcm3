@@ -8,21 +8,58 @@ source(paste(Sys.getenv("BCM3_ROOT"), "/R/stats.r", sep=""))
 .posterior_predictive_color <- "#00b25d"
 .posterior_predictive_color_alpha <- "#00b25d64"
 
+# Select bandwidth based on an exhaustive search rather than optimization,
+# Based on Notes for Nonparametric Statistics at
+# https://bookdown.org/egarpor/NP-UC3M/kde-i-bwd.html
+bw.bcv.mod <- function(x, nb = 1000L,
+                       h_grid = 10^seq(log10(0.01 * diff(quantile(x, c(0.25,0.75)))), log10(1.5 * diff(quantile(x, c(0.25,0.75)))), l = 200),
+                       plot_cv = FALSE) {
+  if ((n <- length(x)) < 2L)
+    stop("need at least 2 data points")
+  n <- as.integer(n)
+  if (is.na(n))
+    stop("invalid length(x)")
+  if (!is.numeric(x))
+    stop("invalid 'x'")
+  nb <- as.integer(nb)
+  if (is.na(nb) || nb <= 0L)
+    stop("invalid 'nb'")
+  storage.mode(x) <- "double"
+  hmax <- 1.144 * sqrt(var(x)) * n^(-1/5)
+  Z <- .Call(stats:::C_bw_den, nb, x)
+  d <- Z[[1L]]
+  cnt <- Z[[2L]]
+  fbcv <- function(h) .Call(stats:::C_bw_bcv, n, d, cnt, h)
+  ## Original code
+  # h <- optimize(fbcv, c(lower, upper), tol = tol)$minimum
+  # if (h < lower + tol | h > upper - tol)
+  #   warning("minimum occurred at one end of the range")
+  ## Modification
+  obj <- sapply(h_grid, function(h) fbcv(h))
+  h <- h_grid[which.min(obj)]
+  if (h == h_grid[1]) 
+    warning("minimum occurred at bottom end of h_grid")
+  else if (h == tail(h_grid, 1))
+    warning("minimum occurred at top end of h_grid")
+  if (plot_cv) {
+    plot(h_grid, obj, type = "o")
+    rug(h_grid)
+    abline(v = h, col = 2, lwd = 2)
+  }
+  h
+}
+
 # Plot prior and posterior distribution for a given variable
 # You can specify either a variable name or a variable index
-plot_variable_distribution <- function(model, var_ix=NULL, var_name=NULL, temperature_ix=NULL, sample_ix=NULL, xlab="", ylim=NULL, plot=T, adjust=1)
+plot_variable_distribution <- function(model, var_ix=NULL, var_name=NULL,
+                                       temperature_ix=dim(model$posterior$samples)[2],
+                                       sample_ix=(dim(model$posterior$samples)[3]/2+1):dim(model$posterior$samples)[3],
+                                       xlab="", ylim=NULL, plot=T, adjust=1)
 {
   if (!is.null(var_name)) {
     var_ix <- model_get_var_ix(model, var_name)
   }
   if (!is.null(var_ix)) {
-    if (is.null(temperature_ix)) {
-      temperature_ix <- dim(model$posterior$samples)[2]
-    }
-    if (is.null(sample_ix)) {
-      sample_ix <- 1:dim(model$posterior$samples)[3]
-    }
-    
     varattrs <- model$prior$variable_attrs[[var_ix]]
     res <- plot_variable_distribution_impl(model$posterior$samples[var_ix, temperature_ix, sample_ix], 
                                            model$posterior$weights[temperature_ix, sample_ix],
@@ -393,12 +430,7 @@ plot_variable_distribution_impl <- function(samples, weights, varattrs, xlab="",
       bw <- h.select(samples, weights=weights, method="cv", nbins=0)
     }
   } else {
-    if (length(samples) > 500) {
-      use_samples_for_bw <- sort(sample(1:length(samples),500))
-      bw <- h.select(samples[use_samples_for_bw], method="cv", nbins=0)
-    } else {
-      bw <- h.select(samples, method="cv", nbins=0)
-    }
+    bw <- bw.bcv.mod(samples)
   }
   
   # If necessary, reflect samples around bounds and add the reflection to the sample, to get a more reasonable KDE near the bounds
@@ -546,44 +578,6 @@ plot_variable_prior_impl <- function(varattrs, xlab="", ylim=NULL, plot=T)
     result$priorx <- priorx
     result$priory <- priory
     return(result)
-  }
-}
-
-variable_statistic <- function(samples, xlab="", ylim=NULL, statistic, ...)
-{
-  if (statistic == "mean") {
-    return(mean(samples))
-  }
-  if (statistic == "median") {
-    return(median(samples))
-  }
-  if (statistic == "sd") {
-    return(sd(samples))
-  }
-  if (statistic == "quantile") {
-    arguments <- list(...)
-    return(quantile(samples, probs=arguments$q))
-  }
-  if (statistic == "autocorrelation") {
-    lag <- list(...)$lag
-    ac <- acf(samples, plot=F, lag.max=lag)$acf[lag+1]
-    return(ac)
-  }
-  if (statistic == "decorr_lag") {
-    ac <- acf(samples, plot=F, lag.max=length(samples)/2)
-    threshold <- 2.0 / sqrt(length(samples))
-    sign <- ac$acf < threshold
-    return(match(T, sign))
-  }
-  if (statistic == "ess") {
-    ac <- acf(samples, plot=F, lag.max=length(samples)/2)
-    first_neg <- Position(function(x) x < 0, ac$acf[,1,1])
-    if (first_neg > 2) {
-      ess <- length(samples) / (1 + 2*sum(ac$acf[2:(first_neg-1),1,1]))
-    } else {
-      ess <- length(samples)
-    }
-    return(ess)
   }
 }
 

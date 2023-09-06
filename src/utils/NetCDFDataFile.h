@@ -63,6 +63,8 @@ public:
 	bool GetDimensionName(const std::string& group_name, const std::string& variable_name, size_t dimix, std::string& dimname) const;
 	bool GetDimensionSize(const std::string& group_name, const std::string& dimname, size_t* size) const;
 	bool GetDimensionIx(const std::string& group_name, const std::string& dimname, const std::string& dimvalue, size_t* ix) const;
+	bool GetAttribute(const std::string& group_name, const std::string& attribute_name, Real& value) const;
+	bool GetSubgroups(const std::string& group_name, std::vector<std::string>& groups);
 
 private:
 	int GetGroup(const std::string& group_name) const;

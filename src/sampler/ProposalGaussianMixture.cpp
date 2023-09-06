@@ -163,7 +163,7 @@ namespace bcm3 {
 			static const size_t num_components[7] = { 1, 2, 3, 4, 5, 8, 13 };
 			for (size_t i = 0; i < 7; i++) {
 				std::shared_ptr<GMM> test_gmm_k = std::make_shared<GMM>();
-				if (min_ess < num_components[i] * (1 + num_variables)) {
+				if (min_ess < num_components[i] * (1 + std::min(num_variables/2, (size_t)10))) {
 					if (log_info) {
 						LOG("GMM num_components=%2zu - not enough effective samples", num_components[i], test_gmm_k->GetAIC());
 					}
@@ -193,9 +193,15 @@ namespace bcm3 {
 					str << gmm->GetMean(i).transpose();
 					LOG("Mean component %zd: %s", i, str.str().c_str());
 
-					std::stringstream().swap(str);
-					str << gmm->GetCovariance(i);
-					LOG("Covariance component %zd:\n%s", i, str.str().c_str());
+						LOG("Covariance component %zd:", i);
+						for (ptrdiff_t j = 0; j < gmm->GetCovariance(i).rows(); j++) {
+							std::stringstream().swap(str);
+							str << gmm->GetCovariance(i).row(j);
+							LOG("%s", str.str().c_str());
+						}
+					}
+				} else {
+					LOG("Unable to fit even a single Gaussian, resorting to a single Gaussian with covariance based on the prior");
 				}
 			}
 #endif

@@ -31,6 +31,7 @@ public:
 
 	Real max_expression_function(Real expression, size_t signaling_molecule_ix, const Real* values) const;
 	inline size_t GetMultirootSolveCount() const { return multiroot_solves; }
+	inline size_t GetNumEvaluationThreads() const { return numthreads; }
 
 private:
 	typedef unsigned char signaling_index_type;
