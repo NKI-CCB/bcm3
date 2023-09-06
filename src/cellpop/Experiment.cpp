@@ -315,6 +315,56 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		return false;
 	}
 
+	//if any ratios are present they are mapped here
+	// if any initial values are present as parameters they are mapped here to the ODE model
+	size_t num_variables = varset->GetNumVariables();
+	std::vector<std::string> variable_names = varset->GetAllVariableNames();
+
+	for(int i = 0; i < num_variables; i++){
+		std::string name_var = variable_names[i];
+		if(name_var.substr(0,8).compare("species_") == 0){
+			set_init_map[GetCVodeSpeciesByName(name_var.substr(8))] = i;
+		}
+		if(name_var.substr(0,6).compare("ratio_") == 0){
+
+			//check if the total variable is also present
+			bool also_total_var = false;
+
+			for(int j = 0; j < num_variables; j++){
+				std::string name_var_internal = variable_names[j];
+				if(name_var_internal.substr(0,6).compare("total_") == 0 && name_var.substr(6).compare(name_var_internal.substr(6)) == 0){
+					also_total_var = true;
+					std::vector<int> v = {i, j};
+					size_t active_species = GetCVodeSpeciesByName("active_" + name_var.substr(6));
+					size_t inactive_species = GetCVodeSpeciesByName("inactive_" + name_var.substr(6));
+
+					if(active_species == std::numeric_limits<size_t>::max()){
+						LOG("No active species identified!");
+						return false;
+					}
+
+					if(inactive_species == std::numeric_limits<size_t>::max()){
+						LOG("No inactive species identified!");
+						return false;
+					}
+
+					ratio_active_map[active_species] = v;
+					ratio_inactive_map[inactive_species] = v;
+				}
+
+				if(!also_total_var){
+					LOG("No total species identified!");
+					return false;
+				}
+			}
+
+		}
+	}
+
+	
+
+
+
 	initial_number_of_cells = xml_node.get<size_t>("<xmlattr>.num_cells", 1);
 	max_number_of_cells = xml_node.get<size_t>("<xmlattr>.max_cells", 20);
 	divide_cells = xml_node.get<bool>("<xmlattr>.divide_cells", true);
@@ -1066,7 +1116,7 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 			}
 		}
 	} else {
-		result &= cell->SetInitialConditionsFromModel(set_species_map, time);
+		result &= cell->SetInitialConditionsFromModel(set_species_map, set_init_map, ratio_active_map, ratio_inactive_map, transformed_values, time);
 		if (!sobol_sequence_values.empty()) {
 			sobol_sequence_ix = new_cell_ix;
 		}

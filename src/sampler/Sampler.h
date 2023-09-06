@@ -35,6 +35,12 @@ namespace bcm3 {
 
 		static void AddOptionsDescription(boost::program_options::options_description& pod);
 
+		struct DirichletConstraint
+		{
+			ptrdiff_t residual_ix;
+			std::vector<ptrdiff_t> var_ix;
+		};
+
 	protected:
 		bool EvaluatePrior(size_t threadix, const VectorReal& values, Real& lprior);
 		bool EvaluateLikelihood(size_t threadix, const VectorReal& values, Real& llh);
@@ -49,11 +55,6 @@ namespace bcm3 {
 		std::shared_ptr<Prior> prior;
 		std::vector< std::shared_ptr<Likelihood> > parallel_likelihoods;
 
-		struct DirichletConstraint
-		{
-			ptrdiff_t residual_ix;
-			std::vector<ptrdiff_t> var_ix;
-		};
 		std::vector<DirichletConstraint> dirichlet_constraints;
 
 		// Sampling settings
