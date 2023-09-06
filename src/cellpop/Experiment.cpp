@@ -320,7 +320,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	size_t num_variables = varset->GetNumVariables();
 	std::vector<std::string> variable_names = varset->GetAllVariableNames();
 
-	for(size_t i = 0; i < num_variables; i++){
+	for(int i = 0; i < num_variables; i++){
 		std::string name_var = variable_names[i];
 		if(name_var.substr(0,8).compare("species_") == 0){
 			set_init_map[GetCVodeSpeciesByName(name_var.substr(8))] = i;
@@ -333,7 +333,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 			for(int j = 0; j < num_variables; j++){
 				std::string name_var_internal = variable_names[j];
 				if(name_var_internal.substr(0,6).compare("total_") == 0 && name_var.substr(6).compare(name_var_internal.substr(6)) == 0){
-					also_total = true;
+					also_total_var = true;
 					std::vector<int> v = {i, j};
 					size_t active_species = GetCVodeSpeciesByName("active_" + name_var.substr(6));
 					size_t inactive_species = GetCVodeSpeciesByName("inactive_" + name_var.substr(6));
@@ -352,7 +352,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 					ratio_inactive_map[inactive_species] = v;
 				}
 
-				if(!also_total){
+				if(!also_total_var){
 					LOG("No total species identified!");
 					return false;
 				}
