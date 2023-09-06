@@ -259,7 +259,7 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	}
 	CVodeSetUserData(cvode_mem, (void*)this);
 	CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
-	CVodeSStolerances(cvode_mem, 1e-8, 1e-8);
+	CVodeSStolerances(cvode_mem, 1e-8, 1e-3);
 	//CVodeSetMinStep(cvode_mem, 1e-3);
 	CVodeSetInitStep(cvode_mem, 1.0);
 
