@@ -1,7 +1,4 @@
 bcm3.init.cpp <- function(bcm3, clparam = "", threads = NA) {
-  
-  
-  
   if (.Platform$OS.type == "windows") {
     # Need to go into the Release directory to resolve dependency dlls
     cwd <- getwd()

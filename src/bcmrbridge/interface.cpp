@@ -26,8 +26,6 @@ extern "C" {
 
 void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn, char** likelihood_fn, char** arg1, int* num_threads, int* retval)
 {	
-	
-
 	bcm3info* info = new bcm3info;
 	if (!info) {
 		*retval = -1;
