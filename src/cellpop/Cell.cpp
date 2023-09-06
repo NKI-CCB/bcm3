@@ -141,21 +141,6 @@ Cell::Cell(const SBMLModel* model, const Experiment* experiment)
 
 Cell::~Cell()
 {
-#if 0
-	long int nsteps;
-	long int nfevals;
-	long int nlinsetups;
-	long int netfails;
-	int qlast;
-	int qcur;
-	realtype hinused;
-	realtype hlast;
-	realtype hcur;
-	realtype tcur;
-	CVodeGetIntegratorStats(cvode_mem, &nsteps, &nfevals, &nlinsetups, &netfails, &qlast, &qcur, &hinused, &hlast, &hcur, &tcur);
-	printf("%d %d %d %d %d %d %g %g %g %g\n", nsteps, nfevals, nlinsetups, netfails, qlast, qcur, hinused, hlast, hcur, tcur);
-#endif
-
 	SUNMatDestroy(J);
 	N_VDestroy(cvode_y);
 	SUNNonlinSolFree(NLS);

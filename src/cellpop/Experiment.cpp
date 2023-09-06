@@ -326,8 +326,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 			set_init_map[GetCVodeSpeciesByName(name_var.substr(8))] = i;
 		}
 		if(name_var.substr(0,6).compare("ratio_") == 0){
-
-			//check if the total variable is also present
+			// Check that the total variable is also present
 			bool also_total_var = false;
 
 			for(int j = 0; j < num_variables; j++){
@@ -339,31 +338,26 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 					size_t inactive_species = GetCVodeSpeciesByName("inactive_" + name_var.substr(6));
 
 					if(active_species == std::numeric_limits<size_t>::max()){
-						LOG("No active species identified!");
+						LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species; but the corresponding active species \"active_%s\" is not found in the model.", name_var.c_str(), name_var.substr(6).c_str());
 						return false;
 					}
 
 					if(inactive_species == std::numeric_limits<size_t>::max()){
-						LOG("No inactive species identified!");
+						LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species; but the corresponding inactive species \"inactive_%s\" is not found in the model.", name_var.c_str(), name_var.substr(6).c_str());
 						return false;
 					}
 
 					ratio_active_map[active_species] = v;
 					ratio_inactive_map[inactive_species] = v;
 				}
-
-				if(!also_total_var){
-					LOG("No total species identified!");
-					return false;
-				}
 			}
 
+			if (!also_total_var) {
+				LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species and requires a corresponding \"total_\" variable, but this \"total_\" variable is not specified.", name_var.c_str());
+				return false;
+			}
 		}
 	}
-
-	
-
-
 
 	initial_number_of_cells = xml_node.get<size_t>("<xmlattr>.num_cells", 1);
 	max_number_of_cells = xml_node.get<size_t>("<xmlattr>.max_cells", 20);
