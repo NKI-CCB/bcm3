@@ -41,7 +41,7 @@ Experiment::AuxEvaluation::AuxEvaluation()
 {
 }
 
-Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t evaluation_threads)
+Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t evaluation_threads, Real fixed_abs_value, Real fixed_rel_value)
 	: varset(varset)
 	, cell_model(0)
 	, initial_number_of_cells(0)
@@ -281,12 +281,12 @@ void Experiment::DumpCVodeStatistics(const std::string& output_folder)
 	fclose(f);
 }
 
-std::unique_ptr<Experiment> Experiment::Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads)
+std::unique_ptr<Experiment> Experiment::Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads, Real fixed_abs_value, Real fixed_rel_value)
 {
 	std::unique_ptr<Experiment> experiment;
 
 	try {
-		experiment = std::make_unique<Experiment>(varset, evaluation_threads);
+		experiment = std::make_unique<Experiment>(varset, evaluation_threads, fixed_abs_value, fixed_rel_value);
 		if (!experiment->Load(xml_node, vm)) {
 			experiment.reset();
 		} else {
@@ -320,23 +320,10 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	size_t num_variables = varset->GetNumVariables();
 	std::vector<std::string> variable_names = varset->GetAllVariableNames();
 
-	//Initialize tolerance vector to negative values
-	for(int k = 0; k < 2; k++){
-		tolerance_vector[k] = -1;
-	}
-
 	for(int i = 0; i < num_variables; i++){
 		std::string name_var = variable_names[i];
 		if(name_var.substr(0,8).compare("species_") == 0){
 			set_init_map[GetCVodeSpeciesByName(name_var.substr(8))] = i;
-		}
-
-		if(name_var == "absolute_tolerance"){
-			tolerance_vector[0] = i;
-		}
-
-		if(name_var == "relative_tolerance"){
-			tolerance_vector[1] = i;
 		}
 
 		if(name_var.substr(0,6).compare("ratio_") == 0){
@@ -371,16 +358,6 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 				return false;
 			}
 		}
-	}
-
-	if(tolerance_vector[0] == -1){
-		LOG("The ODE absolute tolerance variable has not been specified.");
-		return false;
-	}
-
-	if(tolerance_vector[1] == -1){
-		LOG("The ODE relative tolerance variable has not been specified.");
-		return false;
 	}
 
 	initial_number_of_cells = xml_node.get<size_t>("<xmlattr>.num_cells", 1);
@@ -1142,8 +1119,7 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 	if (!sobol_sequence_values.empty()) {
 		sobol_sequence_indices[new_cell_ix] = sobol_sequence_ix;
 	}
-
-	result &= cell->Initialize(time, transformed_values, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization, tolerance_vector);
+	result &= cell->Initialize(time, transformed_values, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization, fixed_rel_value, fixed_abs_value);
 
 	if (!result) {
 		return std::numeric_limits<size_t>::max();

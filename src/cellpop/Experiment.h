@@ -40,7 +40,7 @@ enum class EPhaseDuration {
 class Experiment
 {
 public:
-	Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t evaluation_threads);
+	Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t evaluation_threads, Real fixed_abs_value, Real fixed_rel_value);
 	virtual ~Experiment();
 
 	bool AddSimulationTimepoints(DataLikelihoodBase* dl, Real time, size_t time_ix, size_t species_ix, ESynchronizeCellTrajectory synchronize);
@@ -51,7 +51,7 @@ public:
 	bool EvaluateLogProbability(size_t threadix, const VectorReal& values, const VectorReal& transformed_values, Real& logp);
 	void DumpCVodeStatistics(const std::string& output_folder);
 
-	static std::unique_ptr<Experiment> Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads);
+	static std::unique_ptr<Experiment> Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads, Real fixed_abs_value, Real fixed_rel_value);
 	inline const std::string& GetName() const { return Name; }
 	inline size_t GetSimulatedSpeciesByName(const std::string& species_name) const { return cell_model.GetSimulatedSpeciesByName(species_name); }
 	inline size_t GetCVodeSpeciesByName(const std::string& species_name) const { return cell_model.GetCVodeSpeciesByName(species_name); }
@@ -93,6 +93,8 @@ protected:
 	std::string model_filename;
 	SBMLModel cell_model;
 	std::shared_ptr<const bcm3::VariableSet> varset;
+	Real fixed_abs_value;
+	Real fixed_rel_value;
 	std::vector< std::unique_ptr<DataLikelihoodBase> > data_likelihoods;
 	size_t initial_number_of_cells;
 	size_t max_number_of_cells;
@@ -113,7 +115,6 @@ protected:
 		Real old_value;
 	};
 	std::map<size_t, SetSpecies> set_species_map;
-	std::vector<int> tolerance_vector;
 	std::map<size_t, size_t> set_init_map;
 	std::map<size_t, std::vector<int>> ratio_active_map;
 	std::map<size_t, std::vector<int>> ratio_inactive_map;

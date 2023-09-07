@@ -41,5 +41,7 @@ protected:
 	Real fixed_offset_value;
 	Real fixed_scale_value;
 	Real fixed_stdev_value;
+	Real fixed_abs_value;
+	Real fixed_rel_value;
 	Real stdev_multiplication_factor;
 };
