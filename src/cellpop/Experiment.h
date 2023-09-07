@@ -113,6 +113,7 @@ protected:
 		Real old_value;
 	};
 	std::map<size_t, SetSpecies> set_species_map;
+	std::vector<int> tolerance_vector;
 	std::map<size_t, size_t> set_init_map;
 	std::map<size_t, std::vector<int>> ratio_active_map;
 	std::map<size_t, std::vector<int>> ratio_inactive_map;

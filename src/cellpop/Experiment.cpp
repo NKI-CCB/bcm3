@@ -320,11 +320,25 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	size_t num_variables = varset->GetNumVariables();
 	std::vector<std::string> variable_names = varset->GetAllVariableNames();
 
+	//Initialize tolerance vector to negative values
+	for(int k = 0; k < 2; k++){
+		tolerance_vector[k] = -1;
+	}
+
 	for(int i = 0; i < num_variables; i++){
 		std::string name_var = variable_names[i];
 		if(name_var.substr(0,8).compare("species_") == 0){
 			set_init_map[GetCVodeSpeciesByName(name_var.substr(8))] = i;
 		}
+
+		if(name_var == "absolute_tolerance"){
+			tolerance_vector[0] = i;
+		}
+
+		if(name_var == "relative_tolerance"){
+			tolerance_vector[1] = i;
+		}
+
 		if(name_var.substr(0,6).compare("ratio_") == 0){
 			// Check that the total variable is also present
 			bool also_total_var = false;
@@ -357,6 +371,16 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 				return false;
 			}
 		}
+	}
+
+	if(tolerance_vector[0] == -1){
+		LOG("The ODE absolute tolerance variable has not been specified.");
+		return false;
+	}
+
+	if(tolerance_vector[1] == -1){
+		LOG("The ODE relative tolerance variable has not been specified.");
+		return false;
 	}
 
 	initial_number_of_cells = xml_node.get<size_t>("<xmlattr>.num_cells", 1);
@@ -1119,7 +1143,7 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 		sobol_sequence_indices[new_cell_ix] = sobol_sequence_ix;
 	}
 
-	result &= cell->Initialize(time, transformed_values, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization);
+	result &= cell->Initialize(time, transformed_values, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization, tolerance_vector);
 
 	if (!result) {
 		return std::numeric_limits<size_t>::max();
