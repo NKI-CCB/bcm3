@@ -307,6 +307,34 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	model_filename = xml_node.get<std::string>("<xmlattr>.model_file");
 	std::string data_file = xml_node.get<std::string>("<xmlattr>.data_file", "");
 
+	abs_tol_str = xml_node.get<std::string>("<xmlattr>.absolute_tolerance");
+	rel_tol_str = xml_node.get<std::string>("<xmlattr>.relative_tolerance");
+
+	if(abs_tol_str.empty() || rel_tol_str.empty()){
+		LOGERROR("Absolute and relative tolerance were not both defined");
+		return false;
+	}
+
+	try {
+		abs_tol = std::stod(abs_tol_str);
+	} catch (const std::invalid_argument&) {
+		LOGERROR("No conversion possible of absolute tolerance");
+		return false;
+	} catch (const std::out_of_range&) {
+		LOGERROR("No conversion possible of absolute tolerance");
+		return false;
+	}
+
+	try {
+		rel_tol = std::stod(rel_tol_str);
+	} catch (const std::invalid_argument&) {
+		LOGERROR("No conversion possible of relative tolerance");
+		return false;
+	} catch (const std::out_of_range&) {
+		LOGERROR("No conversion possible of relative tolerance");
+		return false;
+	}
+
 	// Load & initialize the model
 	if (!cell_model.LoadSBML(model_filename)) {
 		return false;
@@ -325,6 +353,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		if(name_var.substr(0,8).compare("species_") == 0){
 			set_init_map[GetCVodeSpeciesByName(name_var.substr(8))] = i;
 		}
+
 		if(name_var.substr(0,6).compare("ratio_") == 0){
 			// Check that the total variable is also present
 			bool also_total_var = false;
@@ -1118,8 +1147,7 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 	if (!sobol_sequence_values.empty()) {
 		sobol_sequence_indices[new_cell_ix] = sobol_sequence_ix;
 	}
-
-	result &= cell->Initialize(time, transformed_values, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization);
+	result &= cell->Initialize(time, transformed_values, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization, abs_tol, rel_tol);
 
 	if (!result) {
 		return std::numeric_limits<size_t>::max();

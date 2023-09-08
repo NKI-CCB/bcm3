@@ -213,7 +213,7 @@ bool Cell::SetInitialConditionsFromOtherCell(const Cell* other)
 	return true;
 }
 
-bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_point)
+bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_point, Real abs_tol, Real rel_tol)
 {
 	cvode_steps = 0;
 	cvode_timepoint_iter = 0;
@@ -259,7 +259,7 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	}
 	CVodeSetUserData(cvode_mem, (void*)this);
 	CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
-	CVodeSStolerances(cvode_mem, 1e-8, 1e-8);
+	CVodeSStolerances(cvode_mem, abs_tol, rel_tol);
 	//CVodeSetMinStep(cvode_mem, 1e-3);
 	CVodeSetInitStep(cvode_mem, 1.0);
 

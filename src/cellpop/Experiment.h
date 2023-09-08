@@ -88,6 +88,8 @@ protected:
 	};
 
 	std::string Name;
+	std::string abs_tol_str;
+	std::string rel_tol_str;
 
 	// Settings
 	std::string model_filename;
@@ -143,6 +145,9 @@ protected:
 	std::shared_ptr<boost::random::sobol> sobol_sequence;
 	std::vector<size_t> sobol_sequence_indices;
 	std::vector<VectorReal> sobol_sequence_values;
+
+	Real abs_tol;
+	Real rel_tol;
 
 #if PLATFORM_WINDOWS
 	HMODULE derivative_dll;
