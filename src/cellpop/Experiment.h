@@ -40,7 +40,7 @@ enum class EPhaseDuration {
 class Experiment
 {
 public:
-	Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t evaluation_threads, Real fixed_abs_value, Real fixed_rel_value);
+	Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t evaluation_threads);
 	virtual ~Experiment();
 
 	bool AddSimulationTimepoints(DataLikelihoodBase* dl, Real time, size_t time_ix, size_t species_ix, ESynchronizeCellTrajectory synchronize);
@@ -51,7 +51,7 @@ public:
 	bool EvaluateLogProbability(size_t threadix, const VectorReal& values, const VectorReal& transformed_values, Real& logp);
 	void DumpCVodeStatistics(const std::string& output_folder);
 
-	static std::unique_ptr<Experiment> Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads, Real fixed_abs_value, Real fixed_rel_value);
+	static std::unique_ptr<Experiment> Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads);
 	inline const std::string& GetName() const { return Name; }
 	inline size_t GetSimulatedSpeciesByName(const std::string& species_name) const { return cell_model.GetSimulatedSpeciesByName(species_name); }
 	inline size_t GetCVodeSpeciesByName(const std::string& species_name) const { return cell_model.GetCVodeSpeciesByName(species_name); }
@@ -88,13 +88,13 @@ protected:
 	};
 
 	std::string Name;
+	std::string abs_tol_str;
+	std::string rel_tol_str;
 
 	// Settings
 	std::string model_filename;
 	SBMLModel cell_model;
 	std::shared_ptr<const bcm3::VariableSet> varset;
-	Real fixed_abs_value;
-	Real fixed_rel_value;
 	std::vector< std::unique_ptr<DataLikelihoodBase> > data_likelihoods;
 	size_t initial_number_of_cells;
 	size_t max_number_of_cells;
@@ -145,6 +145,9 @@ protected:
 	std::shared_ptr<boost::random::sobol> sobol_sequence;
 	std::vector<size_t> sobol_sequence_indices;
 	std::vector<VectorReal> sobol_sequence_values;
+
+	Real abs_tol;
+	Real rel_tol;
 
 #if PLATFORM_WINDOWS
 	HMODULE derivative_dll;

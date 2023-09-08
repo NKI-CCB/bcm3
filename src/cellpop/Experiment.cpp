@@ -41,7 +41,7 @@ Experiment::AuxEvaluation::AuxEvaluation()
 {
 }
 
-Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t evaluation_threads, Real fixed_abs_value, Real fixed_rel_value)
+Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t evaluation_threads)
 	: varset(varset)
 	, cell_model(0)
 	, initial_number_of_cells(0)
@@ -281,12 +281,12 @@ void Experiment::DumpCVodeStatistics(const std::string& output_folder)
 	fclose(f);
 }
 
-std::unique_ptr<Experiment> Experiment::Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads, Real fixed_abs_value, Real fixed_rel_value)
+std::unique_ptr<Experiment> Experiment::Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads)
 {
 	std::unique_ptr<Experiment> experiment;
 
 	try {
-		experiment = std::make_unique<Experiment>(varset, evaluation_threads, fixed_abs_value, fixed_rel_value);
+		experiment = std::make_unique<Experiment>(varset, evaluation_threads);
 		if (!experiment->Load(xml_node, vm)) {
 			experiment.reset();
 		} else {
@@ -306,6 +306,34 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 
 	model_filename = xml_node.get<std::string>("<xmlattr>.model_file");
 	std::string data_file = xml_node.get<std::string>("<xmlattr>.data_file", "");
+
+	abs_tol_str = xml_node.get<std::string>("<xmlattr>.absolute_tolerance");
+	rel_tol_str = xml_node.get<std::string>("<xmlattr>.relative_tolerance");
+
+	if(abs_tol_str.empty() || rel_tol_str.empty()){
+		LOGERROR("Absolute and relative tolerance were not both defined");
+		return false;
+	}
+
+	try {
+		double abs_tol = std::stod(abs_tol_str);
+	} catch (const std::invalid_argument&) {
+		LOGERROR("No conversion possible of absolute tolerance");
+		return false;
+	} catch (const std::out_of_range&) {
+		LOGERROR("No conversion possible of absolute tolerance");
+		return false;
+	}
+
+	try {
+		double rel_tol = std::stod(rel_tol_str);
+	} catch (const std::invalid_argument&) {
+		LOGERROR("No conversion possible of relative tolerance");
+		return false;
+	} catch (const std::out_of_range&) {
+		LOGERROR("No conversion possible of relative tolerance");
+		return false;
+	}
 
 	// Load & initialize the model
 	if (!cell_model.LoadSBML(model_filename)) {
@@ -1119,7 +1147,7 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 	if (!sobol_sequence_values.empty()) {
 		sobol_sequence_indices[new_cell_ix] = sobol_sequence_ix;
 	}
-	result &= cell->Initialize(time, transformed_values, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization, fixed_rel_value, fixed_abs_value);
+	result &= cell->Initialize(time, transformed_values, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization, abs_tol, rel_tol);
 
 	if (!result) {
 		return std::numeric_limits<size_t>::max();

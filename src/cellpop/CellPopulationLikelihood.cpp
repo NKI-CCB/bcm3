@@ -20,43 +20,12 @@ bool CellPopulationLikelihood::Initialize(std::shared_ptr<const bcm3::VariableSe
 	this->varset = varset;
 	transformed_variables.setConstant(varset->GetNumVariables(), std::numeric_limits<Real>::quiet_NaN());
 
-	//Obtain tolerance parameters from likelihood
-	std::string abs_str = likelihood_node.get<std::string>("<xmlattr>.absolute", "");
-	std::string rel_str = likelihood_node.get<std::string>("<xmlattr>.relative", "");
-
-	Real abs_value = -1;
-	Real rel_value = -1;
-
-	if(!abs_str.empty()){
-		int abs_ix = varset->GetVariableIndex(abs_str, false);
-		try {
-			Real abs_value = boost::lexical_cast<Real>(abs_str);
-		} catch (const boost::bad_lexical_cast& e) {
-			LOGERROR("Could not find variable for absolute tolerance, and could also not cast it to a constant real value");
-			return false;
-		}
-	}
-	if(!rel_str.empty()){
-		int rel_ix = varset->GetVariableIndex(rel_str, false);
-		try {
-			Real rel_value = boost::lexical_cast<Real>(rel_str);
-		} catch (const boost::bad_lexical_cast& e) {
-			LOGERROR("Could not find variable for relative tolerance, and could also not cast it to a constant real value");
-			return false;
-		}
-	}
-
-	if(abs_value == -1 || rel_value == -1){
-		LOG("Could not find value for one of two ODE tolerance variables");
-		return false;
-	}
-
 	bool result = true;
 	try {
 		// Load all experiments
 		BOOST_FOREACH(const boost::property_tree::ptree::value_type& data, likelihood_node.get_child("")) {
 			if (data.first == "experiment") {
-				std::unique_ptr<Experiment> experiment = Experiment::Create(data.second, varset, vm, rng, evaluation_threads, abs_value, rel_value);
+				std::unique_ptr<Experiment> experiment = Experiment::Create(data.second, varset, vm, rng, evaluation_threads);
 				if (!experiment) {
 					return false;
 				}
