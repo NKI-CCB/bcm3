@@ -51,6 +51,8 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, trailing_simulation_time(0.0)
 	, derivative_dll(NULL)
 	, simulated_num_cells(0)
+	, abs_tol(1e-8)
+	, rel_tol(1e-8)
 	, requested_duration(EPhaseDuration::None)
 	, any_requested_synchronization(false)
 	, cell_submit_count(0)
@@ -307,8 +309,8 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	model_filename = xml_node.get<std::string>("<xmlattr>.model_file");
 	std::string data_file = xml_node.get<std::string>("<xmlattr>.data_file", "");
 
-	abs_tol_str = xml_node.get<std::string>("<xmlattr>.absolute_tolerance");
-	rel_tol_str = xml_node.get<std::string>("<xmlattr>.relative_tolerance");
+	std::string abs_tol_str = xml_node.get<std::string>("<xmlattr>.absolute_tolerance", "1e-8");
+	std::string rel_tol_str = xml_node.get<std::string>("<xmlattr>.relative_tolerance", "1e-8");
 
 	if(abs_tol_str.empty() || rel_tol_str.empty()){
 		LOGERROR("Absolute and relative tolerance were not both defined");
@@ -318,20 +320,20 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	try {
 		abs_tol = std::stod(abs_tol_str);
 	} catch (const std::invalid_argument&) {
-		LOGERROR("No conversion possible of absolute tolerance");
+		LOGERROR("No conversion possible of absolute tolerance \"%s\" in experiment \"%s\"", abs_tol_str.c_str(), Name.c_str());
 		return false;
 	} catch (const std::out_of_range&) {
-		LOGERROR("No conversion possible of absolute tolerance");
+		LOGERROR("No conversion possible of absolute tolerance \"%s\" in experiment \"%s\"", abs_tol_str.c_str(), Name.c_str());
 		return false;
 	}
 
 	try {
 		rel_tol = std::stod(rel_tol_str);
 	} catch (const std::invalid_argument&) {
-		LOGERROR("No conversion possible of relative tolerance");
+		LOGERROR("No conversion possible of relative tolerance \"%s\" in experiment \"%s\"", abs_tol_str.c_str(), Name.c_str());
 		return false;
 	} catch (const std::out_of_range&) {
-		LOGERROR("No conversion possible of relative tolerance");
+		LOGERROR("No conversion possible of relative tolerance \"%s\" in experiment \"%s\"", abs_tol_str.c_str(), Name.c_str());
 		return false;
 	}
 

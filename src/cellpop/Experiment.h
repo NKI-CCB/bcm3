@@ -88,8 +88,6 @@ protected:
 	};
 
 	std::string Name;
-	std::string abs_tol_str;
-	std::string rel_tol_str;
 
 	// Settings
 	std::string model_filename;
