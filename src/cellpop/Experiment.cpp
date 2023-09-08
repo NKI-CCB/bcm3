@@ -316,7 +316,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	}
 
 	try {
-		double abs_tol = std::stod(abs_tol_str);
+		abs_tol = std::stod(abs_tol_str);
 	} catch (const std::invalid_argument&) {
 		LOGERROR("No conversion possible of absolute tolerance");
 		return false;
@@ -326,7 +326,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	}
 
 	try {
-		double rel_tol = std::stod(rel_tol_str);
+		rel_tol = std::stod(rel_tol_str);
 	} catch (const std::invalid_argument&) {
 		LOGERROR("No conversion possible of relative tolerance");
 		return false;
