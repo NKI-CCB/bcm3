@@ -384,8 +384,23 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 			}
 
 			if (!also_total_var) {
-				LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species and requires a corresponding \"total_\" variable, but this \"total_\" variable is not specified.", name_var.c_str());
-				return false;
+				size_t active_species = GetCVodeSpeciesByName("active_" + name_var.substr(6));
+				size_t inactive_species = GetCVodeSpeciesByName("inactive_" + name_var.substr(6));
+
+				if(active_species == std::numeric_limits<size_t>::max()){
+					LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species; but the corresponding active species \"active_%s\" is not found in the model.", name_var.c_str(), name_var.substr(6).c_str());
+					return false;
+				}
+
+				if(inactive_species == std::numeric_limits<size_t>::max()){
+					LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species; but the corresponding inactive species \"inactive_%s\" is not found in the model.", name_var.c_str(), name_var.substr(6).c_str());
+					return false;
+				}
+
+				std::vector<size_t> v = {(size_t)i, active_species, inactive_species};
+
+				ratio_total_active[active_species] = v;
+				ratio_total_inactive[inactive_species] = v;
 			}
 		}
 	}
@@ -1141,7 +1156,7 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 			}
 		}
 	} else {
-		result &= cell->SetInitialConditionsFromModel(set_species_map, set_init_map, ratio_active_map, ratio_inactive_map, transformed_values, time);
+		result &= cell->SetInitialConditionsFromModel(set_species_map, set_init_map, ratio_active_map, ratio_inactive_map, ratio_total_active, ratio_total_inactive,transformed_values, time);
 		if (!sobol_sequence_values.empty()) {
 			sobol_sequence_ix = new_cell_ix;
 		}
