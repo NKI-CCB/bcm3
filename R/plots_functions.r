@@ -137,7 +137,7 @@ plot_trace <- function(model, var_ix=NULL, var_name=NULL, temperature_ix=NULL)
       temperature_ix <- dim(model$posterior$samples)[2]
     }
     varattrs <- model$prior$variable_attrs[[var_ix]]
-    plot(model$posterior$samples[var_ix, temperature_ix, ], main=varattrs["name"], pch='.')
+    plot(model$posterior$samples[var_ix, temperature_ix, 6000:10000], main=varattrs["name"], pch='.')
   } else {
     stop("Either a variable index or a variable name has to be specified")
   }

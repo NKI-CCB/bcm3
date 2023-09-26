@@ -7,6 +7,9 @@
 #include <sunnonlinsol/sunnonlinsol_newton.h>
 #include <fstream>
 #include "../../dependencies/cvode-5.3.0/src/cvode/cvode_impl.h"
+#include <torch/script.h>
+#include <torch/torch.h>
+
 
 size_t Cell::total_num_simulations = 0;
 size_t Cell::cvode_max_steps_reached = 0;
@@ -232,23 +235,84 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	}
 	this->creation_time = creation_time;
 
+#if 1
+	//VAE mode
+	//load VAE model from python
+
+
+	//Convert C++ vector to pytorch tensor
+	int n = transformed_variables.size();
+
+	std::vector<double> variable_copy;
+	for(size_t i = 0; i < n; i++){
+		variable_copy.push_back(transformed_variables[i]);
+	}
+
+	auto input_tensor = torch::zeros(n,torch::kDouble);
+
+	const void* voidPtr = static_cast<const void*>(variable_copy.data());
+
+	std::memcpy(input_tensor.data_ptr(),voidPtr,sizeof(double)*input_tensor.numel());
+
+	// Load mean and standard devation from memory
+	torch::jit::script::Module container = torch::jit::load("container.pt");
+
+	torch::Tensor mean = container.attr("mean").toTensor();
+	torch::Tensor std = container.attr("std").toTensor();
+	
+	// Z-scale tensor
+	input_tensor = (input_tensor - mean) / std;
+
+	//Create input for jit pytorch model
+	std::vector<torch::jit::IValue> inputs;
+	inputs.push_back(input_tensor);
+
+	// Load pretrained model from memory
+	torch::jit::script::Module module;
+	try {
+		// Deserialize the ScriptModule from a file using torch::jit::load().
+		module = torch::jit::load("/Users/huubvdent/Documents/Internship/cellpop_RUNS/KRAS_no_treatment/vae_runs/v12_10/traced_vae.zip");
+	}
+	catch (const c10::Error& e) {
+		std::cerr << "error loading the model\n";
+		return -1;
+	}
+
+	// Execute the model and turn its output into a tensor.
+	torch::Tensor output = module.forward(inputs).toTensor();
+
+	// Rescale output
+	output = (output * std) + mean;
+
+	// Create C++ output vector
+	output = output.contiguous();
+
+	std::vector<double> result_vector(output.data_ptr<double>(), output.data_ptr<double>() + output.numel());
+
+	VectorReal vae_variables(n);
+
+	for(size_t j = 0; j < n; j++){
+		vae_variables[j] = result_vector[j];
+	}
+#endif
+
 	for (size_t i = 0; i < cell_specific_transformed_variables.size(); i++) {
-		cell_specific_transformed_variables(i) = transformed_variables(i);
+		cell_specific_transformed_variables(i) = vae_variables(i);
 		for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
-			(*it)->ApplyVariabilityParameter(experiment->varset->GetVariableName(i), cell_specific_transformed_variables(i), *sobol_sequence_values, sobol_sequence_ix, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
+			(*it)->ApplyVariabilityParameter(experiment->varset->GetVariableName(i), cell_specific_transformed_variables(i), *sobol_sequence_values, sobol_sequence_ix, vae_variables, experiment->non_sampled_parameters, is_initial_cell);
 		}
 	}
 
 	for (size_t i = 0; i < cell_specific_non_sampled_transformed_variables.size(); i++) {
 		cell_specific_non_sampled_transformed_variables(i) = experiment->non_sampled_parameters(i);
 		for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
-			(*it)->ApplyVariabilityParameter(experiment->non_sampled_parameter_names[i], cell_specific_non_sampled_transformed_variables(i), *sobol_sequence_values, sobol_sequence_ix, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
+			(*it)->ApplyVariabilityParameter(experiment->non_sampled_parameter_names[i], cell_specific_non_sampled_transformed_variables(i), *sobol_sequence_values, sobol_sequence_ix, vae_variables, experiment->non_sampled_parameters, is_initial_cell);
 		}
 	}
 
 	for (size_t i = 0; i < model->GetNumCVodeSpecies(); i++) {
 		for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
-			(*it)->ApplyVariabilitySpecies(model->GetCVodeSpeciesName(i), NV_Ith_S(cvode_y, i), *sobol_sequence_values, sobol_sequence_ix, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
+			(*it)->ApplyVariabilitySpecies(model->GetCVodeSpeciesName(i), NV_Ith_S(cvode_y, i), *sobol_sequence_values, sobol_sequence_ix, vae_variables, experiment->non_sampled_parameters, is_initial_cell);
 		}
 	}
 

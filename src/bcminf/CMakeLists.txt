@@ -13,6 +13,7 @@ target_include_directories(bcminf
 target_link_libraries(bcminf
   PRIVATE
     likelihoods
+    ${TORCH_LIBRARIES}
 )
 
 set_target_properties(bcminf PROPERTIES DEBUG_POSTFIX d)
