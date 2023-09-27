@@ -9,8 +9,6 @@ if(CMAKE_HOST_WIN32)
 endif(CMAKE_HOST_WIN32)
 find_package(Boost REQUIRED COMPONENTS program_options filesystem system date_time chrono unit_test_framework)
 
-
-
 # bthijssen: I tried to make these work with find_package, but didn't manage to find a way that works
 # on Windows with either prebuilt netCDF/libsbml or custom ones. So for now it is required to manually
 # specify the location of these libraries
@@ -20,11 +18,7 @@ include("external_dependency_locations.txt")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_CXX_STANDARD 17)
-
-find_package(Torch REQUIRED)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+set(CMAKE_CXX_STANDARD 14)
 
 # Optimization settings
 if(CMAKE_HOST_WIN32)
@@ -34,7 +28,6 @@ if(CMAKE_HOST_UNIX)
     set(CMAKE_BUILD_TYPE Release)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native")
-    set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
 endif(CMAKE_HOST_UNIX)
 
 add_subdirectory(dependencies/cluster-1.52a/src)
