@@ -384,7 +384,7 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 		missing_simulation_time_stdev = transformed_values[fixed_missing_simulation_time_stdev_ix];
 	} else if (fixed_missing_simulation_time_stdev_non_sampled_ix != std::numeric_limits<size_t>::max()) {
 		missing_simulation_time_stdev = non_sampled_parameters[fixed_missing_simulation_time_stdev_non_sampled_ix];
-	} else if (fixed_missing_simulation_time_stdev == fixed_missing_simulation_time_stdev) {
+	} else if (!std::isnan(fixed_missing_simulation_time_stdev)) {
 		missing_simulation_time_stdev = fixed_missing_simulation_time_stdev;
 	}
 

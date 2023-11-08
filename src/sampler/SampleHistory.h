@@ -12,9 +12,9 @@ namespace bcm3 {
 
 		void Reset();
 		void AddSample(const VectorReal& sample);
-		
+
+		MatrixReal GetHistory() const;
 		MatrixReal GetHistory(std::vector<ptrdiff_t> variable_indices) const;
-		MatrixReal GetHistory(std::vector<ptrdiff_t> variable_indices, std::vector<ptrdiff_t> samples) const;
 		MatrixReal GetEmpiricalCovariance() const;
 		MatrixReal GetEmpiricalCorrelation() const;
 

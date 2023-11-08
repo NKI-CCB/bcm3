@@ -137,8 +137,6 @@ bool NaiveKMeans(const MatrixReal& samples, int k, int npass, int niter, MatrixR
 		return false;
 	}
 
-	centroids.setZero(k, D);
-
 	Real previous_distance = std::numeric_limits<Real>::infinity();
 	MatrixReal stored_centroids;
 	std::vector<ptrdiff_t> stored_assignment;
@@ -170,6 +168,7 @@ bool NaiveKMeans(const MatrixReal& samples, int k, int npass, int niter, MatrixR
 		Real total_distance = 0.0;
 		for (int iteri = 0; iteri < niter; iteri++) {
 			// Calculate centroids
+			centroids.setZero(k, D);
 			VectorReal inc = VectorReal::Zero(k);
 			for (ptrdiff_t i = 0; i < n; i++) {
 				int cluster = assignment[i];
@@ -187,12 +186,17 @@ bool NaiveKMeans(const MatrixReal& samples, int k, int npass, int niter, MatrixR
 						dists(j) = v.dot(v);
 					}
 					ptrdiff_t minc = minindex(dists);
-					if (minc != assignment[i]) {
-						counts[assignment[i]]--;
-						assignment[i] = minc;
-						counts[minc]++;
+					if (minc < 0) {
+						LOGERROR("Error in K-means clustering; probably NaN samples?");
+						return false;
+					} else {
+						if (minc != assignment[i]) {
+							counts[assignment[i]]--;
+							assignment[i] = minc;
+							counts[minc]++;
+						}
+						total_distance += dists(minc);
 					}
-					total_distance += dists(minc);
 				} else {
 					// Never make a cluster empty
 					VectorReal v = samples.row(i) - centroids.row(assignment[i]);

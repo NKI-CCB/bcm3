@@ -113,7 +113,8 @@ namespace bcm3 {
 			history = selected;
 
 			if (sample_history_clustering) {
-				sample_history_clustering->AssignAllHistorySamples(use_sample_ix, history);
+				MatrixReal full_samples = sample_history.GetHistory()(use_sample_ix, Eigen::all);
+				sample_history_clustering->AssignAllHistorySamples(use_sample_ix, full_samples);
 			}
 		} else {
 			if (sample_history_clustering) {
@@ -121,7 +122,8 @@ namespace bcm3 {
 				for (ptrdiff_t i = 0; i < use_sample_ix.size(); i++) {
 					use_sample_ix[i] = i;
 				}
-				sample_history_clustering->AssignAllHistorySamples(use_sample_ix, history);
+				MatrixReal full_samples = sample_history.GetHistory();
+				sample_history_clustering->AssignAllHistorySamples(use_sample_ix, full_samples);
 			}
 		}
 

@@ -184,6 +184,7 @@ namespace bcm3 {
 		}
 		for (ptrdiff_t i = 0; i < n; i++) {
 			Real d = Y.row(i).dot(Y.row(i));
+			d = std::max(d, std::numeric_limits<Real>::epsilon());
 			Y.row(i) *= rsqrt(d);
 		}
 		spectral_decomposition = Y;
@@ -194,27 +195,33 @@ namespace bcm3 {
 		}
 #endif
 
-		NaiveKMeans(Y, num_clusters, 10, 100, spectral_kmeans_centroids, cluster_assignment, rng);
-
-		// TODO - ensure minimum number of samples in a cluster?
-
+		if (NaiveKMeans(Y, num_clusters, 10, 100, spectral_kmeans_centroids, cluster_assignment, rng)) {
+			// TODO - ensure minimum number of samples in a cluster?
 #if 1
-		if (output_update_info) {
-			std::vector<int> assignment_int(cluster_assignment.size());
-			for (ptrdiff_t i = 0; i < cluster_assignment.size(); i++) {
-				ASSERT(cluster_assignment[i] <= std::numeric_limits<int>::max());
-				assignment_int[i] = (int)cluster_assignment[i];
-			}
-			update_info_output.AddVector(output_update_info_group, "assignment", assignment_int);
+			if (output_update_info) {
+				std::vector<int> assignment_int(cluster_assignment.size());
+				for (ptrdiff_t i = 0; i < cluster_assignment.size(); i++) {
+					ASSERT(cluster_assignment[i] <= std::numeric_limits<int>::max());
+					assignment_int[i] = (int)cluster_assignment[i];
+				}
+				update_info_output.AddVector(output_update_info_group, "assignment", assignment_int);
 
-			assignment_int.resize(all_sample_cluster_assignment.size());
-			for (ptrdiff_t i = 0; i < all_sample_cluster_assignment.size(); i++) {
-				ASSERT(all_sample_cluster_assignment[i] <= std::numeric_limits<int>::max());
-				assignment_int[i] = (int)all_sample_cluster_assignment[i];
+				assignment_int.resize(all_sample_cluster_assignment.size());
+				for (ptrdiff_t i = 0; i < all_sample_cluster_assignment.size(); i++) {
+					ASSERT(all_sample_cluster_assignment[i] <= std::numeric_limits<int>::max());
+					assignment_int[i] = (int)all_sample_cluster_assignment[i];
+				}
+				update_info_output.AddVector(output_update_info_group, "all_assignment", assignment_int);
 			}
-			update_info_output.AddVector(output_update_info_group, "all_assignment", assignment_int);
-		}
 #endif
+		} else {
+			// Clustering failed
+			LOGWARNING("Clustering failed - assinging samples to random clusters");
+			cluster_assignment.resize(n);
+			for (ptrdiff_t i = 0; i < n; i++) {
+				cluster_assignment[i] = rng.GetUnsignedInt(num_clusters);
+			}
+		}
 
 		clustering_iter++;
 		return true;

@@ -44,6 +44,16 @@ namespace bcm3 {
 		}
 	}
 
+	MatrixReal SampleHistory::GetHistory() const
+	{
+		ptrdiff_t n_history_samples = GetSampleCount();
+		MatrixReal sample_history_d(n_history_samples, samples.rows());
+		if (n_history_samples > 0) {
+			sample_history_d = samples.block(0, 0, samples.rows(), n_history_samples).transpose().cast<Real>();
+		}
+		return sample_history_d;
+	}
+
 	MatrixReal SampleHistory::GetHistory(std::vector<ptrdiff_t> variable_indices) const
 	{
 		ptrdiff_t n_history_samples = GetSampleCount();
