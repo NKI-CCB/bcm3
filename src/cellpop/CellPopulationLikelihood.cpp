@@ -5,9 +5,10 @@
 
 #include <boost/property_tree/xml_parser.hpp>
 
-CellPopulationLikelihood::CellPopulationLikelihood(size_t sampling_threads, size_t evaluation_threads)
+CellPopulationLikelihood::CellPopulationLikelihood(size_t sampling_threads, size_t evaluation_threads, bool store_simulation)
 	: sampling_threads(sampling_threads)
 	, evaluation_threads(evaluation_threads)
+	, store_simulation(store_simulation)
 {
 }
 
@@ -25,7 +26,7 @@ bool CellPopulationLikelihood::Initialize(std::shared_ptr<const bcm3::VariableSe
 		// Load all experiments
 		BOOST_FOREACH(const boost::property_tree::ptree::value_type& data, likelihood_node.get_child("")) {
 			if (data.first == "experiment") {
-				std::unique_ptr<Experiment> experiment = Experiment::Create(data.second, varset, vm, rng, evaluation_threads);
+				std::unique_ptr<Experiment> experiment = Experiment::Create(data.second, varset, vm, rng, evaluation_threads, store_simulation);
 				if (!experiment) {
 					return false;
 				}

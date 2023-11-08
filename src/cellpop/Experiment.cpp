@@ -41,7 +41,7 @@ Experiment::AuxEvaluation::AuxEvaluation()
 {
 }
 
-Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t evaluation_threads)
+Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t evaluation_threads, bool store_simulation)
 	: varset(varset)
 	, cell_model(0)
 	, initial_number_of_cells(0)
@@ -55,6 +55,7 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, rel_tol(1e-8)
 	, requested_duration(EPhaseDuration::None)
 	, any_requested_synchronization(false)
+	, store_simulation(store_simulation)
 	, cell_submit_count(0)
 	, cell_done_count(0)
 {
@@ -179,11 +180,13 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 	for (size_t i = 0; i < data_likelihoods.size(); i++) {
 		data_likelihoods[i]->Reset();
 	}
-	for (size_t i = 0; i < simulated_trajectories.size(); i++) {
-		for (size_t j = 0; j < simulated_trajectories[i].size(); j++) {
-			simulated_trajectories[i][j].setConstant(std::numeric_limits<Real>::quiet_NaN());
+	if (store_simulation) {
+		for (size_t i = 0; i < simulated_trajectories.size(); i++) {
+			for (size_t j = 0; j < simulated_trajectories[i].size(); j++) {
+				simulated_trajectories[i][j].setConstant(std::numeric_limits<Real>::quiet_NaN());
+			}
+			simulated_cell_parents[i] = std::numeric_limits<size_t>::max();
 		}
-		simulated_cell_parents[i] = std::numeric_limits<size_t>::max();
 	}
 
 	active_cells = 0;
@@ -223,29 +226,30 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 			}
 		}
 
-		for (size_t i = 0; i < active_cells; i++) {
-			cells[i]->RestartInterpolationIteration();
-		}
-		for (size_t ti = 0; ti < output_trajectories_timepoints.size(); ti++) {
-			Real output_t = output_trajectories_timepoints(ti);
+		if (store_simulation) {
 			for (size_t i = 0; i < active_cells; i++) {
-				for (size_t j = 0; j < cell_model.GetNumCVodeSpecies(); j++) {
-					size_t simix = cell_model.GetSimulatedSpeciesFromCVodeSpecies(j);
-					simulated_trajectories[i][ti](simix) = cells[i]->GetInterpolatedSpeciesValue(output_t, j, ESynchronizeCellTrajectory::None);
-				}
-				for (size_t j = 0; j < cell_model.GetNumConstantSpecies(); j++) {
-					size_t simix = cell_model.GetSimulatedSpeciesFromConstantSpecies(j);
-					simulated_trajectories[i][ti](simix) = cell_model.GetConstantSpecies(j)->GetInitialValue();
-				}
-				for (size_t j = 0; j < treatment_trajectories.size(); j++) {
-					size_t simix = cell_model.GetSimulatedSpeciesByName(cell_model.GetConstantSpeciesName(treatment_trajectories_species_ix[j]));
-					simulated_trajectories[i][ti](simix) = treatment_trajectories[j]->GetConcentration(output_t, selected_treatment_trajectory_sample[j]);
+				cells[i]->RestartInterpolationIteration();
+			}
+			for (size_t ti = 0; ti < output_trajectories_timepoints.size(); ti++) {
+				Real output_t = output_trajectories_timepoints(ti);
+				for (size_t i = 0; i < active_cells; i++) {
+					for (size_t j = 0; j < cell_model.GetNumCVodeSpecies(); j++) {
+						size_t simix = cell_model.GetSimulatedSpeciesFromCVodeSpecies(j);
+						simulated_trajectories[i][ti](simix) = cells[i]->GetInterpolatedSpeciesValue(output_t, j, ESynchronizeCellTrajectory::None);
+					}
+					for (size_t j = 0; j < cell_model.GetNumConstantSpecies(); j++) {
+						size_t simix = cell_model.GetSimulatedSpeciesFromConstantSpecies(j);
+						simulated_trajectories[i][ti](simix) = cell_model.GetConstantSpecies(j)->GetInitialValue();
+					}
+					for (size_t j = 0; j < treatment_trajectories.size(); j++) {
+						size_t simix = cell_model.GetSimulatedSpeciesByName(cell_model.GetConstantSpeciesName(treatment_trajectories_species_ix[j]));
+						simulated_trajectories[i][ti](simix) = treatment_trajectories[j]->GetConcentration(output_t, selected_treatment_trajectory_sample[j]);
+					}
 				}
 			}
 		}
 
 		// Evaluate the requested time points
-
 		logp = 0.0;
 		for (size_t i = 0; i < data_likelihoods.size(); i++) {
 			Real dl_logp = 0.0;
@@ -283,12 +287,12 @@ void Experiment::DumpCVodeStatistics(const std::string& output_folder)
 	fclose(f);
 }
 
-std::unique_ptr<Experiment> Experiment::Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads)
+std::unique_ptr<Experiment> Experiment::Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads, bool store_simulation)
 {
 	std::unique_ptr<Experiment> experiment;
 
 	try {
-		experiment = std::make_unique<Experiment>(varset, evaluation_threads);
+		experiment = std::make_unique<Experiment>(varset, evaluation_threads, store_simulation);
 		if (!experiment->Load(xml_node, vm)) {
 			experiment.reset();
 		} else {
@@ -527,7 +531,6 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		}
 	}
 
-	// Allocate space to store the trajectories
 	Real simulation_begin_time;
 	Real simulation_end_time;
 	if (!simulation_timepoints.empty()) {
@@ -537,15 +540,19 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		simulation_begin_time = 0;
 		simulation_end_time = trailing_simulation_time;
 	}
-	output_trajectories_timepoints.resize(output_trajectory_num_timepoints);
-	for (size_t i = 0; i < output_trajectories_timepoints.size(); i++) {
-		output_trajectories_timepoints(i) = simulation_begin_time + (simulation_end_time - simulation_begin_time) * i / (Real)(output_trajectory_num_timepoints - 1);
+
+	if (store_simulation) {
+		// Allocate space to store the trajectories
+		output_trajectories_timepoints.resize(output_trajectory_num_timepoints);
+		for (size_t i = 0; i < output_trajectories_timepoints.size(); i++) {
+			output_trajectories_timepoints(i) = simulation_begin_time + (simulation_end_time - simulation_begin_time) * i / (Real)(output_trajectory_num_timepoints - 1);
+		}
+		simulated_trajectories.resize(max_number_of_cells);
+		for (size_t i = 0; i < simulated_trajectories.size(); i++) {
+			simulated_trajectories[i].resize(output_trajectory_num_timepoints, VectorReal::Constant(cell_model.GetNumSimulatedSpecies(), std::numeric_limits<Real>::quiet_NaN()));
+		}
+		simulated_cell_parents.resize(max_number_of_cells, std::numeric_limits<size_t>::max());
 	}
-	simulated_trajectories.resize(max_number_of_cells);
-	for (size_t i = 0; i < simulated_trajectories.size(); i++) {
-		simulated_trajectories[i].resize(output_trajectory_num_timepoints, VectorReal::Constant(cell_model.GetNumSimulatedSpecies(), std::numeric_limits<Real>::quiet_NaN()));
-	}
-	simulated_cell_parents.resize(max_number_of_cells, std::numeric_limits<size_t>::max());
 
 	return Initialize(xml_node);
 }

@@ -69,7 +69,7 @@ void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn,
 	const char* const argv[2] = { exe_file.c_str(), *arg1 };
 	int argc = 2;
 	boost::program_options::store(boost::program_options::command_line_parser(argc, argv).options(likelihood_options).run(), vm);
-	info->likelihood = bcm3::LikelihoodFactory::CreateLikelihood(*likelihood_fn, info->varset, vm, 1, evaluation_threads);
+	info->likelihood = bcm3::LikelihoodFactory::CreateLikelihood(*likelihood_fn, info->varset, vm, 1, evaluation_threads, false);
 	if (!info->likelihood) {
 		*retval = -5;
 		boost::filesystem::current_path(cwd);
