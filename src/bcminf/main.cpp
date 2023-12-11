@@ -45,7 +45,7 @@ int run(const po::variables_map& vm)
 		}
 
 		std::string likelihood_file = vm["likelihood"].as<std::string>();
-		likelihood = bcm3::LikelihoodFactory::CreateLikelihood(likelihood_file, varset, vm, numthreads, evaluation_threads);
+		likelihood = bcm3::LikelihoodFactory::CreateLikelihood(likelihood_file, varset, vm, numthreads, evaluation_threads, true);
 		if (!likelihood) {
 			return -4;
 		}
@@ -53,7 +53,7 @@ int run(const po::variables_map& vm)
 			parallel_likelihoods.resize(numthreads);
 			parallel_likelihoods[0] = likelihood;
 			for (size_t i = 1; i < numthreads; i++) {
-				parallel_likelihoods[i] = bcm3::LikelihoodFactory::CreateLikelihood(likelihood_file, varset, vm, numthreads, evaluation_threads);
+				parallel_likelihoods[i] = bcm3::LikelihoodFactory::CreateLikelihood(likelihood_file, varset, vm, numthreads, evaluation_threads, true);
 			}
 		}
 
@@ -165,7 +165,7 @@ int predict(const po::variables_map& vm)
 		}
 
 		std::string likelihood_file = vm["likelihood"].as<std::string>();
-		likelihood = bcm3::LikelihoodFactory::CreateLikelihood(likelihood_file, varset, vm, 1, evaluation_threads);
+		likelihood = bcm3::LikelihoodFactory::CreateLikelihood(likelihood_file, varset, vm, 1, evaluation_threads, true);
 		if (!likelihood) {
 			return -4;
 		}

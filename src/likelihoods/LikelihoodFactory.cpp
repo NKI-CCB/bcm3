@@ -17,7 +17,7 @@
 
 namespace bcm3 {
 
-std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::string likelihood_xml_fn, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, size_t sampling_threads, size_t evaluation_threads)
+std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::string likelihood_xml_fn, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, size_t sampling_threads, size_t evaluation_threads, bool running_inference)
 {
 	std::shared_ptr<bcm3::Likelihood> ll;
 
@@ -37,7 +37,7 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 		if (type == "fISA") {
 			ll = std::make_shared<fISALikelihood>(sampling_threads, evaluation_threads);
 		} else if (type == "cell_population") {
-			ll = std::make_shared<CellPopulationLikelihood>(sampling_threads, evaluation_threads);
+			ll = std::make_shared<CellPopulationLikelihood>(sampling_threads, evaluation_threads, !running_inference);
 		} else if (type == "dummy") {
 			ll = std::make_shared<LikelihoodDummy>(sampling_threads, evaluation_threads);
 		} else if (type == "incucyte_population") {

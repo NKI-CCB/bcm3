@@ -12,7 +12,7 @@ class SBMLModel;
 class CellPopulationLikelihood : public bcm3::Likelihood
 {
 public:
-	CellPopulationLikelihood(size_t sampling_threads, size_t evaluation_threads);
+	CellPopulationLikelihood(size_t sampling_threads, size_t evaluation_threads, bool store_simulation);
 	~CellPopulationLikelihood();
 	
 	virtual bool Initialize(std::shared_ptr<const bcm3::VariableSet> varset, boost::property_tree::ptree likelihood_node, const boost::program_options::variables_map& vm);
@@ -32,6 +32,7 @@ private:
 	size_t sampling_threads;
 	size_t evaluation_threads;
 	std::shared_ptr<const bcm3::VariableSet> varset;
+	bool store_simulation;
 
 	std::vector< std::unique_ptr<Experiment> > experiments;
 
