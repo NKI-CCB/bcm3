@@ -108,6 +108,7 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 		return false;
 	}
 
+	time.setConstant(num_timepoints, std::numeric_limits<Real>::quiet_NaN());
 	for (size_t i = 0; i < num_timepoints; i++) {
 		result &= data.GetValue(trial, "time", i, time.data() + i);
 	}
