@@ -452,6 +452,24 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		return false;
 	}
 
+	// Load the data variability specifications
+	any_requested_synchronization = false;
+	try {
+		BOOST_FOREACH(const boost::property_tree::ptree::value_type & var, xml_node.get_child("")) {
+			if (var.first == "cell_variability") {
+				std::unique_ptr<VariabilityDescription> vd = VariabilityDescription::Create(var.second);
+				if (vd) {
+					cell_variabilities.push_back(std::move(vd));
+				} else {
+					return false;
+				}
+			}
+		}
+	} catch (boost::property_tree::ptree_error& e) {
+		LOGERROR("Error parsing likelihood file: %s", e.what());
+		return false;
+	}
+
 	// Load the data file
 	if (!data_file.empty()) {
 		bcm3::NetCDFDataFile file;
@@ -468,13 +486,6 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 					data_likelihoods.push_back(std::move(dl)); // Need to have the data likelihood in the member list already
 					if (!(*data_likelihoods.rbegin())->Load(var.second, this, *varset.get(), file, vm)) {
 						data_likelihoods.pop_back();
-						return false;
-					}
-				} else if (var.first == "cell_variability") {
-					std::unique_ptr<VariabilityDescription> vd = VariabilityDescription::Create(var.second);
-					if (vd) {
-						cell_variabilities.push_back(std::move(vd));
-					} else {
 						return false;
 					}
 				}

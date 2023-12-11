@@ -22,14 +22,14 @@ bcm3.cellpop.get.species.name <- function(bcm3, experiment, species_ix) {
   return(res[[4]])
 }
 
-bcm3.cellpop.get.simulated.trajectories <- function(bcm3, experiment, param.values) {
+bcm3.cellpop.get.simulated.trajectories <- function(bcm3, experiment, param.values, max_cells=500) {
   ns <- bcm3.cellpop.get.num.species(bcm3, experiment)
   max_nt <- 500
-  max_cells <- 500
+  max_cells <- max_cells
   traj_buffer <- rep(0.0, ns * max_nt * max_cells)
   time_buffer <- rep(0.0, max_nt)
   parent_buffer <- as.integer(rep(-1, max_cells))
-  res <- .C("bcm3_rbridge_cellpop_get_simulated_trajectories", bcm3$.cpp, as.character(experiment), as.numeric(param.values), traj_buffer, time_buffer, parent_buffer, as.integer(0), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
+  res <- .C("bcm3_rbridge_cellpop_get_simulated_trajectories", bcm3$.cpp, as.character(experiment), as.numeric(param.values), traj_buffer, time_buffer, parent_buffer, as.integer(max_cells), as.integer(max_nt), as.integer(0), PACKAGE="bcmrbridge")
   if (res[[9]] != 0) {
     stop(paste("BCM3 C++ bridge error:", res[[9]]))
   }
@@ -50,7 +50,7 @@ bcm3.cellpop.get.simulated.trajectories <- function(bcm3, experiment, param.valu
   return(retval)
 }
 
-bcm3.cellpop.get.observed.data <- function(bcm3, experiment) {
+bcm3.cellpop.get.observed.data <- function(bcm3, experiment, max_cells=500) {
   res <- .C("bcm3_rbridge_cellpop_get_num_data", bcm3$.cpp, as.character(experiment), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
   if (res[[4]] != 0) {
     stop(paste("BCM3 C++ bridge error:", res[[4]]))
@@ -61,13 +61,12 @@ bcm3.cellpop.get.observed.data <- function(bcm3, experiment) {
   for (i in 1:nd) {
     retval[[i]] <- list()
     max_nt <- 500
-    max_cells <- 500
     max_markers <- 5
     traj_buffer <- rep(0.0, max_nt * max_cells * max_markers)
     time_buffer <- rep(0.0, max_nt)
     
     res <- .C("bcm3_rbridge_cellpop_get_observed_data", bcm3$.cpp, as.character(experiment), as.integer(i-1), traj_buffer, time_buffer,
-              as.integer(0), as.integer(0), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
+              as.integer(max_cells), as.integer(max_nt), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
     if (res[[9]] != 0) {
       stop(paste("BCM3 C++ bridge error:", res[[9]]))
     }
@@ -82,7 +81,7 @@ bcm3.cellpop.get.observed.data <- function(bcm3, experiment) {
   return(retval)
 }
 
-bcm3.cellpop.get.simulated.data <- function(bcm3, experiment, param.values) {
+bcm3.cellpop.get.simulated.data <- function(bcm3, experiment, param.values, max_cells=500) {
   res <- .C("bcm3_rbridge_cellpop_get_num_data", bcm3$.cpp, as.character(experiment), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
   if (res[[4]] != 0) {
     stop(paste("BCM3 C++ bridge error:", res[[4]]))
@@ -93,13 +92,12 @@ bcm3.cellpop.get.simulated.data <- function(bcm3, experiment, param.values) {
   for (i in 1:nd) {
     retval[[i]] <- list()
     max_nt <- 500
-    max_cells <- 500
     max_markers <- 5
     traj_buffer <- rep(0.0, max_nt * max_cells * max_markers)
     time_buffer <- rep(0.0, max_nt)
     
     res <- .C("bcm3_rbridge_cellpop_get_simulated_data", bcm3$.cpp, as.character(experiment), as.numeric(param.values), as.integer(i-1), traj_buffer, time_buffer,
-              as.integer(0), as.integer(0), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
+              as.integer(max_cells), as.integer(max_nt), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
     if (res[[10]] != 0) {
       stop(paste("BCM3 C++ bridge error:", res[[10]]))
     }
@@ -114,7 +112,7 @@ bcm3.cellpop.get.simulated.data <- function(bcm3, experiment, param.values) {
   return(retval)
 }
 
-bcm3.cellpop.get.matched.simulation <- function(bcm3, experiment, param.values) {
+bcm3.cellpop.get.matched.simulation <- function(bcm3, experiment, param.values, max_cells=500) {
   res <- .C("bcm3_rbridge_cellpop_get_num_data", bcm3$.cpp, as.character(experiment), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
   if (res[[4]] != 0) {
     stop(paste("BCM3 C++ bridge error:", res[[4]]))
@@ -126,12 +124,11 @@ bcm3.cellpop.get.matched.simulation <- function(bcm3, experiment, param.values) 
   for (i in 1:nd) {
     retval[[i]] <- list()
     max_nt <- 500
-    max_cells <- 500
     traj_buffer <- rep(0.0, ns * max_nt * max_cells)
     time_buffer <- rep(0.0, max_nt)
     
     res <- .C("bcm3_rbridge_cellpop_get_matched_simulation", bcm3$.cpp, as.character(experiment), as.numeric(param.values), as.integer(i-1), traj_buffer, time_buffer,
-              as.integer(0), as.integer(0), as.integer(0), PACKAGE="bcmrbridge")
+              as.integer(max_cells), as.integer(max_nt), as.integer(0), PACKAGE="bcmrbridge")
     if (res[[9]] != 0) {
       stop(paste("BCM3 C++ bridge error:", res[[10]]))
     }
@@ -145,12 +142,12 @@ bcm3.cellpop.get.matched.simulation <- function(bcm3, experiment, param.values) 
   return(retval)
 }
 
-bcm3.cellpop.posterior.predictive.plot <- function(bcm3, experiment_ix, temperature_ix, numppdsamples, pdffilename, pdfwidth, pdfheight, xlim=NULL, time_unit="minutes", pch=20)
+bcm3.cellpop.posterior.predictive.plot <- function(bcm3, experiment_ix, temperature_ix, numppdsamples, pdffilename, pdfwidth, pdfheight, xlim=NULL, time_unit="minutes", pch=20, max_cells=500)
 {
   model <- bcm3
   sample <- model$posterior$samples[,temperature_ix,dim(model$posterior$samples)[3]]
   names(sample) <- model$variables
-  obsdata <- bcm3.cellpop.get.observed.data(model, model$likelihood$experiments[[experiment_ix]]$name)
+  obsdata <- bcm3.cellpop.get.observed.data(model, model$likelihood$experiments[[experiment_ix]]$name, max_cells)
   
   sample_ix <- (dim(model$posterior$samples)[3]/2+1):(dim(model$posterior$samples)[3])
   ppd_sample_ix <- sample(sample_ix, numppdsamples)
@@ -165,7 +162,7 @@ bcm3.cellpop.posterior.predictive.plot <- function(bcm3, experiment_ix, temperat
   for (i in 1:numppdsamples) {
     sample <- model$posterior$samples[,temperature_ix,ppd_sample_ix[i]]
     names(sample) <- model$variables
-    simdata <- bcm3.cellpop.get.simulated.data(model, model$likelihood$experiments[[experiment_ix]]$name, sample)
+    simdata <- bcm3.cellpop.get.simulated.data(model, model$likelihood$experiments[[experiment_ix]]$name, sample, max_cells)
     
     for (j in 1:length(obsdata)) {
       for (l in 1:dim(obsdata[[j]]$data)[2]) {

@@ -114,20 +114,20 @@ void bcm3_rbridge_cellpop_get_simulated_trajectories(char** bcm3info_ptr, char**
 	size_t num_sim_species = e->GetNumSpecies();
 
 	size_t numcells = e->GetOutputNumCells();
-	*out_num_cells = numcells;
-	if (numcells > 500) {
+	if (numcells > *out_num_cells) {
 		// Need to increase size in the R buffer
 		*retval = -5;
 		return;
 	}
+	*out_num_cells = numcells;
 
 	const VectorReal& timepoints = e->GetOutputTimepoints();
-	*out_num_timepoints = timepoints.size();
-	if (timepoints.size() > 500) {
+	if (timepoints.size() > *out_num_timepoints) {
 		// Need to increase size in the R buffer
 		*retval = -6;
 		return;
 	}
+	*out_num_timepoints = timepoints.size();
 	for (size_t time_i = 0; time_i < timepoints.size(); time_i++) {
 		out_timepoints[time_i] = timepoints(time_i);
 	}
@@ -181,22 +181,22 @@ void bcm3_rbridge_cellpop_get_observed_data(char** bcm3info_ptr, char** experime
 	const DataLikelihoodTimeCourse* dltc = dynamic_cast<const DataLikelihoodTimeCourse*>(dl);
 	if (dltc != nullptr) {
 		const VectorReal& t = dltc->GetTimepoints();
-		*out_num_timepoints = t.size();
-		if (t.size() > 500) {
+		if (t.size() > *out_num_timepoints) {
 			// Need to increase size in the R buffer
 			*retval = -6;
 			return;
 		}
+		*out_num_timepoints = t.size();
 		for (size_t i = 0; i < t.size(); i++) {
 			out_timepoints[i] = t(i);
 		}
 
-		*out_num_cells = dltc->GetNumObservedData();
-		if (*out_num_cells > 500) {
+		if (dltc->GetNumObservedData() > *out_num_cells) {
 			// Need to increase size in the R buffer
 			*retval = -5;
 			return;
 		}
+		*out_num_cells = dltc->GetNumObservedData();
 
 		for (int i = 0; i < *out_num_cells; i++) {
 			const MatrixReal& o = dltc->GetObservedData(i);
@@ -248,22 +248,22 @@ void bcm3_rbridge_cellpop_get_simulated_data(char** bcm3info_ptr, char** experim
 	const DataLikelihoodTimeCourse* dltc = dynamic_cast<const DataLikelihoodTimeCourse*>(dl);
 	if (dltc != nullptr) {
 		const VectorReal& t = dltc->GetTimepoints();
-		*out_num_timepoints = t.size();
-		if (t.size() > 500) {
+		if (t.size() > *out_num_timepoints) {
 			// Need to increase size in the R buffer
 			*retval = -6;
 			return;
 		}
+		*out_num_timepoints = t.size();
 		for (size_t i = 0; i < t.size(); i++) {
 			out_timepoints[i] = t(i);
 		}
 
-		*out_num_cells = dltc->GetNumObservedData();
-		if (*out_num_cells > 500) {
+		if (dltc->GetNumObservedData() > *out_num_cells) {
 			// Need to increase size in the R buffer
 			*retval = -5;
 			return;
 		}
+		*out_num_cells = dltc->GetNumObservedData();
 		for (int i = 0; i < *out_num_cells; i++) {
 			const MatrixReal& o = dltc->GetSimulatedData(i);
 			*out_num_markers = o.cols();
@@ -310,12 +310,12 @@ void bcm3_rbridge_cellpop_get_matched_simulation(char** bcm3info_ptr, char** exp
 	*out_num_cells = 0;
 
 	const VectorReal& timepoints = e->GetOutputTimepoints();
-	*out_num_timepoints = timepoints.size();
-	if (timepoints.size() > 500) {
+	if (timepoints.size() > *out_num_timepoints) {
 		// Need to increase size in the R buffer
 		*retval = -6;
 		return;
 	}
+	*out_num_timepoints = timepoints.size();
 	for (size_t time_i = 0; time_i < timepoints.size(); time_i++) {
 		out_timepoints[time_i] = timepoints(time_i);
 	}
@@ -323,12 +323,12 @@ void bcm3_rbridge_cellpop_get_matched_simulation(char** bcm3info_ptr, char** exp
 	const DataLikelihoodBase* dl = e->GetData(*data_ix);
 	const DataLikelihoodTimeCourse* dltc = dynamic_cast<const DataLikelihoodTimeCourse*>(dl);
 	if (dltc != nullptr) {
-		*out_num_cells = dltc->GetNumObservedData();
-		if (*out_num_cells > 500) {
+		if (dltc->GetNumObservedData() > *out_num_cells) {
 			// Need to increase size in the R buffer
 			*retval = -5;
 			return;
 		}
+		*out_num_cells = dltc->GetNumObservedData();
 		for (int i = 0; i < *out_num_cells; i++) {
 			size_t matched_ix = dltc->GetTrajectoryMatching()[i];
 			for (size_t time_i = 0; time_i < timepoints.size(); time_i++) {
