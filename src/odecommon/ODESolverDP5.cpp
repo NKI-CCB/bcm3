@@ -12,7 +12,7 @@ static const OdeReal MIN_DT = 1e-3;
 static const int ATTEMPTS = 5;
 static const OdeReal MIN_SCALE_FACTOR = 0.2;
 static const OdeReal MAX_SCALE_FACTOR = 5.0;
-static const unsigned int MAX_STEPS = 20000;
+static const unsigned int MAX_STEPS = 2000;
 
 ODESolverDP5::ODESolverDP5()
 	: ytmp(nullptr)
@@ -220,7 +220,7 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 		dt = next_dt;
 		steps++;
 		if (steps == MAX_STEPS) {
-			//LOGERROR(ODESolverDopri, IntegrateImpl, "MAXSTEPS reached, bailing out");
+			//LOGERROR("MAXSTEPS reached, bailing out");
 			return false;
 		}
 	}
