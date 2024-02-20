@@ -130,7 +130,7 @@ bcm3.cellpop.get.matched.simulation <- function(bcm3, experiment, param.values, 
     res <- .C("bcm3_rbridge_cellpop_get_matched_simulation", bcm3$.cpp, as.character(experiment), as.numeric(param.values), as.integer(i-1), traj_buffer, time_buffer,
               as.integer(max_cells), as.integer(max_nt), as.integer(0), PACKAGE="bcmrbridge")
     if (res[[9]] != 0) {
-      stop(paste("BCM3 C++ bridge error:", res[[10]]))
+      stop(paste("BCM3 C++ bridge error:", res[[9]]))
     }
     
     ncells <- res[[7]]

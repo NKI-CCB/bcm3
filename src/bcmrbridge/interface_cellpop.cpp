@@ -240,10 +240,6 @@ void bcm3_rbridge_cellpop_get_simulated_data(char** bcm3info_ptr, char** experim
 		return;
 	}
 
-	*out_num_timepoints = 0;
-	*out_num_cells = 0;
-	*out_num_markers = 0;
-
 	const DataLikelihoodBase* dl = e->GetData(*data_ix);
 	const DataLikelihoodTimeCourse* dltc = dynamic_cast<const DataLikelihoodTimeCourse*>(dl);
 	if (dltc != nullptr) {
@@ -306,9 +302,6 @@ void bcm3_rbridge_cellpop_get_matched_simulation(char** bcm3info_ptr, char** exp
 		return;
 	}
 
-	*out_num_timepoints = 0;
-	*out_num_cells = 0;
-
 	const VectorReal& timepoints = e->GetOutputTimepoints();
 	if (timepoints.size() > *out_num_timepoints) {
 		// Need to increase size in the R buffer
@@ -354,148 +347,3 @@ void bcm3_rbridge_cellpop_get_matched_simulation(char** bcm3info_ptr, char** exp
 }
 
 }
-
-#if 0
-void bcm3_rbridge_cellpop_get_num_data(char** bcm3info_ptr, char** experiment, int* out_num_data, int* retval)
-{
-	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-	std::shared_ptr<CellPopulationLikelihood> ll = GetCellPopulationLikelihood(info, retval);
-	if (!info || !ll) {
-		return;
-	}
-
-	const dynamicISAExperiment* exp = ll->GetExperiment(*experiment);
-	if (!exp) {
-		*retval = -4;
-		return;
-	}
-	*out_num_data = (int)exp->GetNumData();
-	*retval = 0;
-}
-
-void bcm3_rbridge_dynamicISA_get_num_conditions(char** bcm3info_ptr, char** experiment, int* out_num_conditions, int* retval)
-{
-	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-	std::shared_ptr<dynamicISALikelihood> ll = GetDynamicISALikelihood(info, retval);
-	if (!info || !ll) {
-		return;
-	}
-
-	const dynamicISAExperiment* exp = ll->GetExperiment(*experiment);
-	if (!exp) {
-		*retval = -3;
-		return;
-	}
-	*out_num_conditions = (int)exp->GetNumConditions();
-	*retval = 0;
-}
-
-void bcm3_rbridge_dynamicISA_get_num_replicates(char** bcm3info_ptr, char** experiment, int* data_ix, int* out_num_replicates, int* retval)
-{
-	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-	std::shared_ptr<dynamicISALikelihood> ll = GetDynamicISALikelihood(info, retval);
-	if (!info || !ll) {
-		return;
-	}
-
-	const dynamicISAExperiment* exp = ll->GetExperiment(*experiment);
-	if (!exp) {
-		*retval = -3;
-		return;
-	}
-	*out_num_replicates = (int)exp->GetNumReplicates(*data_ix);
-	*retval = 0;
-}
-
-void bcm3_rbridge_dynamicISA_get_num_signaling_molecules(char** bcm3info_ptr, int* out_num_signaling_molecules, int* retval)
-{
-	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-	std::shared_ptr<dynamicISALikelihood> ll = GetDynamicISALikelihood(info, retval);
-	if (!info || !ll) {
-		return;
-	}
-
-	*out_num_signaling_molecules = (int)ll->GetNumSignalingMolecules();
-	*retval = 0;
-}
-
-void bcm3_rbridge_dynamicISA_get_observed_data(char** bcm3info_ptr, char** experiment, int* data_ix, double* out_observed_data_values, int* retval)
-{
-	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-	std::shared_ptr<dynamicISALikelihood> ll = GetDynamicISALikelihood(info, retval);
-	if (!info || !ll) {
-		return;
-	}
-
-	MatrixReal values;
-	const dynamicISAExperiment* exp = ll->GetExperiment(*experiment);
-	if (!exp) {
-		*retval = -3;
-		return;
-	}
-	exp->GetObservedData((size_t)*data_ix, values);
-	for (size_t i = 0; i < values.rows(); i++) {
-		for (size_t j = 0; j < values.cols(); j++) {
-			out_observed_data_values[i * values.cols() + j] = values(i, j);
-		}
-	}
-
-	*retval = 0;
-}
-
-void bcm3_rbridge_dynamicISA_get_modeled_data(char** bcm3info_ptr, char** experiment, double* param_values, int* data_ix, double* out_modeled_data_values, int* retval)
-{
-	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-	std::shared_ptr<dynamicISALikelihood> ll = GetDynamicISALikelihood(info, retval);
-	if (!info || !ll) {
-		return;
-	}
-
-	if (!EvaluateDynamicISALikelihood(info, ll, param_values, retval)) {
-		*retval = -4;
-		return;
-	}
-
-	VectorReal values;
-	const dynamicISAExperiment* exp = ll->GetExperiment(*experiment);
-	if (!exp) {
-		*retval = -3;
-		return;
-	}
-	exp->GetModeledData((size_t)*data_ix, values);
-	for (size_t i = 0; i < values.size(); i++) {
-		out_modeled_data_values[i] = values(i);
-	}
-
-	*retval = 0;
-}
-
-void bcm3_rbridge_dynamicISA_get_modeled_activities(char** bcm3info_ptr, char** experiment, double* param_values, double* out_modeled_activities, int* retval)
-{
-	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-	std::shared_ptr<dynamicISALikelihood> ll = GetDynamicISALikelihood(info, retval);
-	if (!info || !ll) {
-		return;
-	}
-
-	if (!EvaluateDynamicISALikelihood(info, ll, param_values, retval)) {
-		*retval = -4;
-		return;
-	}
-
-	MatrixReal values;
-	const dynamicISAExperiment* exp = ll->GetExperiment(*experiment);
-	if (!exp) {
-		*retval = -3;
-		return;
-	}
-	exp->GetModeledActivities(values);
-	for (size_t i = 0; i < values.rows(); i++) {
-		for (size_t j = 0; j < values.cols(); j++) {
-			out_modeled_activities[i * values.cols() + j] = values(i, j);
-		}
-	}
-
-	*retval = 0;
-}
-#endif
