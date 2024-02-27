@@ -13,6 +13,7 @@ _expat_copy_bool_int(EXPAT_MIN_SIZE         XML_MIN_SIZE)
 _expat_copy_bool_int(EXPAT_NS               XML_NS)
 set(XML_CONTEXT_BYTES 1024)
 set(_SHARED STATIC)
+set(HAVE_STDLIB_H 1)
 
 configure_file(expat_config.h.cmake ${CMAKE_SOURCE_DIR}/dependencies/expat-2.6.0/lib/expat_config.h)
 
