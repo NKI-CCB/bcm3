@@ -23,6 +23,12 @@ target_include_directories(sbml
   PRIVATE
 )
 
+if(CMAKE_HOST_WIN32)
+    set(LIBSBML_LIBRARY libsbml)
+else(CMAKE_HOST_WIN32)
+    set(LIBSBML_LIBRARY "libsbml.so")
+endif(CMAKE_HOST_WIN32)
+
 target_link_libraries(sbml
   PUBLIC
     utils
