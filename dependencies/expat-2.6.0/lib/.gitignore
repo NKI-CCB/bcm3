@@ -15,3 +15,4 @@ Release-w_static
 expat_static.plg
 expatw.plg
 expatw_static.plg
+/expat_config.h
