@@ -22,7 +22,9 @@
 /* #undef HAVE_GETPAGESIZE */
 
 /* Define to 1 if you have the `getrandom' function. */
-/* #undef HAVE_GETRANDOM */
+#ifndef _WIN32
+	#define HAVE_GETRANDOM 1
+#endif
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 /* #undef HAVE_INTTYPES_H */
