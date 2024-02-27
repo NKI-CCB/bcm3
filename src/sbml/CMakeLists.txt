@@ -35,7 +35,7 @@ target_link_libraries(sbml
   PRIVATE
     sampler
     odecommon
-    libsbml
+    ${LIBSBML_LIBRARY}
 )
 
 set_target_properties(sbml PROPERTIES DEBUG_POSTFIX d)
