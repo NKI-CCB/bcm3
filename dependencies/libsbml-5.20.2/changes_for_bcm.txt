@@ -1,0 +1,5 @@
+Notes on how to replace libsbml:
+
+* Copy the files in {libsbml}/src/sbml to the folder "sbml"
+* Use the CMakeLists.txt file in the present directory instead of the one shipped with SBML
+* In the sbml/common folder, copy the .h.in files into .h files; with modifications as necessary to reflect the platform

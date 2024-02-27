@@ -93,14 +93,16 @@ void jacobian(double** out, const double* species, const double* parameters)
 #endif
 
 SBMLModel::SBMLModel(size_t numthreads)
-	: model(NULL)
-	, variables(NULL)
+	: document(nullptr)
+	, model(nullptr)
 {
 	Solvers.resize(numthreads);
 }
 
 SBMLModel::~SBMLModel()
 {
+	delete model;
+	delete document;
 }
 
 bool SBMLModel::LoadSBML(const std::string& fn)
@@ -116,6 +118,7 @@ bool SBMLModel::LoadSBML(const std::string& fn)
 			LOGERROR(" Error %d: %s", i+1, document->getErrorWithSeverity(i, LIBSBML_SEV_ERROR)->getMessage().c_str());
 		}
 		delete document;
+		document = nullptr;
 		return false;
 	}
 	if (document->getNumErrors(LIBSBML_SEV_FATAL) > 0) {
@@ -124,6 +127,7 @@ bool SBMLModel::LoadSBML(const std::string& fn)
 			LOGERROR(" Error %d: %s", i + 1, document->getErrorWithSeverity(i, LIBSBML_SEV_FATAL)->getMessage().c_str());
 		}
 		delete document;
+		document = nullptr;
 		return false;
 	}
 	if (document->getNumErrors(LIBSBML_SEV_WARNING) > 0) {
@@ -140,6 +144,12 @@ bool SBMLModel::LoadSBML(const std::string& fn)
 	}
 
 	model = document->getModel();
+	if (model == nullptr) {
+		LOGERROR("Unable to load SBML model");
+		delete document;
+		document = nullptr;
+		return false;
+	}
 
 	for (unsigned int i = 0; i < model->getNumSpecies(); i++) {
 		std::unique_ptr<SBMLSpecies> sp = std::make_unique<SBMLSpecies>();
