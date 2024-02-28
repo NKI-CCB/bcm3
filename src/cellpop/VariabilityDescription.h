@@ -21,7 +21,8 @@ public:
 private:
 	bool Load(const boost::property_tree::ptree& xml_node);
 	Real GetRangeValue(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
-	Real DistributionQuantile(Real p, Real range) const;
+	Real GetDOFValue(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
+	Real DistributionQuantile(Real p, Real range, Real dof) const;
 	void ApplyType(Real& x, Real& value) const;
 
 	enum class EType {
@@ -35,6 +36,7 @@ private:
 	enum class EDistribution {
 		Normal,
 		HalfNormal,
+		StudentT,
 		Bernoulli,
 		Uniform,
 
@@ -52,5 +54,9 @@ private:
 	Real fixed_range_value;
 	size_t range_ix;
 	size_t non_sampled_range_ix;
+	std::string dof_str;
+	Real fixed_dof_value;
+	size_t dof_ix;
+	size_t non_sampled_dof_ix;
 	bool only_initial_cells;
 };

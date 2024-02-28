@@ -38,6 +38,7 @@ Real QuantileExponential(Real p, Real lambda);
 Real QuantileGamma(Real p, Real shape, Real scale);
 Real QuantileHalfCauchy(Real p, Real scale);
 Real QuantileNormal(Real p, Real mu, Real sigma);
+Real QuantileT(Real p, Real mu, Real sigma, Real nu);
 Real QuantileUniform(Real p, Real a, Real b);
 Real QuantileGPD(Real x, Real u, Real xi, Real beta);
 

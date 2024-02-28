@@ -352,6 +352,12 @@ Real QuantileNormal(Real p, Real mu, Real sigma)
 	return boost::math::quantile(dist, p);
 }
 
+Real QuantileT(Real p, Real mu, Real sigma, Real nu)
+{
+	boost::math::students_t_distribution<Real> dist(nu);
+	return boost::math::quantile(dist, p) * sigma + mu;
+}
+
 Real QuantileUniform(Real p, Real a, Real b)
 {
 	if (p == 0.0) {
