@@ -19,15 +19,9 @@ target_sources(sbml
 target_include_directories(sbml
   PUBLIC
     .
-    ../../dependencies/libsbml-5.20.2/
+    ${LIBSBML_INCLUDE_DIR}
   PRIVATE
 )
-
-if(CMAKE_HOST_WIN32)
-    set(LIBSBML_LIBRARY libsbml)
-else(CMAKE_HOST_WIN32)
-    set(LIBSBML_LIBRARY "libsbml.so")
-endif(CMAKE_HOST_WIN32)
 
 target_link_libraries(sbml
   PUBLIC

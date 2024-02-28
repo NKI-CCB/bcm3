@@ -101,7 +101,6 @@ SBMLModel::SBMLModel(size_t numthreads)
 
 SBMLModel::~SBMLModel()
 {
-	delete model;
 	delete document;
 }
 

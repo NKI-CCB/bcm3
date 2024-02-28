@@ -867,7 +867,7 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "project(generated_derivatives CXX)\n";
 		f << "\n";
 		f << "if(CMAKE_HOST_WIN32)\n";
-		f << "	set(CMAKE_CXX_FLAGS \"/arch:AVX\")\n";
+		f << "	set(CMAKE_CXX_FLAGS \"/arch:AVX2\")\n";
 		f << "endif(CMAKE_HOST_WIN32)\n";
 		f << "if(CMAKE_HOST_UNIX)\n";
 		f << "	set(CMAKE_BUILD_TYPE Release)\n";
