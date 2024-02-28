@@ -30,6 +30,12 @@ if(CMAKE_HOST_UNIX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native")
 endif(CMAKE_HOST_UNIX)
 
+if(CMAKE_HOST_WIN32)
+    add_compile_definitions("LIBLAX_STATIC=1;LIBSBML_STATIC=1")
+    add_subdirectory(dependencies/expat-2.6.0)
+    add_subdirectory(dependencies/libsbml-5.20.2)
+endif(CMAKE_HOST_WIN32)
+
 add_subdirectory(dependencies/cluster-1.52a/src)
 add_subdirectory(dependencies/cvode-5.3.0)
 add_subdirectory(dependencies/eigen-3.4-rc1)
