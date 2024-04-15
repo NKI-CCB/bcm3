@@ -20,6 +20,7 @@ Real LogPdfT(Real x, Real mu, Real sigma, Real nu, bool skip_na = false);
 Real LogPdfT(Real x, Real mu, Real sigma, Real nu, Real logC, bool skip_na = false);
 Real LogPdfT_CalcC(Real nu);
 Real LogPdfTnu3(Real x, Real mu, Real sigma, bool skip_na = false);
+Real LogPdfTnu4(Real x, Real mu, Real sigma, bool skip_na = false);
 Real LogTruncatedPdfTnu3(Real x, Real mu, Real sigma, Real a, Real b, bool skip_na = false);
 Real LogPdfGPD(Real x, Real u, Real xi, Real beta);
 

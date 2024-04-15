@@ -213,6 +213,16 @@ Real LogPdfTnu3(Real x, Real mu, Real sigma, bool skip_na)
 	return -1.0008888496235098 - 2.0 * boost::math::log1p(0.333333333333333333 * xn * xn) - log(sigma);
 }
 
+Real LogPdfTnu4(Real x, Real mu, Real sigma, bool skip_na)
+{
+	if (skip_na && x != x) {
+		return 0.0;
+	}
+
+	Real xn = (x - mu) / sigma;
+	return -0.9808292530117262 - 2.5 * boost::math::log1p(0.25 * xn * xn) - log(sigma);
+}
+
 inline Real CdfTnu3(Real t)
 {
 	return 0.091888149236965 * ((6.0 * t) / (t * t + 3.0) + 3.464101615137754 * atan(0.577350269189626 * t) + 5.441398092702653);

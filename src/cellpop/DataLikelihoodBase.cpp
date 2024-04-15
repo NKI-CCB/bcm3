@@ -5,6 +5,7 @@
 
 DataLikelihoodBase::DataLikelihoodBase()
 	: weight(1.0)
+	, error_model(ErrorModel::StudentT4)
 	, offset_ix(std::numeric_limits<size_t>::max())
 	, scale_ix(std::numeric_limits<size_t>::max())
 	, stdev_ix(std::numeric_limits<size_t>::max())

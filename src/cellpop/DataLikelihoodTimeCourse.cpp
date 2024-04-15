@@ -436,9 +436,23 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 					}
 					Real time_offset = std::min(std::abs(timepoints(i) - cell_trajectories_firstnonan),
 												std::abs(timepoints(i) - cell_trajectories_lastnonan));
-					logp += bcm3::LogPdfNormal(time_offset, 0, missing_simulation_time_stdev);
+					if (error_model == ErrorModel::Normal) {
+						logp += bcm3::LogPdfNormal(time_offset, 0, missing_simulation_time_stdev);
+					} else if (error_model == ErrorModel::StudentT4) {
+						logp += bcm3::LogPdfTnu4(time_offset, 0, missing_simulation_time_stdev);
+					} else {
+						assert(false);
+						logp = std::numeric_limits<Real>::quiet_NaN();
+					}
 				} else {
-					logp += bcm3::LogPdfNormal(observed_data[0](i), x, stdev);
+					if (error_model == ErrorModel::Normal) {
+						logp += bcm3::LogPdfNormal(observed_data[0](i), x, stdev);
+					} else if (error_model == ErrorModel::StudentT4) {
+						logp += bcm3::LogPdfTnu4(observed_data[0](i), x, stdev);
+					} else {
+						assert(false);
+						logp = std::numeric_limits<Real>::quiet_NaN();
+					}
 				}
 			}
 		}
@@ -654,8 +668,14 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 				if (std::isnan(x)) {
 					cell_logp += CalculateMissingValueLikelihood(simulated_cell_ix, k, l, missing_simulation_time_stdev);
 				} else {
-					cell_logp += bcm3::LogPdfNormal(y, x, stdev);
-					//cell_logp += bcm::LogPdfTnu3(y, x, stdev);
+					if (error_model == ErrorModel::Normal) {
+						cell_logp += bcm3::LogPdfNormal(y, x, stdev);
+					} else if (error_model == ErrorModel::StudentT4) {
+						cell_logp += bcm3::LogPdfTnu4(y, x, stdev);
+					} else {
+						assert(false);
+						cell_logp = std::numeric_limits<Real>::quiet_NaN();
+					}
 
 					if (cell_logp == -std::numeric_limits<Real>::infinity()) {
 						// Infinity - no need to go further, and the HA doesn't like it
@@ -733,7 +753,14 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 Real DataLikelihoodTimeCourse::CalculateMissingValueLikelihood(size_t simulated_cell_ix, int timepoint_ix, int species_ix, Real missing_simulation_time_stdev)
 {
 	if (simulated_cell_ix == std::numeric_limits<size_t>::max()) {
-		return bcm3::LogPdfNormal(timepoints(timepoint_ix), 0, missing_simulation_time_stdev);
+		if (error_model == ErrorModel::Normal) {
+			return bcm3::LogPdfNormal(timepoints(timepoint_ix), 0, missing_simulation_time_stdev);
+		} else if (error_model == ErrorModel::StudentT4) {
+			return bcm3::LogPdfTnu4(timepoints(timepoint_ix), 0, missing_simulation_time_stdev);
+		} else {
+			assert(false);
+			return std::numeric_limits<Real>::quiet_NaN();
+		}
 	} else {
 		Real cell_trajectories_firstnonan = timepoints(timepoints.size() - 1);
 		for (int m = 0; m < timepoints.size(); m++) {
@@ -751,6 +778,13 @@ Real DataLikelihoodTimeCourse::CalculateMissingValueLikelihood(size_t simulated_
 		}
 		Real time_offset = std::min(std::abs(timepoints(timepoint_ix) - cell_trajectories_firstnonan),
 			std::abs(timepoints(timepoint_ix) - cell_trajectories_lastnonan));
-		return bcm3::LogPdfNormal(time_offset, 0, missing_simulation_time_stdev);
+		if (error_model == ErrorModel::Normal) {
+			return bcm3::LogPdfNormal(time_offset, 0, missing_simulation_time_stdev);
+		} else if (error_model == ErrorModel::StudentT4) {
+			return bcm3::LogPdfTnu4(time_offset, 0, missing_simulation_time_stdev);
+		} else {
+			assert(false);
+			return std::numeric_limits<Real>::quiet_NaN();
+		}
 	}
 }

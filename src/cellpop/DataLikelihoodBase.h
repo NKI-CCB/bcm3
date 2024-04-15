@@ -25,6 +25,10 @@ public:
 	virtual void NotifyDuration(size_t cell_ix, Real duration) {}
 
 protected:
+	enum class ErrorModel {
+		Normal,
+		StudentT4,
+	};
 	std::string data_name;
 	Real weight;
 
@@ -32,6 +36,7 @@ protected:
 	std::string offset_str;
 	std::string scale_str;
 
+	ErrorModel error_model;
 	size_t offset_ix;
 	size_t scale_ix;
 	size_t stdev_ix;
