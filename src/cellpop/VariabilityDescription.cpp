@@ -213,10 +213,10 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 	}
 
 	range_str = xml_node.get<std::string>("<xmlattr>.range");
-	dof_str = xml_node.get<std::string>("<xmlattr>.degrees_of_freedom", "0.0");
+	dof_str = xml_node.get<std::string>("<xmlattr>.degrees_of_freedom_minus_two", "0.0");
 
 	if (distribution == EDistribution::StudentT && dof_str == "0.0") {
-		LOGERROR("Student T-distribution with fixed 0 degrees of freedom; likely because it was not specified - please specify degrees_of_freedom in the variability description");
+		LOGERROR("Student T-distribution with fixed 0 degrees of freedom has been specified; likely because the degrees of freedom was not specified - please specify degrees_of_freedom_minus_two in the variability description.");
 		return false;
 	}
 
@@ -237,14 +237,16 @@ Real VariabilityDescription::GetRangeValue(const VectorReal& transformed_values,
 
 Real VariabilityDescription::GetDOFValue(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
 {
+	Real dof_minus_two;
 	if (dof_ix != std::numeric_limits<size_t>::max()) {
-		return transformed_values[dof_ix];
+		dof_minus_two = transformed_values[dof_ix];
 	} else if (non_sampled_dof_ix != std::numeric_limits<size_t>::max()) {
-		return non_sampled_parameters[non_sampled_dof_ix];
+		dof_minus_two = non_sampled_parameters[non_sampled_dof_ix];
 	} else {
 		ASSERT(fixed_dof_value != std::numeric_limits<Real>::quiet_NaN());
-		return fixed_dof_value;
+		dof_minus_two = fixed_dof_value;
 	}
+	return dof_minus_two + 2.0;
 }
 
 Real VariabilityDescription::DistributionQuantile(Real p, Real range, Real dof) const
