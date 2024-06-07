@@ -8,6 +8,8 @@ target_sources(likelihoods
     LikelihoodFactory.cpp
     LikelihoodIncucytePopulation.h
     LikelihoodIncucytePopulation.cpp
+    LikelihoodMitosisTimeEstimation.h
+    LikelihoodMitosisTimeEstimation.cpp
     LikelihoodODE.h
     LikelihoodODE.cpp
     LikelihoodPharmacokineticTrajectory.h
