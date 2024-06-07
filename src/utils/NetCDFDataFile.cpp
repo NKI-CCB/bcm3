@@ -549,10 +549,10 @@ bool NetCDFDataFile::GetMatrix(const std::string& group_name, const std::string&
 
 	values.resize(dim1size, dim2size);
 	size_t dimix[2] = { 0, 0 };
-	size_t count[2] = { 1, dim2size };
-	for (size_t i = 0; i < dim1size; i++) {
-		dimix[0] = i;
-		NC_HANDLE_ERROR(nc_get_vara_double(group, var, dimix, count, values.data() + i * dim2size), "Error getting values for variable \"%s\" in group \"%s\"; status: %d", variable_name.c_str(), group_name.c_str())
+	size_t count[2] = { dim1size, 1 };
+	for (size_t i = 0; i < dim2size; i++) {
+		dimix[1] = i;
+		NC_HANDLE_ERROR(nc_get_vara_double(group, var, dimix, count, values.data() + i * dim1size), "Error getting values for variable \"%s\" in group \"%s\"; status: %d", variable_name.c_str(), group_name.c_str())
 	}
 
 	return true;
