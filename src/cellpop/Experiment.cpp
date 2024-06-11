@@ -180,12 +180,14 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 	for (size_t i = 0; i < data_likelihoods.size(); i++) {
 		data_likelihoods[i]->Reset();
 	}
+	for (size_t i = 0; i < simulated_trajectories.size(); i++) {
+		simulated_cell_parents[i] = std::numeric_limits<size_t>::max();
+	}
 	if (store_simulation) {
 		for (size_t i = 0; i < simulated_trajectories.size(); i++) {
 			for (size_t j = 0; j < simulated_trajectories[i].size(); j++) {
 				simulated_trajectories[i][j].setConstant(std::numeric_limits<Real>::quiet_NaN());
 			}
-			simulated_cell_parents[i] = std::numeric_limits<size_t>::max();
 		}
 	}
 
@@ -552,6 +554,8 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		simulation_end_time = trailing_simulation_time;
 	}
 
+	simulated_cell_parents.resize(max_number_of_cells, std::numeric_limits<size_t>::max());
+
 	if (store_simulation) {
 		// Allocate space to store the trajectories
 		output_trajectories_timepoints.resize(output_trajectory_num_timepoints);
@@ -562,7 +566,6 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		for (size_t i = 0; i < simulated_trajectories.size(); i++) {
 			simulated_trajectories[i].resize(output_trajectory_num_timepoints, VectorReal::Constant(cell_model.GetNumSimulatedSpecies(), std::numeric_limits<Real>::quiet_NaN()));
 		}
-		simulated_cell_parents.resize(max_number_of_cells, std::numeric_limits<size_t>::max());
 	}
 
 	return Initialize(xml_node);
