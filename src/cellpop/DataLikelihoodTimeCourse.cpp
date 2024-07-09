@@ -350,34 +350,9 @@ void DataLikelihoodTimeCourse::Reset()
 
 bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, Real& logp)
 {
-	Real stdev;
-	if (stdev_ix != std::numeric_limits<size_t>::max()) {
-		stdev = transformed_values[stdev_ix];
-	} else if (non_sampled_stdev_ix != std::numeric_limits<size_t>::max()) {
-		stdev = non_sampled_parameters[non_sampled_stdev_ix];
-	} else {
-		stdev = fixed_stdev_value;
-	}
-	stdev *= stdev_multiplication_factor;
-	stdev += 1e-4;
-
-	Real data_offset = 0.0;
-	if (offset_ix != std::numeric_limits<size_t>::max()) {
-		data_offset = transformed_values[offset_ix];
-	} else if (non_sampled_offset_ix != std::numeric_limits<size_t>::max()) {
-		data_offset = non_sampled_parameters[non_sampled_offset_ix];
-	} else if (fixed_offset_value == fixed_offset_value) {
-		data_offset = fixed_offset_value;
-	}
-
-	Real data_scale = 1.0;
-	if (scale_ix != std::numeric_limits<size_t>::max()) {
-		data_scale = transformed_values[scale_ix];
-	} else if (non_sampled_scale_ix != std::numeric_limits<size_t>::max()) {
-		data_scale = non_sampled_parameters[non_sampled_scale_ix];
-	} else if (fixed_scale_value == fixed_scale_value) {
-		data_scale = fixed_scale_value;
-	}
+	Real stdev = GetCurrentSTDev(transformed_values, non_sampled_parameters);
+	Real data_offset = GetCurrentDataOffset(transformed_values, non_sampled_parameters);
+	Real data_scale = GetCurrentDataScale(transformed_values, non_sampled_parameters);
 
 	Real missing_simulation_time_stdev = 1.0;
 	if (fixed_missing_simulation_time_stdev_ix != std::numeric_limits<size_t>::max()) {

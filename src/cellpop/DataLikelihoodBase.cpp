@@ -1,6 +1,7 @@
 #include "DataLikelihoodBase.h"
 #include "DataLikelihoodDuration.h"
 #include "DataLikelihoodTimeCourse.h"
+#include "DataLikelihoodTimePoints.h"
 #include "ProbabilityDistributions.h"
 
 DataLikelihoodBase::DataLikelihoodBase()
@@ -29,6 +30,8 @@ std::unique_ptr<DataLikelihoodBase> DataLikelihoodBase::Create(const boost::prop
 	std::unique_ptr<DataLikelihoodBase> dl;
 	if (type == "time_course") {
 		dl = std::make_unique<DataLikelihoodTimeCourse>(parallel_evaluations);
+	} else if (type == "time_points") {
+		dl = std::make_unique<DataLikelihoodTimePoints>(parallel_evaluations);
 	} else if (type == "duration") {
 		dl = std::make_unique<DataLikelihoodDuration>(parallel_evaluations);
 	} else {
@@ -108,3 +111,45 @@ bool DataLikelihoodBase::PostInitialize(const bcm3::VariableSet& varset, const s
 	}
 	return true;
 }
+
+Real DataLikelihoodBase::GetCurrentSTDev(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters)
+{
+	Real stdev;
+	if (stdev_ix != std::numeric_limits<size_t>::max()) {
+		stdev = transformed_values[stdev_ix];
+	} else if (non_sampled_stdev_ix != std::numeric_limits<size_t>::max()) {
+		stdev = non_sampled_parameters[non_sampled_stdev_ix];
+	} else {
+		stdev = fixed_stdev_value;
+	}
+	stdev *= stdev_multiplication_factor;
+	stdev += 1e-4;
+	return stdev;
+}
+
+Real DataLikelihoodBase::GetCurrentDataOffset(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters)
+{
+	Real data_offset = 0.0;
+	if (offset_ix != std::numeric_limits<size_t>::max()) {
+		data_offset = transformed_values[offset_ix];
+	} else if (non_sampled_offset_ix != std::numeric_limits<size_t>::max()) {
+		data_offset = non_sampled_parameters[non_sampled_offset_ix];
+	} else if (fixed_offset_value == fixed_offset_value) {
+		data_offset = fixed_offset_value;
+	}
+	return data_offset;
+}
+
+Real DataLikelihoodBase::GetCurrentDataScale(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters)
+{
+	Real data_scale = 1.0;
+	if (scale_ix != std::numeric_limits<size_t>::max()) {
+		data_scale = transformed_values[scale_ix];
+	} else if (non_sampled_scale_ix != std::numeric_limits<size_t>::max()) {
+		data_scale = non_sampled_parameters[non_sampled_scale_ix];
+	} else if (fixed_scale_value == fixed_scale_value) {
+		data_scale = fixed_scale_value;
+	}
+	return data_scale;
+}
+

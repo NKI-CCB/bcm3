@@ -12,6 +12,8 @@ target_sources(cellpop
     DataLikelihoodDuration.cpp
     DataLikelihoodTimeCourse.h
     DataLikelihoodTimeCourse.cpp
+    DataLikelihoodTimePoints.h
+    DataLikelihoodTimePoints.cpp
     Experiment.h
     Experiment.cpp
     TreatmentTrajectory.h

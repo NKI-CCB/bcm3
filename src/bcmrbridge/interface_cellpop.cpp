@@ -2,6 +2,7 @@
 #include "CellPopulationLikelihood.h"
 #include "DataLikelihoodDuration.h"
 #include "DataLikelihoodTimeCourse.h"
+#include "DataLikelihoodTimePoints.h"
 #include "interface.h"
 
 std::shared_ptr<CellPopulationLikelihood> GetCellPopulationLikelihood(bcm3info* info, int* retval)
@@ -218,6 +219,37 @@ void bcm3_rbridge_cellpop_get_observed_data(char** bcm3info_ptr, char** experime
 			out_values[i] = dld->GetObservedData()(i);
 		}
 	}
+
+	const DataLikelihoodTimePoints* dltp = dynamic_cast<const DataLikelihoodTimePoints*>(dl);
+	if (dltp != nullptr) {
+		const VectorReal& t = dltp->GetTimepoints();
+		if (t.size() > *out_num_timepoints) {
+			// Need to increase size in the R buffer
+			*retval = -6;
+			return;
+		}
+		*out_num_timepoints = t.size();
+		for (size_t i = 0; i < t.size(); i++) {
+			out_timepoints[i] = t(i);
+		}
+
+		if (*out_num_timepoints > 0) {
+			*out_num_cells = dltp->GetObservedData(0).rows();
+			*out_num_markers = dltp->GetObservedData(0).cols();
+
+			for (int k = 0; k < *out_num_timepoints; k++) {
+				const MatrixReal& o = dltp->GetObservedData(k);
+				ASSERT(o.rows() <= (*out_num_cells));
+				ASSERT(o.cols() <= (*out_num_markers));
+
+				for (int j = 0; j < *out_num_markers; j++) {
+					for (int i = 0; i < *out_num_cells; i++) {
+						out_values[i * (*out_num_markers) * (*out_num_timepoints) + j * (*out_num_timepoints) + k] = o(i, j);
+					}
+				}
+			}
+		}
+	}
 }
 
 void bcm3_rbridge_cellpop_get_simulated_data(char** bcm3info_ptr, char** experiment, double* param_values, int* data_ix, double* out_values, double* out_timepoints, int* out_num_cells, int* out_num_timepoints, int* out_num_markers, int* retval)
@@ -278,6 +310,43 @@ void bcm3_rbridge_cellpop_get_simulated_data(char** bcm3info_ptr, char** experim
 		*out_num_markers = 1;
 		for (size_t i = 0; i < *out_num_cells; i++) {
 			out_values[i] = dld->GetSimulatedData()(i);
+		}
+	}
+
+	const DataLikelihoodTimePoints* dltp = dynamic_cast<const DataLikelihoodTimePoints*>(dl);
+	if (dltp != nullptr) {
+		const VectorReal& t = dltp->GetTimepoints();
+		if (t.size() > *out_num_timepoints) {
+			// Need to increase size in the R buffer
+			*retval = -6;
+			return;
+		}
+		*out_num_timepoints = t.size();
+		for (size_t i = 0; i < t.size(); i++) {
+			out_timepoints[i] = t(i);
+		}
+
+		if (*out_num_timepoints > 0) {
+			if (dltp->GetNumSimulatedCells() > *out_num_cells) {
+				// Need to increase size in the R buffer
+				*retval = -5;
+				return;
+			}
+
+			*out_num_cells = dltp->GetNumSimulatedCells();
+			*out_num_markers = dltp->GetSimulatedData(0).cols();
+
+			for (int i = 0; i < *out_num_cells; i++) {
+				const MatrixReal& o = dltp->GetSimulatedData(i);
+				ASSERT(o.cols() <= (*out_num_markers));
+
+				for (int j = 0; j < *out_num_markers; j++) {
+					for (int k = 0; k < *out_num_timepoints; k++) {
+						out_values[i * (*out_num_markers) * (*out_num_timepoints) + j * (*out_num_timepoints) + k] = o(k, j);
+						LOG("Value: %g", o(k, j));
+					}
+				}
+			}
 		}
 	}
 }

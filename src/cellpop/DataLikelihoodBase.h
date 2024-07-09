@@ -25,6 +25,10 @@ public:
 	virtual void NotifyDuration(size_t cell_ix, Real duration) {}
 
 protected:
+	Real GetCurrentSTDev(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters);
+	Real GetCurrentDataOffset(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters);
+	Real GetCurrentDataScale(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters);
+
 	enum class ErrorModel {
 		Normal,
 		StudentT4,
@@ -46,7 +50,5 @@ protected:
 	Real fixed_offset_value;
 	Real fixed_scale_value;
 	Real fixed_stdev_value;
-	Real fixed_abs_value;
-	Real fixed_rel_value;
 	Real stdev_multiplication_factor;
 };
