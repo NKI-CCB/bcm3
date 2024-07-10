@@ -65,7 +65,7 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 		species_names.resize(1, species_name);
 	}
 
-	if (experiment->GetMaxNumberOfCells() < observed_data.size()) {
+	if (experiment->GetMaxNumberOfCells() < num_cells) {
 		LOGERROR("Maximum number of simulated cells (%zu) in the experiment is not sufficient for the amount of cells in the data (%zu)", experiment->GetMaxNumberOfCells(), observed_data.size());
 		return false;
 	}
