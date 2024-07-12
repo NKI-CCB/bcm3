@@ -18,7 +18,7 @@ void reduce(MatrixReal& m) {
  * if there is a starred/primed zero in the given row/col, returns it's index
  * else, returns -1
  */
-inline int hasMark(MatrixReal::RowXpr& v) {
+inline int hasMark(const MatrixReal::RowXpr& v) {
     for (int i=0; i<v.size(); i++) {
         if (v(i)) {
             return i;
@@ -26,7 +26,7 @@ inline int hasMark(MatrixReal::RowXpr& v) {
     }
     return -1;
 }
-inline int hasMark(MatrixReal::ColXpr& v) {
+inline int hasMark(const MatrixReal::ColXpr& v) {
     for (int i = 0; i < v.size(); i++) {
         if (v(i)) {
             return i;
