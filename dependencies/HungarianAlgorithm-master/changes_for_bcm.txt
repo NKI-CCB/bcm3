@@ -1,2 +1,3 @@
 Added header file and cmake file
 Refactored for use in BCM, e.g. using MatrixReal type.
+Also incorporated some small optimizations

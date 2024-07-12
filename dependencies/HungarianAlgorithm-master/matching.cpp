@@ -18,13 +18,21 @@ void reduce(MatrixReal& m) {
  * if there is a starred/primed zero in the given row/col, returns it's index
  * else, returns -1
  */
-int hasMark(VectorReal& v) {  
-  for (int i=0; i<v.size(); i++) {
-    if (v(i)) {
-      return i;
+inline int hasMark(MatrixReal::RowXpr& v) {
+    for (int i=0; i<v.size(); i++) {
+        if (v(i)) {
+            return i;
+        }
     }
-  }
-  return -1;
+    return -1;
+}
+inline int hasMark(MatrixReal::ColXpr& v) {
+    for (int i = 0; i < v.size(); i++) {
+        if (v(i)) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 /*
@@ -43,8 +51,7 @@ void swapStarsAndPrimes(int i, int j, MatrixReal& stars, MatrixReal& primes) {
   bool done = false;
   while (!done) {
     // find row index of row that has a 0* in the same col as the current 0'
-    VectorReal col = stars.col(primeCol);
-    int starInPrimeColRow = hasMark(col); 
+    int starInPrimeColRow = hasMark(stars.col(primeCol));
     
     if (starInPrimeColRow < 0) {
       // star the prime we're looking at
@@ -54,8 +61,7 @@ void swapStarsAndPrimes(int i, int j, MatrixReal& stars, MatrixReal& primes) {
     }
     else {
       // find which col has a 0' in the same row as z1
-      VectorReal row = primes.row(starInPrimeColRow);
-      int primeInStarRowCol = hasMark(row);
+      int primeInStarRowCol = hasMark(primes.row(starInPrimeColRow));
       
       // star first primed zero
       primes(primeRow, primeCol) = 0;
@@ -86,13 +92,13 @@ bool HungarianMatching(const MatrixReal& m, MatrixReal& result, EHungarianMatchi
                       // the matrix enough yet
   
   MatrixReal stars(m.rows(), m.cols()); // matrix for storing our "starred" 0s (0*)
-  stars.fill(0);
+  stars.setZero();
   MatrixReal primes(m.rows(), m.cols()); // matrix for storing our "primed" 0s (0')
-  primes.fill(0);
+  primes.setZero();
   VectorReal rowCover(m.rows()); // keep track of which rows are "covered"
-  rowCover.fill(0);
+  rowCover.setZero();
   VectorReal colCover(m.cols()); // keep track of which columns are "covered"
-  colCover.fill(0);
+  colCover.setZero();
   
   // to do maximization rather than minimization, we have to
   // transform the matrix by subtracting every value from the maximum
@@ -131,8 +137,7 @@ bool HungarianMatching(const MatrixReal& m, MatrixReal& result, EHungarianMatchi
     // dimensions, we are done! Otherwise, move on to step 4.
     step3:
     for (int j=0; j<n.cols(); j++) {
-      VectorReal col = stars.col(j);
-      if (hasMark(col) >= 0) {
+      if (hasMark(stars.col(j)) >= 0) {
         colCover(j) = 1;
       }
     }
@@ -145,32 +150,37 @@ bool HungarianMatching(const MatrixReal& m, MatrixReal& result, EHungarianMatchi
     // Find a non-covered zero and prime it
     step4:
     for (int i=0; i<n.rows(); i++) {
-      for (int j=0; j<n.cols(); j++) {
-        if (n(i,j) == 0 && !rowCover(i) && !colCover(j)) {
-          primes(i,j) = 1;
-          // if no starred zero in the row...
-          VectorReal row = stars.row(i);
-          if (hasMark(row) < 0) {
-            // Step 5
-            // swap stars and primes            
-            swapStarsAndPrimes(i, j, stars, primes);
-    
-            // clear lines
-            rowCover.fill(0);
-            colCover.fill(0);
-            
-            goto step3;
-          }
-          else {
-            // cover row
-            rowCover(i) = 1;
-            
-            // uncover column of the starred zero in the same row
-            int col = hasMark(row);
-            colCover(col) = 0;
-          }
+        if (rowCover(i)) {
+            continue;
         }
-      }
+        for (int j=0; j<n.cols(); j++) {
+            if (colCover(j)) {
+                continue;
+            }
+            if (n(i,j) == 0) {
+                primes(i,j) = 1;
+                // if no starred zero in the row...
+                MatrixReal::RowXpr row = stars.row(i);
+                int mark = hasMark(row);
+                if (mark < 0) {
+                    // Step 5
+                    // swap stars and primes            
+                    swapStarsAndPrimes(i, j, stars, primes);
+    
+                    // clear lines
+                    rowCover.setZero();
+                    colCover.setZero();
+            
+                    goto step3;
+                } else {
+                    // cover row
+                    rowCover(i) = 1;
+            
+                    // uncover column of the starred zero in the same row
+                    colCover(mark) = 0;
+                }
+            }
+        }
     }
     
     // Step 6
@@ -178,23 +188,34 @@ bool HungarianMatching(const MatrixReal& m, MatrixReal& result, EHungarianMatchi
     // Get the minimum uncovered element
 	Real min = std::numeric_limits<Real>::infinity();
     for (int i=0; i<n.rows(); i++) {
-      for (int j=0; j<n.cols(); j++) {
-        if (!rowCover(i) && !colCover(j) && n(i,j) < min) {
-          min = n(i,j);
+        if (rowCover(i)) {
+            continue;
         }
-      }
+        for (int j=0; j<n.cols(); j++) {
+            if (colCover(j)) {
+                continue;
+            }
+            if (n(i,j) < min) {
+                min = n(i,j);
+            }
+        }
     }
     
     // Subtract minimum from uncovered elements, add it to elements covered twice
     for (int i=0; i<n.rows(); i++) {
-      for (int j=0; j<n.cols(); j++) {
-        if (!rowCover(i) && !colCover(j)) {
-          n(i,j) -= min;
+        if (rowCover(i)) {
+            for (int j = 0; j < n.cols(); j++) {
+                if (colCover(j)) {
+                    n(i, j) += min;
+                }
+            }
+        } else {
+            for (int j = 0; j < n.cols(); j++) {
+                if (!colCover(j)) {
+                    n(i, j) -= min;
+                }
+            }
         }
-        else if (rowCover(i) && colCover(j)) {
-          n(i,j) += min;
-        }
-      }
     }
     
 	if (++step == maxsteps) {
