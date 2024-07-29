@@ -16,12 +16,13 @@ public:
 	inline const VectorReal& GetTimepoints() const { return timepoints; }
 	inline const MatrixReal& GetObservedData(size_t ix) const { return observed_data[ix]; }
 	inline size_t GetNumSimulatedCells() const { return cell_trajectories.size(); }
-	inline const MatrixReal& GetSimulatedData(size_t ix) const { return  cell_trajectories[ix]; }
+	inline const MatrixReal& GetSimulatedData(size_t ix) const { return  matched_data[ix]; }
 
 private:
 	VectorReal timepoints;
 	std::vector<MatrixReal> observed_data;
 	std::vector<MatrixReal> cell_trajectories;
+	std::vector<MatrixReal> matched_data;
 	std::vector<std::string> species_names;
 	std::map< size_t, std::vector<size_t> > species_map;
 };
