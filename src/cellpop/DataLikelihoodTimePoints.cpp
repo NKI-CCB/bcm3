@@ -45,11 +45,13 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 	result &= data_file.GetDimensionSize(experiment->GetName(), cell_dimension_name, &num_cells);
 
 	observed_data.resize(num_timepoints);
+	matched_data.resize(num_timepoints);
 	if (num_dimensions == 2) {
 		for (size_t i = 0; i < num_timepoints; i++) {
 			VectorReal od;
 			result &= data_file.GetValuesDim2(experiment->GetName(), data_name, i, 0, num_cells, od);
 			observed_data[i] = od;
+			matched_data[i] = VectorReal::Constant(num_cells, std::numeric_limits<Real>::quiet_NaN());
 		}
 	} else {
 		LOGERROR("TODO");
@@ -125,7 +127,7 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 	Real data_scale = GetCurrentDataScale(transformed_values, non_sampled_parameters);
 
 	for (ptrdiff_t ti = 0; ti < timepoints.size(); ti++) {
-		int n = std::max((size_t)observed_data[ti].size(), cell_trajectories.size());
+		matched_data[ti].setConstant(std::numeric_limits<Real>::quiet_NaN());
 
 		size_t finite_data_count = 0;
 		for (size_t i = 0; i < observed_data[ti].size(); i++) {
@@ -151,6 +153,8 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 		}
 
 		MatrixReal cell_likelihoods(finite_data_count, finite_sim_count);
+		Eigen::MatrixXi observed_data_indices(finite_data_count, finite_sim_count);
+		Eigen::MatrixXi trajectory_indices(finite_data_count, finite_sim_count);
 		cell_likelihoods.setConstant(-std::numeric_limits<Real>::infinity());
 		size_t i_ix = 0;
 		for (size_t i = 0; i < observed_data[ti].size(); i++) {
@@ -167,7 +171,7 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 
 				Real cell_logp = 0.0;
 				for (int l = 0; l < species_names.size(); l++) {
-					Real x = cell_trajectories[j](ti, l);
+					Real x = data_offset + data_scale * cell_trajectories[j](ti, l);
 					Real y = observed_data[ti](i, l);
 
 					if (error_model == ErrorModel::Normal) {
@@ -180,6 +184,8 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 					}
 				}
 				cell_likelihoods(i_ix, j_ix) = cell_logp;
+				observed_data_indices(i_ix, j_ix) = i;
+				trajectory_indices(i_ix, j_ix) = j;
 				j_ix++;
 			}
 			i_ix++;
@@ -195,6 +201,11 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 			for (size_t j = 0; j < finite_sim_count; j++) {
 				if (matching(i, j) == 1) {
 					logp += cell_likelihoods(i, j);
+					int data_ix = observed_data_indices(i, j);
+					int traj_ix = trajectory_indices(i, j);
+					for (int l = 0; l < species_names.size(); l++) {
+						matched_data[ti](data_ix, l) = data_offset + data_scale * cell_trajectories[traj_ix](ti, l);
+					}
 				}
 			}
 		}

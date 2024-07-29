@@ -343,7 +343,6 @@ void bcm3_rbridge_cellpop_get_simulated_data(char** bcm3info_ptr, char** experim
 				for (int j = 0; j < *out_num_markers; j++) {
 					for (int k = 0; k < *out_num_timepoints; k++) {
 						out_values[i * (*out_num_markers) * (*out_num_timepoints) + j * (*out_num_timepoints) + k] = o(k, j);
-						LOG("Value: %g", o(k, j));
 					}
 				}
 			}
