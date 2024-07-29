@@ -234,6 +234,12 @@ void bcm3_rbridge_cellpop_get_observed_data(char** bcm3info_ptr, char** experime
 		}
 
 		if (*out_num_timepoints > 0) {
+			if (dltp->GetObservedData(0).rows() > *out_num_cells) {
+				// Need to increase size in the R buffer
+				*retval = -5;
+				return;
+			}
+
 			*out_num_cells = dltp->GetObservedData(0).rows();
 			*out_num_markers = dltp->GetObservedData(0).cols();
 
@@ -312,7 +318,6 @@ void bcm3_rbridge_cellpop_get_simulated_data(char** bcm3info_ptr, char** experim
 			out_values[i] = dld->GetSimulatedData()(i);
 		}
 	}
-
 	const DataLikelihoodTimePoints* dltp = dynamic_cast<const DataLikelihoodTimePoints*>(dl);
 	if (dltp != nullptr) {
 		const VectorReal& t = dltp->GetTimepoints();
@@ -327,22 +332,23 @@ void bcm3_rbridge_cellpop_get_simulated_data(char** bcm3info_ptr, char** experim
 		}
 
 		if (*out_num_timepoints > 0) {
-			if (dltp->GetNumSimulatedCells() > *out_num_cells) {
+			if (dltp->GetObservedData(0).rows() > *out_num_cells) {
 				// Need to increase size in the R buffer
 				*retval = -5;
 				return;
 			}
 
-			*out_num_cells = dltp->GetNumSimulatedCells();
+			*out_num_cells = dltp->GetObservedData(0).rows();
 			*out_num_markers = dltp->GetSimulatedData(0).cols();
 
-			for (int i = 0; i < *out_num_cells; i++) {
-				const MatrixReal& o = dltp->GetSimulatedData(i);
+			for (int k = 0; k < *out_num_timepoints; k++) {
+				const MatrixReal& o = dltp->GetSimulatedData(k);
+				ASSERT(o.rows() <= (*out_num_cells));
 				ASSERT(o.cols() <= (*out_num_markers));
 
 				for (int j = 0; j < *out_num_markers; j++) {
-					for (int k = 0; k < *out_num_timepoints; k++) {
-						out_values[i * (*out_num_markers) * (*out_num_timepoints) + j * (*out_num_timepoints) + k] = o(k, j);
+					for (int i = 0; i < *out_num_cells; i++) {
+						out_values[i * (*out_num_markers) * (*out_num_timepoints) + j * (*out_num_timepoints) + k] = o(i, j);
 					}
 				}
 			}
