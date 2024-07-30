@@ -221,7 +221,7 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 					for (size_t i = 0; i < active_cells; i++) {
 						Real x = cells[i]->GetInterpolatedSpeciesValue(st.time, st.species_ix, st.synchronize);
 						if (x == x) {
-							data_likelihoods[st.data_likelihood_ix]->NotifySimulatedValue(st.time_ix, x, st.species_ix, i, population_size, mitotic_population_size, 0, cells[i]->EnteredMitosis());
+							data_likelihoods[st.data_likelihood_ix]->NotifySimulatedValue(st.time_ix, x, st.species_ix, i, population_size, mitotic_population_size, 0, cells[i]->EnteredMitosis(), i >= initial_number_of_cells);
 						}
 					}
 				}

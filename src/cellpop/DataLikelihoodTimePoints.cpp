@@ -2,10 +2,14 @@
 #include "DataLikelihoodTimePoints.h"
 #include "Experiment.h"
 #include "ProbabilityDistributions.h"
+#include "VectorUtils.h"
 #include "../../dependencies/HungarianAlgorithm-master/matching.h"
 #include <boost/algorithm/string.hpp>
 
 DataLikelihoodTimePoints::DataLikelihoodTimePoints(size_t parallel_evaluations)
+	: use_only_nondivided(false)
+	, scale_to_quantile(std::numeric_limits<Real>::quiet_NaN())
+	, scale_to_quantile_min(0.01)
 {
 }
 
@@ -21,7 +25,14 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 
 	bool result = true;
 
-	std::string species_name = xml_node.get<std::string>("<xmlattr>.species_name");
+	use_only_nondivided = xml_node.get<bool>("<xmlattr>.use_only_nondivided", false);
+	scale_to_quantile = xml_node.get<Real>("<xmlattr>.scale_to_quantile", std::numeric_limits<Real>::quiet_NaN());
+	if (!std::isnan(scale_to_quantile)) {
+		if (scale_to_quantile <= 0 || scale_to_quantile >= 1) {
+			LOGERROR("Scale to quantile should be between 0 and 1");
+			return false;
+		}
+	}
 
 	std::string time_dimension_name;
 	size_t num_dimensions = 0;
@@ -58,6 +69,7 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 		return false;
 	}
 
+	std::string species_name = xml_node.get<std::string>("<xmlattr>.species_name");
 	if (species_name.find_first_of(';') != std::string::npos) {
 		bcm3::tokenize(species_name, species_names, ";");
 		for (size_t i = 0; i < species_names.size(); i++) {
@@ -124,7 +136,30 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 {
 	Real stdev = GetCurrentSTDev(transformed_values, non_sampled_parameters);
 	Real data_offset = GetCurrentDataOffset(transformed_values, non_sampled_parameters);
-	Real data_scale = GetCurrentDataScale(transformed_values, non_sampled_parameters);
+	Real data_scale;
+
+	if (!std::isnan(scale_to_quantile)) {
+		VectorReal stacked_sim_values(timepoints.size() * cell_trajectories.size());
+		ptrdiff_t i = 0;
+		for (ptrdiff_t ti = 0; ti < timepoints.size(); ti++) {
+			for (ptrdiff_t ci = 0; ci < cell_trajectories.size(); ci++) {
+				Real val = cell_trajectories[ci](ti, 0);
+				if (!std::isnan(val)) {
+					stacked_sim_values(i) = val;
+					i++;
+				}
+			}
+		}
+		if (i > 1) {
+			stacked_sim_values.conservativeResize(i);
+			bcm3::sort(stacked_sim_values);
+			Real quant = stacked_sim_values((ptrdiff_t)std::floor(scale_to_quantile * stacked_sim_values.size()));
+			quant = std::max(quant, scale_to_quantile_min);
+			data_scale = 1.0 / quant;
+		}
+	} else {
+		data_scale = GetCurrentDataScale(transformed_values, non_sampled_parameters);
+	}
 
 	for (ptrdiff_t ti = 0; ti < timepoints.size(); ti++) {
 		matched_data[ti].setConstant(std::numeric_limits<Real>::quiet_NaN());
@@ -216,9 +251,13 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 	return true;
 }
 
-bool DataLikelihoodTimePoints::NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t mitotic_population_size, size_t parallel_evaluation_ix, bool entered_mitosis)
+bool DataLikelihoodTimePoints::NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t mitotic_population_size, size_t parallel_evaluation_ix, bool entered_mitosis, bool is_newborn)
 {
 	if (species_ix == std::numeric_limits<size_t>::max()) {
+		return true;
+	}
+
+	if (use_only_nondivided && is_newborn) {
 		return true;
 	}
 
