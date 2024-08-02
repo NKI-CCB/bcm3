@@ -199,6 +199,10 @@ bool HungarianMatching(const MatrixReal& m, MatrixReal& result, EHungarianMatchi
                 min = n(i,j);
             }
         }
+
+        // Second improvement of Jonker and Volgenant, 1986; it suffices to take
+        // the minimum of any uncovered row, no need to scan the whole matrix
+        break;
     }
     
     // Subtract minimum from uncovered elements, add it to elements covered twice

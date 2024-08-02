@@ -522,7 +522,7 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 	return true;
 }
 
-bool DataLikelihoodTimeCourse::NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t mitotic_population_size, size_t parallel_evaluation_ix, bool entered_mitosis)
+bool DataLikelihoodTimeCourse::NotifySimulatedValue(size_t timepoint_ix, Real x, size_t species_ix, size_t cell_ix, size_t current_population_size, size_t mitotic_population_size, size_t parallel_evaluation_ix, bool entered_mitosis, bool is_newborn)
 {
 	if (species_ix == std::numeric_limits<size_t>::max()) {
 		return true;
