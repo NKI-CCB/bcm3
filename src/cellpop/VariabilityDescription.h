@@ -19,10 +19,18 @@ public:
 	bool ApplyVariabilitySpecies(const std::string& species, OdeReal& value, const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
 
 private:
+	struct Parameter {
+		Parameter();
+		std::string str;
+		Real fixed_value;
+		size_t variable_ix;
+		size_t non_sampled_variable_ix;
+	};
+
 	bool Load(const boost::property_tree::ptree& xml_node);
-	Real GetRangeValue(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
-	Real GetDOFValue(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
-	Real DistributionQuantile(Real p, Real range, Real dof) const;
+	bool InitializeParameter(Parameter& p, std::shared_ptr<const bcm3::VariableSet> varset, const std::vector<std::string>& non_sampled_parameter_names, const SBMLModel& model);
+	Real GetParameterValue(const Parameter& p, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
+	Real DistributionQuantile(Real p, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
 	void ApplyType(Real& x, Real& value) const;
 
 	enum class EType {
@@ -38,7 +46,10 @@ private:
 		HalfNormal,
 		StudentT,
 		Bernoulli,
+		MultipliedBernoulli,
 		Uniform,
+		Exponential,
+		ProportionExponential,
 
 		Invalid
 	};
@@ -49,14 +60,10 @@ private:
 
 	EType type;
 	EDistribution distribution;
-	
-	std::string range_str;
-	Real fixed_range_value;
-	size_t range_ix;
-	size_t non_sampled_range_ix;
-	std::string dof_str;
-	Real fixed_dof_value;
-	size_t dof_ix;
-	size_t non_sampled_dof_ix;
+
+	Parameter range;
+	Parameter dof;
+	Parameter proportion;
+
 	bool only_initial_cells;
 };

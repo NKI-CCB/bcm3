@@ -2,15 +2,16 @@
 #include "ProbabilityDistributions.h"
 #include "VariabilityDescription.h"
 
+VariabilityDescription::Parameter::Parameter()
+	: fixed_value(std::numeric_limits<Real>::quiet_NaN())
+	, variable_ix(std::numeric_limits<size_t>::max())
+	, non_sampled_variable_ix(std::numeric_limits<size_t>::max())
+{
+}
+
 VariabilityDescription::VariabilityDescription()
 	: type(EType::Invalid)
 	, distribution(EDistribution::Invalid)
-	, fixed_range_value(std::numeric_limits<Real>::quiet_NaN())
-	, range_ix(std::numeric_limits<size_t>::max())
-	, non_sampled_range_ix(std::numeric_limits<size_t>::max())
-	, fixed_dof_value(std::numeric_limits<Real>::quiet_NaN())
-	, dof_ix(std::numeric_limits<size_t>::max())
-	, non_sampled_dof_ix(std::numeric_limits<size_t>::max())
 	, only_initial_cells(false)
 {
 
@@ -40,41 +41,16 @@ std::unique_ptr<VariabilityDescription> VariabilityDescription::Create(const boo
 
 bool VariabilityDescription::PostInitialize(std::shared_ptr<const bcm3::VariableSet> varset, const std::vector<std::string>& non_sampled_parameter_names, const SBMLModel& model)
 {
-	if (!range_str.empty()) {
-		range_ix = varset->GetVariableIndex(range_str, false);
-		if (range_ix == std::numeric_limits<size_t>::max()) {
-			// No, it ins't - is it a non-sampled parameter?
-			auto it = std::find(non_sampled_parameter_names.begin(), non_sampled_parameter_names.end(), range_str);
-			if (it != non_sampled_parameter_names.end()) {
-				non_sampled_range_ix = it - non_sampled_parameter_names.begin();
-			} else {
-				// No, it isn't - try to cast it to a Real
-				try {
-					fixed_range_value = boost::lexical_cast<Real>(range_str);
-				} catch (const boost::bad_lexical_cast & e) {
-					LOGERROR("Could not find variable for range parameter \"%s\", and could also not cast it to a constant real value: %s", range_str.c_str(), e.what());
-					return false;
-				}
-			}
-		}
+	bool result = true;
+
+	if (distribution != EDistribution::Bernoulli) {
+		result &= InitializeParameter(range, varset, non_sampled_parameter_names, model);
 	}
-	if (!dof_str.empty()) {
-		dof_ix = varset->GetVariableIndex(dof_str, false);
-		if (dof_ix == std::numeric_limits<size_t>::max()) {
-			// No, it ins't - is it a non-sampled parameter?
-			auto it = std::find(non_sampled_parameter_names.begin(), non_sampled_parameter_names.end(), dof_str);
-			if (it != non_sampled_parameter_names.end()) {
-				non_sampled_dof_ix = it - non_sampled_parameter_names.begin();
-			} else {
-				// No, it isn't - try to cast it to a Real
-				try {
-					fixed_dof_value = boost::lexical_cast<Real>(dof_str);
-				} catch (const boost::bad_lexical_cast& e) {
-					LOGERROR("Could not find variable for degrees of freedom parameter \"%s\", and could also not cast it to a constant real value: %s", dof_str.c_str(), e.what());
-					return false;
-				}
-			}
-		}
+	if (distribution == EDistribution::StudentT) {
+		result &= InitializeParameter(dof, varset, non_sampled_parameter_names, model);
+	}
+	if (distribution == EDistribution::Bernoulli || distribution == EDistribution::MultipliedBernoulli || distribution == EDistribution::ProportionExponential) {
+		result &= InitializeParameter(proportion, varset, non_sampled_parameter_names, model);
 	}
 
 	if (!parameter_name.empty()) {
@@ -106,9 +82,7 @@ bool VariabilityDescription::ApplyVariabilityEntryTime(Real& value, const Vector
 		// This variability description applies to entry time
 		Real sobol_sample = sobol_sequence[sobol_sequence_ix++];
 		if (!only_initial_cells || is_initial_cell) {
-			Real range = GetRangeValue(transformed_values, non_sampled_parameters);
-			Real dof = GetDOFValue(transformed_values, non_sampled_parameters);
-			Real q = DistributionQuantile(sobol_sample, range, dof);
+			Real q = DistributionQuantile(sobol_sample, transformed_values, non_sampled_parameters);
 			ApplyType(value, q);
 		}
 		return true;
@@ -123,9 +97,7 @@ bool VariabilityDescription::ApplyVariabilityParameter(const std::string& parame
 		// This variability description applies to this parameter
 		Real sobol_sample = sobol_sequence[sobol_sequence_ix++];
 		if (!only_initial_cells || is_initial_cell) {
-			Real range = GetRangeValue(transformed_values, non_sampled_parameters);
-			Real dof = GetDOFValue(transformed_values, non_sampled_parameters);
-			Real q = DistributionQuantile(sobol_sample, range, dof);
+			Real q = DistributionQuantile(sobol_sample, transformed_values, non_sampled_parameters);
 			Real real_value = (Real)value;
 			ApplyType(real_value, q);
 			value = (OdeReal)real_value;
@@ -142,9 +114,7 @@ bool VariabilityDescription::ApplyVariabilitySpecies(const std::string& species,
 		// This variability description applies to this species
 		Real sobol_sample = sobol_sequence[sobol_sequence_ix++];
 		if (!only_initial_cells || is_initial_cell) {
-			Real range = GetRangeValue(transformed_values, non_sampled_parameters);
-			Real dof = GetDOFValue(transformed_values, non_sampled_parameters);
-			Real q = DistributionQuantile(sobol_sample, range, dof);
+			Real q = DistributionQuantile(sobol_sample, transformed_values, non_sampled_parameters);
 			Real real_value = (Real)value;
 			ApplyType(real_value, q);
 			real_value = fabs(real_value);
@@ -205,77 +175,142 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 		distribution = EDistribution::StudentT;
 	} else if (distribution_str == "bernoulli") {
 		distribution = EDistribution::Bernoulli;
+	} else if (distribution_str == "multiplied_bernoulli") {
+		distribution = EDistribution::MultipliedBernoulli;
 	} else if (distribution_str == "uniform") {
 		distribution = EDistribution::Uniform;
+	} else if (distribution_str == "exponential") {
+		distribution = EDistribution::Exponential;
+	} else if (distribution_str == "propotion_exponential") {
+		distribution = EDistribution::ProportionExponential;
 	} else {
 		LOGERROR("Unknown distribution \"%s\" in variability description", distribution_str.c_str());
 		return false;
 	}
 
-	range_str = xml_node.get<std::string>("<xmlattr>.range");
-	dof_str = xml_node.get<std::string>("<xmlattr>.degrees_of_freedom_minus_two", "0.0");
-
-	if (distribution == EDistribution::StudentT && dof_str == "0.0") {
-		LOGERROR("Student T-distribution with fixed 0 degrees of freedom has been specified; likely because the degrees of freedom was not specified - please specify degrees_of_freedom_minus_two in the variability description.");
-		return false;
+	if (distribution != EDistribution::Bernoulli) {
+		range.str = xml_node.get<std::string>("<xmlattr>.range");
+	}
+	if (distribution == EDistribution::StudentT) {
+		dof.str = xml_node.get<std::string>("<xmlattr>.degrees_of_freedom_minus_two");
+	}
+	if (distribution == EDistribution::Bernoulli || distribution == EDistribution::MultipliedBernoulli || distribution == EDistribution::ProportionExponential) {
+		proportion.str = xml_node.get<std::string>("<xmlattr>.proportion");
 	}
 
 	return true;
 }
 
-Real VariabilityDescription::GetRangeValue(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
+bool VariabilityDescription::InitializeParameter(Parameter& p, std::shared_ptr<const bcm3::VariableSet> varset, const std::vector<std::string>& non_sampled_parameter_names, const SBMLModel& model)
 {
-	if (range_ix != std::numeric_limits<size_t>::max()) {
-		return transformed_values[range_ix];
-	} else if (non_sampled_range_ix != std::numeric_limits<size_t>::max()) {
-		return non_sampled_parameters[non_sampled_range_ix];
+	ASSERT(!p.str.empty()); // Missing variables should have been caught in VariabilityDescription::Load already
+
+	p.variable_ix = varset->GetVariableIndex(p.str, false);
+	if (p.variable_ix == std::numeric_limits<size_t>::max()) {
+		// No, it ins't - is it a non-sampled parameter?
+		auto it = std::find(non_sampled_parameter_names.begin(), non_sampled_parameter_names.end(), p.str);
+		if (it != non_sampled_parameter_names.end()) {
+			p.non_sampled_variable_ix = it - non_sampled_parameter_names.begin();
+		} else {
+			// No, it isn't - try to cast it to a Real
+			try {
+				p.fixed_value = boost::lexical_cast<Real>(p.str);
+			} catch (const boost::bad_lexical_cast& e) {
+				LOGERROR("Could not find variable for parameter \"%s\", and could also not cast it to a constant real value: %s", p.str.c_str(), e.what());
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+Real VariabilityDescription::GetParameterValue(const Parameter& p, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
+{
+	if (p.variable_ix != std::numeric_limits<size_t>::max()) {
+		return transformed_values[p.variable_ix];
+	} else if (p.non_sampled_variable_ix != std::numeric_limits<size_t>::max()) {
+		return non_sampled_parameters[p.non_sampled_variable_ix];
 	} else {
-		ASSERT(fixed_range_value != std::numeric_limits<Real>::quiet_NaN());
-		return fixed_range_value;
+		ASSERT(!std::isnan(p.fixed_value));
+		return p.fixed_value;
 	}
 }
 
-Real VariabilityDescription::GetDOFValue(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
-{
-	Real dof_minus_two;
-	if (dof_ix != std::numeric_limits<size_t>::max()) {
-		dof_minus_two = transformed_values[dof_ix];
-	} else if (non_sampled_dof_ix != std::numeric_limits<size_t>::max()) {
-		dof_minus_two = non_sampled_parameters[non_sampled_dof_ix];
-	} else {
-		ASSERT(fixed_dof_value != std::numeric_limits<Real>::quiet_NaN());
-		dof_minus_two = fixed_dof_value;
-	}
-	return dof_minus_two + 2.0;
-}
-
-Real VariabilityDescription::DistributionQuantile(Real p, Real range, Real dof) const
+Real VariabilityDescription::DistributionQuantile(Real p, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
 {
 	Real q = std::numeric_limits<Real>::quiet_NaN();
 
 	switch (distribution) {
 	case EDistribution::Normal:
-		q = bcm3::QuantileNormal(p, 0, range);
+		{
+			Real range_value = GetParameterValue(range, transformed_values, non_sampled_parameters);
+			q = bcm3::QuantileNormal(p, 0, range_value);
+		}
 		break;
 
 	case EDistribution::HalfNormal:
-		q = bcm3::QuantileNormal(0.5 + p * 0.5, 0, range);
+		{
+			Real range_value = GetParameterValue(range, transformed_values, non_sampled_parameters);
+			q = bcm3::QuantileNormal(0.5 + p * 0.5, 0, range_value);
+		}
 		break;
 
 	case EDistribution::StudentT:
-		q = bcm3::QuantileT(p, 0, range, dof);
+		{
+			Real range_value = GetParameterValue(range, transformed_values, non_sampled_parameters);
+			Real dof_value = GetParameterValue(dof, transformed_values, non_sampled_parameters) + 2.0;
+			q = bcm3::QuantileT(p, 0, range_value, dof_value);
+		}
 		break;
 
 	case EDistribution::Bernoulli:
-		if (p < range) {
-			q = 0.0;
-		} else {
-			q = 1.0;
+		{
+			Real proportion_value = GetParameterValue(proportion, transformed_values, non_sampled_parameters);
+			if (p < proportion_value) {
+				q = 0.0;
+			} else {
+				q = 1.0;
+			}
+		}
+		break;
+
+	case EDistribution::MultipliedBernoulli:
+		{
+			Real range_value = GetParameterValue(range, transformed_values, non_sampled_parameters);
+			Real proportion_value = GetParameterValue(proportion, transformed_values, non_sampled_parameters);
+			if (p < proportion_value) {
+				q = 0.0;
+			} else {
+				q = range_value;
+			}
 		}
 		break;
 
 	case EDistribution::Uniform:
-		q = p * range;
+		{
+			Real range_value = GetParameterValue(range, transformed_values, non_sampled_parameters);
+			q = p * range_value;
+		}
+		break;
+
+	case EDistribution::Exponential:
+		{
+			Real range_value = GetParameterValue(range, transformed_values, non_sampled_parameters);
+			q = bcm3::QuantileExponential(p, range_value);
+		}
+		break;
+
+	case EDistribution::ProportionExponential:
+		{
+			Real range_value = GetParameterValue(range, transformed_values, non_sampled_parameters);
+			Real proportion_value = GetParameterValue(proportion, transformed_values, non_sampled_parameters);
+			if (p < proportion_value) {
+				q = 0.0;
+			} else {
+				q = bcm3::QuantileExponential(p, range_value);
+			}
+		}
 		break;
 
 	default:
