@@ -297,7 +297,7 @@ Real VariabilityDescription::DistributionQuantile(Real p, const VectorReal& tran
 	case EDistribution::Exponential:
 		{
 			Real range_value = GetParameterValue(range, transformed_values, non_sampled_parameters);
-			q = bcm3::QuantileExponential(p, range_value);
+			q = bcm3::QuantileExponential(p, 1.0 / range_value);
 		}
 		break;
 
@@ -308,7 +308,7 @@ Real VariabilityDescription::DistributionQuantile(Real p, const VectorReal& tran
 			if (p < proportion_value) {
 				q = 0.0;
 			} else {
-				q = bcm3::QuantileExponential((p - proportion_value) / (1.0 - proportion_value), range_value);
+				q = bcm3::QuantileExponential((p - proportion_value) / (1.0 - proportion_value), 1.0 / range_value);
 			}
 		}
 		break;
