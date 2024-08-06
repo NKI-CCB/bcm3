@@ -35,6 +35,11 @@ private:
 	size_t fixed_missing_simulation_time_stdev_non_sampled_ix;
 	Real fixed_missing_simulation_time_stdev;
 
+	bool use_signal_saturation;
+	Real saturation_scale;
+	std::string saturation_scale_str;
+	size_t saturation_scale_ix;
+
 	VectorReal timepoints;
 	std::vector<MatrixReal> observed_data;
 	std::vector<size_t> observed_cells_with_no_parents;

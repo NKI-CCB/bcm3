@@ -10,6 +10,8 @@ DataLikelihoodTimeCourse::DataLikelihoodTimeCourse(size_t parallel_evaluations)
 	: use_population_average(true)
 	, use_log_ratio(false)
 	, include_only_cells_that_went_through_mitosis(false)
+	, use_signal_saturation(false)
+	, saturation_scale(1.0)
 	, synchronize(ESynchronizeCellTrajectory::None)
 	, fixed_missing_simulation_time_stdev_ix(std::numeric_limits<size_t>::max())
 	, fixed_missing_simulation_time_stdev_non_sampled_ix(std::numeric_limits<size_t>::max())
@@ -37,6 +39,8 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 	use_log_ratio = xml_node.get<bool>("<xmlattr>.use_log_ratio", false);
 	include_only_cells_that_went_through_mitosis = xml_node.get<bool>("<xmlattr>.include_only_cells_that_went_through_mitosis", false);
 	missing_simulation_time_stdev_str = xml_node.get<std::string>("<xmlattr>.missing_simulation_time_stdev", "");
+
+	saturation_scale_str = xml_node.get<std::string>("<xmlattr>.saturation_scale", "");
 
 	std::string synchronize_str = xml_node.get<std::string>("<xmlattr>.synchronize", "");
 	if (synchronize_str == "" || synchronize_str == "none") {
@@ -325,6 +329,21 @@ bool DataLikelihoodTimeCourse::PostInitialize(const bcm3::VariableSet& varset, c
 		}
 	}
 
+	if (!saturation_scale_str.empty()) {
+		use_signal_saturation = true;
+
+		saturation_scale_ix = varset.GetVariableIndex(saturation_scale_str, false);
+		if (saturation_scale_ix == std::numeric_limits<size_t>::max()) {
+			// Try to cast it to a Real
+			try {
+				saturation_scale = boost::lexical_cast<Real>(saturation_scale_str);
+			} catch (const boost::bad_lexical_cast& e) {
+				LOGERROR("Could not find variable for saturation scale \"%s\", and could also not cast it to a constant real value: %s", saturation_scale_str.c_str(), e.what());
+				return false;
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -363,6 +382,11 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 		missing_simulation_time_stdev = fixed_missing_simulation_time_stdev;
 	}
 
+	Real saturation_scale = this->saturation_scale;
+	if (saturation_scale_ix != std::numeric_limits<size_t>::max()) {
+		saturation_scale = transformed_values[saturation_scale_ix];
+	}
+
 	if (use_population_average) {
 		// If parallel_population_averages.size() >= 1, then add the parallel evaluations
 		for (size_t i = 0; i < parallel_population_averages.size(); i++) {
@@ -383,6 +407,18 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 		for (size_t i = 0; i < cell_trajectories.size(); i++) {
 			cell_trajectories[i].array() *= data_scale;
 			cell_trajectories[i].array() += data_offset;
+		}
+	}
+
+	if (use_signal_saturation) {
+		for (size_t i = 0; i < cell_trajectories.size(); i++) {
+			//cell_trajectories[i].array() = saturation_scale / (1.0 + exp(-saturation_hill * cell_trajectories[i].array())) - 0.5 * saturation_scale;
+			cell_trajectories[i] *= -1.0; // *= -saturation_hill // the hill coefficient can just be absorbed into the data_scale
+			cell_trajectories[i].array() = cell_trajectories[i].array().exp();
+			cell_trajectories[i].array() += 1.0;
+			cell_trajectories[i].array() = 1.0 / cell_trajectories[i].array();
+			cell_trajectories[i] *= saturation_scale;
+			cell_trajectories[i].array() -= 0.5 * saturation_scale;
 		}
 	}
 
