@@ -10,6 +10,7 @@ DataLikelihoodTimeCourse::DataLikelihoodTimeCourse(size_t parallel_evaluations)
 	: use_population_average(true)
 	, use_log_ratio(false)
 	, include_only_cells_that_went_through_mitosis(false)
+	, population_relative_to_time_average(false)
 	, use_signal_saturation(false)
 	, saturation_scale(1.0)
 	, saturation_scale_ix(std::numeric_limits<size_t>::max())
@@ -37,6 +38,7 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 
 	std::string species_name = xml_node.get<std::string>("<xmlattr>.species_name");
 	use_population_average = xml_node.get<bool>("<xmlattr>.use_population_average", false);
+	population_relative_to_time_average = xml_node.get<bool>("<xmlattr>.population_relative_to_time_average", false);
 	use_log_ratio = xml_node.get<bool>("<xmlattr>.use_log_ratio", false);
 	include_only_cells_that_went_through_mitosis = xml_node.get<bool>("<xmlattr>.include_only_cells_that_went_through_mitosis", false);
 	missing_simulation_time_stdev_str = xml_node.get<std::string>("<xmlattr>.missing_simulation_time_stdev", "");
@@ -177,6 +179,13 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 		}
 		cell_trajectories.resize(experiment->GetMaxNumberOfCells(), MatrixReal::Constant(num_timepoints, species_names.size(), std::numeric_limits<Real>::quiet_NaN()));
 		matched_trajectories.resize(observed_data.size(), MatrixReal::Constant(observed_data[0].rows(), observed_data[0].cols(), std::numeric_limits<Real>::quiet_NaN()));
+	}
+
+	if (population_relative_to_time_average) {
+		if (!use_population_average) {
+			LOGERROR("Relative to time average can only be used in combination with use_population_average");
+			return false;
+		}
 	}
 
 	// Do we have parent information?
@@ -401,7 +410,17 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 				}
 			}
 		}
+	}
 
+	if (population_relative_to_time_average && use_population_average) {
+		VectorReal time_average = population_average.colwise().mean();
+		for (int i = 0; i < time_average.size(); i++) {
+			//population_average.col(i) = (population_average.col(i) /= time_average(i)).array().log();
+			population_average.col(i) = population_average.col(i).array() -= time_average(i);
+		}
+	}
+
+	if (use_population_average) {
 		population_average.array() *= data_scale;
 		population_average.array() += data_offset;
 	} else {

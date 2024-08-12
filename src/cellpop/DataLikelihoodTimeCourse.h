@@ -29,6 +29,7 @@ private:
 	bool use_population_average;
 	bool use_log_ratio;
 	bool include_only_cells_that_went_through_mitosis;
+	bool population_relative_to_time_average;
 	ESynchronizeCellTrajectory synchronize;
 	std::string missing_simulation_time_stdev_str;
 	size_t fixed_missing_simulation_time_stdev_ix;
