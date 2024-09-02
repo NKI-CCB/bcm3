@@ -195,6 +195,11 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 				for (int l = 0; l < species_names.size(); l++) {
 					Real x = data_offsets[l] + data_scales[l] * cell_trajectories[j](ti, l);
 					Real y = observed_data[ti](i, l);
+					if (std::isnan(y)) {
+						// At least one value of this cell should be non-nan (due to check for any finite in the row; above
+						// the other nan's we can ignore as missing values
+						continue;
+					}
 
 					if (error_model == ErrorModel::Normal) {
 						cell_logp += bcm3::LogPdfNormal(y, x, stdevs[l]);
