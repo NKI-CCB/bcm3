@@ -76,7 +76,7 @@ bcm3.cellpop.get.observed.data <- function(bcm3, experiment, max_cells=500) {
     nmarkers <- res[[8]]
     
     retval[[i]]$time <- res[[5]][1:ntimepoints]
-    retval[[i]]$data <- array(res[[4]], c(ntimepoints, ncells, nmarkers))
+    retval[[i]]$data <- aperm(array(res[[4]], c(ntimepoints, nmarkers, ncells)), c(1, 3, 2))
   }
   return(retval)
 }
@@ -107,7 +107,7 @@ bcm3.cellpop.get.simulated.data <- function(bcm3, experiment, param.values, max_
     nmarkers <- res[[9]]
     
     retval[[i]]$time <- res[[6]][1:ntimepoints]
-    retval[[i]]$data <- array(res[[5]], c(ntimepoints, ncells, nmarkers))
+    retval[[i]]$data <- aperm(array(res[[5]], c(ntimepoints, nmarkers, ncells)), c(1, 3, 2))
   }
   return(retval)
 }

@@ -8,8 +8,6 @@
 
 DataLikelihoodTimePoints::DataLikelihoodTimePoints(size_t parallel_evaluations)
 	: use_only_nondivided(false)
-	, scale_to_quantile(std::numeric_limits<Real>::quiet_NaN())
-	, scale_to_quantile_min(0.01)
 {
 }
 
@@ -26,13 +24,6 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 	bool result = true;
 
 	use_only_nondivided = xml_node.get<bool>("<xmlattr>.use_only_nondivided", false);
-	scale_to_quantile = xml_node.get<Real>("<xmlattr>.scale_to_quantile", std::numeric_limits<Real>::quiet_NaN());
-	if (!std::isnan(scale_to_quantile)) {
-		if (scale_to_quantile <= 0 || scale_to_quantile >= 1) {
-			LOGERROR("Scale to quantile should be between 0 and 1");
-			return false;
-		}
-	}
 
 	std::string time_dimension_name;
 	size_t num_dimensions = 0;
@@ -40,8 +31,8 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 	result &= data_file.GetDimensionCount(experiment->GetName(), data_name, &num_dimensions);
 
 	// Check whether there is the right amount of data
-	if (num_dimensions != 2) {
-		LOGERROR("Need 2 dimensional data");
+	if (num_dimensions != 2 && num_dimensions != 3) {
+		LOGERROR("Need 2 or 3 dimensional data");
 		return false;
 	}
 
@@ -64,8 +55,23 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 			observed_data[i] = od;
 			matched_data[i] = VectorReal::Constant(num_cells, std::numeric_limits<Real>::quiet_NaN());
 		}
+	} else if (num_dimensions == 3) {
+		size_t num_markers;
+		std::string marker_dim_name;
+		result &= data_file.GetDimensionName(experiment->GetName(), data_name, 2, marker_dim_name);
+		result &= data_file.GetDimensionSize(experiment->GetName(), marker_dim_name, &num_markers);
+
+		for (size_t i = 0; i < num_timepoints; i++) {
+			observed_data[i] = MatrixReal::Zero(num_cells, num_markers);
+			for (size_t j = 0; j < num_markers; j++) {
+				VectorReal od;
+				result &= data_file.GetValuesDim2(experiment->GetName(), data_name, i, 0, j, num_cells, od);
+				observed_data[i].col(j) = od;
+			}
+			matched_data[i] = MatrixReal::Constant(num_cells, num_markers, std::numeric_limits<Real>::quiet_NaN());
+		}
 	} else {
-		LOGERROR("TODO");
+		ASSERT(false);
 		return false;
 	}
 
@@ -80,7 +86,7 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 	}
 
 	if (experiment->GetMaxNumberOfCells() < num_cells) {
-		LOGERROR("Maximum number of simulated cells (%zu) in the experiment is not sufficient for the amount of cells in the data (%zu)", experiment->GetMaxNumberOfCells(), observed_data.size());
+		LOGERROR("Maximum number of simulated cells (%zu) in the experiment is not sufficient for the amount of cells in the data (%zu)", experiment->GetMaxNumberOfCells(), num_cells);
 		return false;
 	}
 	cell_trajectories.resize(experiment->GetMaxNumberOfCells(), MatrixReal::Constant(num_timepoints, species_names.size(), std::numeric_limits<Real>::quiet_NaN()));
@@ -134,39 +140,21 @@ void DataLikelihoodTimePoints::Reset()
 
 bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, Real& logp)
 {
-	Real stdev = GetCurrentSTDev(transformed_values, non_sampled_parameters);
-	Real data_offset = GetCurrentDataOffset(transformed_values, non_sampled_parameters);
-	Real data_scale;
-
-	if (!std::isnan(scale_to_quantile)) {
-		VectorReal stacked_sim_values(timepoints.size() * cell_trajectories.size());
-		ptrdiff_t i = 0;
-		for (ptrdiff_t ti = 0; ti < timepoints.size(); ti++) {
-			for (ptrdiff_t ci = 0; ci < cell_trajectories.size(); ci++) {
-				Real val = cell_trajectories[ci](ti, 0);
-				if (!std::isnan(val)) {
-					stacked_sim_values(i) = val;
-					i++;
-				}
-			}
-		}
-		if (i > 1) {
-			stacked_sim_values.conservativeResize(i);
-			bcm3::sort(stacked_sim_values);
-			Real quant = stacked_sim_values((ptrdiff_t)std::floor(scale_to_quantile * stacked_sim_values.size()));
-			quant = std::max(quant, scale_to_quantile_min);
-			data_scale = 1.0 / quant;
-		}
-	} else {
-		data_scale = GetCurrentDataScale(transformed_values, non_sampled_parameters);
+	std::vector<Real> stdevs(species_names.size());
+	std::vector<Real> data_offsets(species_names.size());
+	std::vector<Real> data_scales(species_names.size());
+	for (size_t i = 0; i < species_names.size(); i++) {
+		stdevs[i] = GetCurrentSTDev(transformed_values, non_sampled_parameters, i);
+		data_offsets[i] = GetCurrentDataOffset(transformed_values, non_sampled_parameters, i);
+		data_scales[i] = GetCurrentDataScale(transformed_values, non_sampled_parameters, i);
 	}
 
 	for (ptrdiff_t ti = 0; ti < timepoints.size(); ti++) {
 		matched_data[ti].setConstant(std::numeric_limits<Real>::quiet_NaN());
 
 		size_t finite_data_count = 0;
-		for (size_t i = 0; i < observed_data[ti].size(); i++) {
-			if (!std::isnan(observed_data[ti](i))) {
+		for (ptrdiff_t i = 0; i < observed_data[ti].rows(); i++) {
+			if (observed_data[ti].row(i).array().isFinite().any()) {
 				finite_data_count++;
 			}
 		}
@@ -192,8 +180,8 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 		Eigen::MatrixXi trajectory_indices(finite_data_count, finite_sim_count);
 		cell_likelihoods.setConstant(-std::numeric_limits<Real>::infinity());
 		size_t i_ix = 0;
-		for (size_t i = 0; i < observed_data[ti].size(); i++) {
-			if (std::isnan(observed_data[ti](i))) {
+		for (ptrdiff_t i = 0; i < observed_data[ti].rows(); i++) {
+			if (!observed_data[ti].row(i).array().isFinite().any()) {
 				continue;
 			}
 
@@ -203,16 +191,15 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 					continue;
 				}
 
-
 				Real cell_logp = 0.0;
 				for (int l = 0; l < species_names.size(); l++) {
-					Real x = data_offset + data_scale * cell_trajectories[j](ti, l);
+					Real x = data_offsets[l] + data_scales[l] * cell_trajectories[j](ti, l);
 					Real y = observed_data[ti](i, l);
 
 					if (error_model == ErrorModel::Normal) {
-						cell_logp += bcm3::LogPdfNormal(y, x, stdev);
+						cell_logp += bcm3::LogPdfNormal(y, x, stdevs[l]);
 					} else if (error_model == ErrorModel::StudentT4) {
-						cell_logp += bcm3::LogPdfTnu4(y, x, stdev);
+						cell_logp += bcm3::LogPdfTnu4(y, x, stdevs[l]);
 					} else {
 						assert(false);
 						cell_logp = std::numeric_limits<Real>::quiet_NaN();
@@ -236,14 +223,23 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 			for (size_t j = 0; j < finite_sim_count; j++) {
 				if (matching(i, j) == 1) {
 					logp += cell_likelihoods(i, j);
+#if 0
 					int data_ix = observed_data_indices(i, j);
 					int traj_ix = trajectory_indices(i, j);
 					for (int l = 0; l < species_names.size(); l++) {
 						matched_data[ti](data_ix, l) = data_offset + data_scale * cell_trajectories[traj_ix](ti, l);
 					}
+#endif
 				}
 			}
 		}
+#if 1
+		for (ptrdiff_t i = 0; i < observed_data[ti].rows(); i++) {
+			for (ptrdiff_t l = 0; l < species_names.size(); l++) {
+				matched_data[ti](i, l) = data_offsets[l] + data_scales[l] * cell_trajectories[i](ti, l);
+			}
+		}
+#endif
 	}
 
 	logp *= weight;

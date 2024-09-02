@@ -26,6 +26,4 @@ private:
 	std::vector<std::string> species_names;
 	std::map< size_t, std::vector<size_t> > species_map;
 	bool use_only_nondivided;
-	Real scale_to_quantile;
-	Real scale_to_quantile_min;
 };

@@ -84,16 +84,7 @@ void DataLikelihoodDuration::Reset()
 
 bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, Real& logp)
 {
-	Real stdev;
-	if (stdev_ix != std::numeric_limits<size_t>::max()) {
-		stdev = transformed_values[stdev_ix];
-	} else if (non_sampled_stdev_ix != std::numeric_limits<size_t>::max()) {
-		stdev = non_sampled_parameters[non_sampled_stdev_ix];
-	} else {
-		stdev = fixed_stdev_value;
-	}
-	stdev *= stdev_multiplication_factor;
-	stdev += 1e-4;
+	Real stdev = GetCurrentSTDev(transformed_values, non_sampled_parameters);
 
 	int n = std::max(observed_durations.size(), observed_durations.size());
 	MatrixReal likelihoods(n, n);

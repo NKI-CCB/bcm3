@@ -25,9 +25,9 @@ public:
 	virtual void NotifyDuration(size_t cell_ix, Real duration) {}
 
 protected:
-	Real GetCurrentSTDev(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters);
-	Real GetCurrentDataOffset(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters);
-	Real GetCurrentDataScale(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters);
+	Real GetCurrentSTDev(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, size_t i = 0);
+	Real GetCurrentDataOffset(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, size_t i = 0);
+	Real GetCurrentDataScale(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, size_t i = 0);
 
 	enum class ErrorModel {
 		Normal,
@@ -41,14 +41,16 @@ protected:
 	std::string scale_str;
 
 	ErrorModel error_model;
-	size_t offset_ix;
-	size_t scale_ix;
-	size_t stdev_ix;
-	size_t non_sampled_offset_ix;
-	size_t non_sampled_scale_ix;
-	size_t non_sampled_stdev_ix;
-	Real fixed_offset_value;
-	Real fixed_scale_value;
-	Real fixed_stdev_value;
-	Real stdev_multiplication_factor;
+	std::vector<size_t> offset_ix;
+	std::vector<size_t> scale_ix;
+	std::vector<size_t> stdev_ix;
+	std::vector<size_t> non_sampled_offset_ix;
+	std::vector<size_t> non_sampled_scale_ix;
+	std::vector<size_t> non_sampled_stdev_ix;
+	std::vector<Real> fixed_offset_value;
+	std::vector<Real> fixed_scale_value;
+	std::vector<Real> fixed_stdev_value;
+
+private:
+	bool ParseString(std::string str, size_t& var_ix, size_t& non_sampled_var_ix, Real& fixed_value, const bcm3::VariableSet& varset, const std::vector<std::string>& non_sampled_parameter_names);
 };
