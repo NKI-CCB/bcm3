@@ -86,7 +86,7 @@ public:
 #else
 				// This is the part that's modified - when matrices have quite a few 0's, we can skip many of the entries
 				for (Index j = k + 1; j < cols; j++) {
-					Scalar a_kj = m_lu.coeff(k, j);
+					Scalar a_kj = this->m_lu.coeff(k, j);
 					if (a_kj != 0.0) {
 						this->m_lu.col(j).tail(Eigen::fix<RRows>(rrows)).noalias() -= a_kj * this->m_lu.col(k).tail(Eigen::fix<RRows>(rrows));
 					}
