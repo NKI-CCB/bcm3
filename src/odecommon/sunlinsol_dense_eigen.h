@@ -6,7 +6,7 @@
 #include "EigenPartialPivLUSomewhatSparse.h"
 
 struct _SUNLinearSolverContent_Dense_Eigen {
-	PartialPivLUExtended lu;
+	PartialPivLUExtended<OdeVectorReal, OdeMatrixReal> lu;
 };
 
 typedef struct _SUNLinearSolverContent_Dense_Eigen* SUNLinearSolverContent_Dense_Eigen;

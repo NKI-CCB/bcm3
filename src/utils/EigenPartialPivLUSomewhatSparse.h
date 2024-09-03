@@ -1,6 +1,7 @@
 #pragma once
 
-class PartialPivLUExtended : public Eigen::PartialPivLU< MatrixReal >
+template<typename VectorType, typename MatrixType>
+class PartialPivLUExtended : public Eigen::PartialPivLU< MatrixType >
 {
 public:
 	template<typename InputType>
@@ -9,14 +10,14 @@ public:
 		if (matrix.rows() == 3) {
 			ASSERT(matrix.cols() == 3);
 			inverse.resize(3, 3);
-			Eigen::internal::compute_inverse<MatrixReal, MatrixReal, 3>::run(matrix, inverse);
+			Eigen::internal::compute_inverse<MatrixType, MatrixType, 3>::run(matrix, inverse);
 			return *this;
 		} else {
 			return compute_optimized(matrix);
 		}
 	}
 
-	void apply_select(const VectorReal& b, VectorReal& x)
+	void apply_select(const VectorType& b, VectorType& x)
 	{
 		if (b.size() == 3) {
 			x.noalias() = inverse * b;
@@ -95,5 +96,5 @@ public:
 		return *this;
 	}
 
-	MatrixReal inverse;
+	MatrixType inverse;
 };

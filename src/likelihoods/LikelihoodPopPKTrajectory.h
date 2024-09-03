@@ -7,8 +7,6 @@
 #include "VariableSet.h"
 #include "Spinlock.h"
 
-class SBMLModel;
-
 class LikelihoodPopPKTrajectory : public bcm3::Likelihood
 {
 public:

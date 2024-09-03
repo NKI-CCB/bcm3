@@ -13,14 +13,14 @@ public:
 	virtual bool IsReentrant() { return false; }
 	virtual bool EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp);
 
-	const MatrixReal& GetSimulatedTrajectories() const { return simulated_trajectories; }
+	const OdeMatrixReal& GetSimulatedTrajectories() const { return simulated_trajectories; }
 
 private:
 	bool CalculateDerivative(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
 
 	std::shared_ptr<const bcm3::VariableSet> varset;
 	std::shared_ptr<ODESolver> solver;
-	VectorReal timepoints;
+	OdeVectorReal timepoints;
 	VectorReal parameter_values;
-	MatrixReal simulated_trajectories;
+	OdeMatrixReal simulated_trajectories;
 };

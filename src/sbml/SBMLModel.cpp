@@ -5,98 +5,13 @@
 #include "SBMLReaction.h"
 #include "SBMLSpecies.h"
 
-#define USE_CODE 0
-
-#if USE_CODE
-void derivative(double* out, const double* species, const double* parameters)
-{
-	out[0] = +(parameters[35]*species[17])-(parameters[0]*species[0]);
-	out[1] = +((parameters[15]+(parameters[21]*species[0]))/(1+exp((parameters[30]*(log(species[4])-parameters[32])))))-(parameters[10]*species[1]);
-	out[2] = +(parameters[19]+(parameters[27]*species[16]))-(parameters[10]*species[2]);
-	out[3] = +(parameters[18]+(parameters[26]*species[6]))-(parameters[10]*species[3]);
-	out[4] = +(parameters[35]*species[5])-(parameters[5]*species[4]);
-	out[5] = +(parameters[16]+(parameters[22]*species[14]))-(parameters[10]*species[5]);
-	out[6] = +(parameters[35]*species[7])-(parameters[6]*species[6]);
-	out[7] = -(parameters[10]*species[7])+(parameters[17]+(parameters[23]*species[14]));
-	out[8] = -(parameters[1]*species[8])+(parameters[35]*species[9]);
-	out[9] = +(parameters[12]+(parameters[24]*species[14]))-(parameters[10]*species[9]);
-	out[10] = +(parameters[35]*species[12])-(parameters[2]*species[10]);
-	out[11] = +(parameters[35]*species[13])-(parameters[3]*species[11]);
-	out[12] = +(parameters[13]+(parameters[25]*species[14]))-(parameters[10]*species[12]);
-	out[13] = +(parameters[14]+(parameters[28]*species[16]))-(parameters[10]*species[13]);
-	out[14] = +(parameters[35]*species[1])-(parameters[4]*species[14]);
-	out[15] = +(parameters[35]*species[2])-(parameters[8]*species[15]);
-	out[16] = +(parameters[35]*species[3])-((parameters[7]*species[16])+((parameters[9]*species[16])/(1+exp((parameters[33]*(log(species[8])-parameters[34]))))));
-	out[17] = -(parameters[10]*species[17])+((parameters[11]+(parameters[20]*species[15]))/(1+exp((parameters[29]*(log(species[4])-parameters[31])))));
-}
-
-void jacobian(double** out, const double* species, const double* parameters)
-{
-	out[0][0] = -(parameters[0]*(OdeReal)1.0);
-	out[0][1] = +((+(parameters[21]*(OdeReal)1.0))/(1+exp((parameters[30]*(log(species[4])-parameters[32])))));
-
-	out[1][1] = -(parameters[10]*(OdeReal)1.0);
-	out[1][14] = +(parameters[35]*(OdeReal)1.0);
-
-	out[2][2] = -(parameters[10]*(OdeReal)1.0);
-	out[2][15] = +(parameters[35]*(OdeReal)1.0);
-
-	out[3][3] = -(parameters[10]*(OdeReal)1.0);
-	out[3][16] = +(parameters[35]*(OdeReal)1.0);
-
-	out[4][1] = +(-(+exp((parameters[30]*(log(species[4])-parameters[32])))*((parameters[30]*(OdeReal)1.0/(species[4]))))*(parameters[15]+(parameters[21]*species[0]))/((1+exp((parameters[30]*(log(species[4])-parameters[32]))))*(1+exp((parameters[30]*(log(species[4])-parameters[32]))))));
-	out[4][4] = -(parameters[5]*(OdeReal)1.0);
-	out[4][17] = +(-(+exp((parameters[29]*(log(species[4])-parameters[31])))*((parameters[29]*(OdeReal)1.0/(species[4]))))*(parameters[11]+(parameters[20]*species[15]))/((1+exp((parameters[29]*(log(species[4])-parameters[31]))))*(1+exp((parameters[29]*(log(species[4])-parameters[31]))))));
-
-	out[5][4] = +(parameters[35]*(OdeReal)1.0);
-	out[5][5] = -(parameters[10]*(OdeReal)1.0);
-
-	out[6][3] = +(+(parameters[26]*(OdeReal)1.0));
-	out[6][6] = -(parameters[6]*(OdeReal)1.0);
-
-	out[7][6] = +(parameters[35]*(OdeReal)1.0);
-	out[7][7] = -(parameters[10]*(OdeReal)1.0);
-
-	out[8][8] = -(parameters[1]*(OdeReal)1.0);
-	out[8][16] = -(+(-(+exp((parameters[33]*(log(species[8])-parameters[34])))*((parameters[33]*(OdeReal)1.0/(species[8]))))*(parameters[9]*species[16])/((1+exp((parameters[33]*(log(species[8])-parameters[34]))))*(1+exp((parameters[33]*(log(species[8])-parameters[34])))))));
-
-	out[9][8] = +(parameters[35]*(OdeReal)1.0);
-	out[9][9] = -(parameters[10]*(OdeReal)1.0);
-
-	out[10][10] = -(parameters[2]*(OdeReal)1.0);
-
-	out[11][11] = -(parameters[3]*(OdeReal)1.0);
-
-	out[12][10] = +(parameters[35]*(OdeReal)1.0);
-	out[12][12] = -(parameters[10]*(OdeReal)1.0);
-
-	out[13][11] = +(parameters[35]*(OdeReal)1.0);
-	out[13][13] = -(parameters[10]*(OdeReal)1.0);
-
-	out[14][5] = +(+(parameters[22]*(OdeReal)1.0));
-	out[14][7] = +(+(parameters[23]*(OdeReal)1.0));
-	out[14][9] = +(+(parameters[24]*(OdeReal)1.0));
-	out[14][12] = +(+(parameters[25]*(OdeReal)1.0));
-	out[14][14] = -(parameters[4]*(OdeReal)1.0);
-
-	out[15][15] = -(parameters[8]*(OdeReal)1.0);
-	out[15][17] = +((+(parameters[20]*(OdeReal)1.0))/(1+exp((parameters[29]*(log(species[4])-parameters[31])))));
-
-	out[16][2] = +(+(parameters[27]*(OdeReal)1.0));
-	out[16][13] = +(+(parameters[28]*(OdeReal)1.0));
-	out[16][16] = -(+(parameters[7]*(OdeReal)1.0)+((parameters[9]*(OdeReal)1.0)/(1+exp((parameters[33]*(log(species[8])-parameters[34]))))));
-
-	out[17][0] = +(parameters[35]*(OdeReal)1.0);
-	out[17][17] = -(parameters[10]*(OdeReal)1.0);
-
-}
-#endif
-
 SBMLModel::SBMLModel(size_t numthreads)
 	: document(nullptr)
 	, model(nullptr)
 {
+#if BCM3_SBML_INCLUDE_SOLVERS
 	Solvers.resize(numthreads);
+#endif
 }
 
 SBMLModel::~SBMLModel()
@@ -256,11 +171,6 @@ bool SBMLModel::LoadSBML(const std::string& fn)
 		}
 	}
 
-	// TODO Check that there are no two species with the same name (if necessary?)
-	
-	for (size_t i = 0; i < Solvers.size(); i++) {
-		Solvers[i].parameters = std::make_unique<SBMLModelParameters>(this);
-	}
 
 	return true;
 }
@@ -268,11 +178,15 @@ bool SBMLModel::LoadSBML(const std::string& fn)
 bool SBMLModel::SetVariableSet(std::shared_ptr<const bcm3::VariableSet> variables)
 {
 	this->variables = variables;
+
+#if BCM3_SBML_INCLUDE_SOLVERS
 	for (size_t i = 0; i < Solvers.size(); i++) {
 		if (!Solvers[i].parameters->SetVariableSet(variables)) {
 			return false;
 		}
 	}
+#endif
+
 	return true;
 }
 
@@ -333,10 +247,12 @@ bool SBMLModel::Initialize()
 		}
 	}
 
+#if BCM3_SBML_INCLUDE_SOLVERS
 	// Initialize CVODE solvers
 	for (size_t i = 0; i < Solvers.size(); i++) {
 		ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&SBMLModel::CalculateDerivative, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4);
 
+		Solvers[i].parameters = std::make_unique<SBMLModelParameters>(this);
 		Solvers[i].solver = std::make_unique<ODESolverCVODE>();
 		//Solvers[i].linear_solver = new LinearSolverMKL(this);
 		//Solvers[i].solver->SetLinearSolver(Solvers[i].linear_solver);
@@ -351,28 +267,21 @@ bool SBMLModel::Initialize()
 		Solvers[i].y.resize(CVodeSpecies.size());
 		Solvers[i].transformed_variables = VectorReal::Zero(variables->GetNumVariables());
 		Solvers[i].transformed_variables_use_in_ode = OdeVectorReal::Zero(variables->GetNumVariables());
-		
-		VectorReal tolerance = VectorReal::Zero(CVodeSpecies.size());
+
+		OdeVectorReal tolerance = OdeVectorReal::Zero(CVodeSpecies.size());
 		for (size_t si = 0; si < CVodeSpecies.size(); si++) {
 			const SBMLSpecies* species = GetSpecies(CVodeSpecies[si]);
 			if (species->GetType() == SBMLSpecies::Transcript) {
-				tolerance(si) = 1e-10;
+				tolerance(si) = (OdeReal)1e-10;
 			} else {
-				tolerance(si) = 1e-6;
+				tolerance(si) = (OdeReal)1e-6;
 			}
 		}
-		Solvers[i].solver->SetTolerance(1e-5, tolerance);
+		Solvers[i].solver->SetTolerance((OdeReal)1e-5, tolerance);
 	}
+#endif
 
 	return true;
-}
-
-void SBMLModel::DumpODEStatistics(const std::string& base_filename)
-{
-	for (size_t i = 0; i < Solvers.size(); i++) {
-		std::string fn = base_filename + std::to_string((uint64)i) + std::string(".tsv");
-		Solvers[i].solver->DumpStatistics(fn.c_str());
-	}
 }
 
 std::string SBMLModel::GenerateCode()
@@ -481,6 +390,28 @@ std::string SBMLModel::GenerateJacobianCode(size_t i, size_t j)
 		ri->second->AddRateDerivativeEquation(j, i, eqn);
 	}
 	return eqn;
+}
+
+bool SBMLModel::CalculateDerivativePublic(OdeReal t, const OdeReal* y, OdeReal* dydt, const OdeReal* constant_species_y, const OdeReal* transformed_variables, const OdeReal* non_sampled_parameters) const
+{
+	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
+		dydt[i] = 0.0;
+	}
+	for (auto ri = Reactions.begin(); ri != Reactions.end(); ++ri) {
+		ri->second->AddRates(y, constant_species_y, transformed_variables, non_sampled_parameters, dydt);
+	}
+
+	return true;
+}
+
+#if BCM3_SBML_INCLUDE_SOLVERS
+
+void SBMLModel::DumpODEStatistics(const std::string& base_filename)
+{
+	for (size_t i = 0; i < Solvers.size(); i++) {
+		std::string fn = base_filename + std::to_string((uint64)i) + std::string(".tsv");
+		Solvers[i].solver->DumpStatistics(fn.c_str());
+	}
 }
 
 void SBMLModel::ResetForcedVariables(size_t threadix)
@@ -606,6 +537,8 @@ bool SBMLModel::GetOutput(const std::string& species_full_name, VectorReal& outp
 	return false;
 }
 
+#endif
+
 void SBMLModel::GetParameters(std::vector<std::string>& parameters) const
 {
 	parameters.resize(model->getNumParameters());
@@ -613,7 +546,6 @@ void SBMLModel::GetParameters(std::vector<std::string>& parameters) const
 		parameters[i] = model->getParameter(i)->getId();
 	}
 }
-
 
 size_t SBMLModel::GetNumSimulatedSpecies() const
 {
@@ -734,17 +666,7 @@ const SBMLSpecies* SBMLModel::GetSpeciesFromFullName(const std::string& id) cons
 	return NULL;
 }
 
-bool SBMLModel::CalculateDerivativePublic(OdeReal t, const OdeReal* y, OdeReal* dydt, const OdeReal* constant_species_y, const OdeReal* transformed_variables, const OdeReal* non_sampled_parameters) const
-{
-	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
-		dydt[i] = 0.0;
-	}
-	for (auto ri = Reactions.begin(); ri != Reactions.end(); ++ri) {
-		ri->second->AddRates(y, constant_species_y, transformed_variables, non_sampled_parameters, dydt);
-	}
-
-	return true;
-}
+#if BCM3_SBML_INCLUDE_SOLVERS
 
 bool SBMLModel::CalculateDerivative(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user) const
 {
@@ -793,3 +715,5 @@ void SBMLModel::CalculateAssignments(const OdeReal* y, const OdeReal* variables,
 		out[AssignmentRulesTargetIx[ri]] = value;
 	}
 }
+
+#endif

@@ -66,8 +66,10 @@ bool LikelihoodIncucytePopulation::Initialize(std::shared_ptr<const bcm3::Variab
 		result &= data.GetDimensionSize(group, "replicates", &e.num_replicates);
 		result &= data.GetDimensionSize(group, "drug_concentrations", &e.num_concentrations);
 
-		e.observed_timepoints.resize(e.num_timepoints);
-		data.GetValues(group, "time", 0, e.num_timepoints, e.observed_timepoints);
+		VectorReal timepoints;
+		timepoints.resize(e.num_timepoints);
+		data.GetValues(group, "time", 0, e.num_timepoints, timepoints);
+		e.observed_timepoints = timepoints.cast<OdeReal>();
 
 		e.concentrations.resize(e.num_concentrations);
 		data.GetValues(group, "drug_concentrations", 0, e.num_concentrations, e.concentrations);
@@ -131,7 +133,7 @@ bool LikelihoodIncucytePopulation::Initialize(std::shared_ptr<const bcm3::Variab
 		parallel_data[threadix].initial_conditions.setZero(3);
 		parallel_data[threadix].discontinuities_time.setZero(2);
 		parallel_data[threadix].output.setZero(3, max_timepoints);
-		parallel_data[threadix].delay_y = VectorReal::Zero(3);
+		parallel_data[threadix].delay_y = OdeVectorReal::Zero(3);
 
 		// TODO - random number seed
 		parallel_data[threadix].rng.Seed(threadix);
@@ -343,12 +345,12 @@ bool LikelihoodIncucytePopulation::SimulateWell(size_t threadix, Experiment& e, 
 	Real seeding_density_deviation = values[varset->GetVariableIndex(std::string("seeding_density_deviation_") + std::to_string((uint64)e.experiment_ix + 1))];
 	Real dead_cell_fraction = values[varset->GetVariableIndex("starting_dead_cell_fraction")];
 	
-	VectorReal& initial_conditions = pd.initial_conditions;
+	OdeVectorReal& initial_conditions = pd.initial_conditions;
 	initial_conditions(0) = e.seeding_density * bcm3::fastpow10(seeding_density_deviation);
 	initial_conditions(1) = dead_cell_fraction * initial_conditions(0);
 	initial_conditions(0) -= initial_conditions(1);
 	
-	VectorReal& discontinuities_time = pd.discontinuities_time;
+	OdeVectorReal& discontinuities_time = pd.discontinuities_time;
 	if (pao || drug) {
 		discontinuities_time.resize(2);
 		discontinuities_time(0) = pd.drug_start_time;
@@ -357,7 +359,7 @@ bool LikelihoodIncucytePopulation::SimulateWell(size_t threadix, Experiment& e, 
 		discontinuities_time.resize(0);
 	}
 
-	MatrixReal& output = pd.output;
+	OdeMatrixReal& output = pd.output;
 	
 	solvers[threadix].SetUserData((void*)threadix);
 	bool result = solvers[threadix].Simulate(initial_conditions.data(), e.observed_timepoints, discontinuities_time, output);
@@ -475,7 +477,7 @@ bool LikelihoodIncucytePopulation::CalculateJacobian(OdeReal t, const OdeReal* y
 	return true;
 }
 
-void LikelihoodIncucytePopulation::CalculateDrugEffect(Real& proliferation_rate, Real& apoptosis_rate, const Real* y, const ParallelData& pd, Real t, size_t current_dci)
+void LikelihoodIncucytePopulation::CalculateDrugEffect(OdeReal& proliferation_rate, OdeReal& apoptosis_rate, const OdeReal* y, const ParallelData& pd, OdeReal t, size_t current_dci)
 {
 	if (pd.drug || pd.pao) {
 		if (current_dci == 0) {
@@ -493,13 +495,13 @@ void LikelihoodIncucytePopulation::CalculateDrugEffect(Real& proliferation_rate,
 	}
 }
 
-void LikelihoodIncucytePopulation::CalculateContactInhibition(Real& proliferation_rate, const Real* y, const ParallelData& pd)
+void LikelihoodIncucytePopulation::CalculateContactInhibition(OdeReal& proliferation_rate, const OdeReal* y, const ParallelData& pd)
 {
 	OdeReal confluence = (OdeReal)(0.01 * (y[0] * pd.cell_size + y[1] * pd.apoptotic_cell_size + y[2] * pd.debris_size));
 	if (confluence > pd.contact_inhibition_start) {
 		// ci = strength of contact inhbition, ci == 1 means the growth is fully inhibited.
 		OdeReal ci = (OdeReal)((confluence - pd.contact_inhibition_start) / (pd.contact_inhibition_max_confluence - pd.contact_inhibition_start));
-		ci = (std::max)((std::min)(ci, 1.0), 0.0);
+		ci = (std::max)((std::min)(ci, (OdeReal)1.0), (OdeReal)0.0);
 		//OdeReal proliferation_ci = ci * (OdeReal)effective_proliferation_rate;
 		//effective_proliferation_rate -= proliferation_ci * (OdeReal)(1.0 - pd.contact_inhibition_apoptosis_rate);
 		//effective_apoptosis_rate += proliferation_ci * (OdeReal)pd.contact_inhibition_apoptosis_rate;

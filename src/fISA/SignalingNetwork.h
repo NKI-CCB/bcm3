@@ -102,7 +102,7 @@ private:
 	};
 
 	struct NonlinearSystem {
-		PartialPivLUExtended lu;
+		PartialPivLUExtended<VectorReal, MatrixReal> lu;
 		VectorReal vx, fx, deltax;
 		MatrixReal jac;
 		MatrixReal inverse;

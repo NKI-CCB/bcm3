@@ -12,7 +12,7 @@ size_t Cell::total_num_simulations = 0;
 size_t Cell::cvode_max_steps_reached = 0;
 size_t Cell::cvode_min_timestep_reached = 0;
 const bool Cell::use_generated_code = 1;
-static const int max_cvode_steps = 8000;
+static const int max_cvode_steps = 10000;
 
 Cell::CVodeTimepoint::CVodeTimepoint()
 	: cvode_time(0.0)
@@ -268,7 +268,7 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	CVodeSetUserData(cvode_mem, (void*)this);
 	CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
 	CVodeSStolerances(cvode_mem, abs_tol, rel_tol);
-	//CVodeSetMinStep(cvode_mem, 1e-3);
+	CVodeSetMinStep(cvode_mem, 1e-3);
 	CVodeSetInitStep(cvode_mem, 1.0);
 
 	CVodeSetLinearSolver(cvode_mem, LS, J);

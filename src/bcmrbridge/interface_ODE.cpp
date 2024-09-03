@@ -67,7 +67,7 @@ extern "C" {
 			return;
 		}
 
-		const MatrixReal& simtraj = ll->GetSimulatedTrajectories();
+		const OdeMatrixReal& simtraj = ll->GetSimulatedTrajectories();
 		for (size_t i = 0; i < 100; i++) {
 			for (size_t j = 0; j < 4; j++) {
 				out_values[j * 100 + i] = simtraj(j, i);

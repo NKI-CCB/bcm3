@@ -71,11 +71,11 @@ private:
 		Real drug_effect_time;
 		Real drug_proliferation_rate;
 		Real drug_apoptosis_rate;
-		VectorReal delay_y;
+		OdeVectorReal delay_y;
 
-		VectorReal initial_conditions;
-		VectorReal discontinuities_time;
-		MatrixReal output;
+		OdeVectorReal initial_conditions;
+		OdeVectorReal discontinuities_time;
+		OdeMatrixReal output;
 
 		bool pao;
 		bool drug;
@@ -89,7 +89,7 @@ private:
 		size_t num_replicates;
 		size_t num_concentrations;
 
-		VectorReal observed_timepoints;
+		OdeVectorReal observed_timepoints;
 		VectorReal concentrations;
 		Real time_of_drug_treatment;
 		Real time_of_ctb;
@@ -102,8 +102,8 @@ private:
 	bool SimulateWell(size_t threadix, Experiment& e, Well& w, bool pao, bool drug, bool single_drug, Real drug_proliferation_rate, Real drug_apoptosis_rate, const VectorReal& values);
 	bool CalculateDerivative(OdeReal t, const OdeReal* y, const std::vector< OdeReal >& history_t, const OdeMatrixReal& history_y, size_t current_dci, OdeReal* dydt, void* user);
 	bool CalculateJacobian(OdeReal t, const OdeReal* y, const OdeReal* dydt, const std::vector< OdeReal >& history_t, const OdeMatrixReal& history_y, size_t current_dci, OdeMatrixReal& jac, void* user);
-	void CalculateDrugEffect(Real& proliferation_rate, Real& apoptotis_rate, const Real* y, const ParallelData& pd, Real t, size_t current_dci);
-	void CalculateContactInhibition(Real& proliferation_rate, const Real* y, const ParallelData& pd);
+	void CalculateDrugEffect(OdeReal& proliferation_rate, OdeReal& apoptotis_rate, const OdeReal* y, const ParallelData& pd, OdeReal t, size_t current_dci);
+	void CalculateContactInhibition(OdeReal& proliferation_rate, const OdeReal* y, const ParallelData& pd);
 
 	std::shared_ptr<const bcm3::VariableSet> varset;
 	size_t evaluation_threads;

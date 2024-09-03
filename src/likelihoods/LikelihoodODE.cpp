@@ -33,11 +33,11 @@ bool LikelihoodODE::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, 
     parameter_values.resize(num_inference_variables);
 
     // Timepoints at which the ODE solver should return values of the dynamic variables
-    Real max_time = 1000.0;
+    OdeReal max_time = 1000.0;
     size_t num_timepoints = 100;
     timepoints.resize(num_timepoints);
     for (size_t i = 0; i < num_timepoints; i++) {
-        timepoints(i) = 0 + max_time * (i / (Real)(num_timepoints - 1));
+        timepoints(i) = (OdeReal)0.0 + max_time * (i / (OdeReal)(num_timepoints - 1));
     }
 
 	return true;

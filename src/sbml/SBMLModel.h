@@ -1,5 +1,7 @@
 #pragma once
 
+#define BCM3_SBML_INCLUDE_SOLVERS false
+
 class ODESolverCVODE;
 class ExperimentalCondition;
 class SBMLAssignmentRule;
@@ -22,16 +24,19 @@ public:
 	bool AddNonSampledParameters(const std::vector<std::string>& non_sampled_parameters);
 	bool AddFixedParameter(const std::string& parameter, Real value);
 	bool Initialize();
-	void DumpODEStatistics(const std::string& base_filename);
 
 	std::string GenerateCode();
 	std::string GenerateJacobianCode(size_t i, size_t j);
+	bool CalculateDerivativePublic(OdeReal t, const OdeReal* y, OdeReal* dydt, const OdeReal* constant_species_y, const OdeReal* transformed_variables, const OdeReal* non_sampled_parameters) const;
 	
+#if BCM3_SBML_INCLUDE_SOLVERS
+	void DumpODEStatistics(const std::string& base_filename);
 	void ResetForcedVariables(size_t threadix);
 	bool SetForcedVariable(const std::string& variable_name, Real value, size_t threadix);
 	bool Simulate(const Real* variables, const Real* initial_conditions, const VectorReal& timepoints, size_t threadix);
 	bool GetOutput(size_t species_ix, VectorReal& output, size_t threadix);
 	bool GetOutput(const std::string& species_full_name, VectorReal& output, size_t threadix);
+#endif
 
 	void GetParameters(std::vector<std::string>& parameters) const;
 	size_t GetNumSimulatedSpecies() const;
@@ -54,12 +59,12 @@ public:
 	const SBMLSpecies* GetSpeciesFromFullName(const std::string& id) const;
 	SBMLModelParameters* GetParameterSet();
 
-	bool CalculateDerivativePublic(OdeReal t, const OdeReal* y, OdeReal* dydt, const OdeReal* constant_species_y, const OdeReal* transformed_variables, const OdeReal* non_sampled_parameters) const;
-
 private:
+#if BCM3_SBML_INCLUDE_SOLVERS
 	bool CalculateDerivative(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user) const;
 	bool CalculateJacobian(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeReal** jac, void* user) const;
 	void CalculateAssignments(const OdeReal* y, const OdeReal* variables, const OdeReal* constant_species_y, const OdeReal* non_sampled_parameters, OdeReal* out) const;
+#endif
 
 	SBMLDocument* document;
 	const Model* model;
@@ -77,6 +82,7 @@ private:
 	std::vector<size_t> constant_to_simulated_map;
 	std::map<std::string, Real> fixed_parameter_values;
 
+#if BCM3_SBML_INCLUDE_SOLVERS
 	struct ParallelSolver {
 		ParallelSolver() : variables(NULL) {}
 		std::unique_ptr<ODESolverCVODE> solver;
@@ -91,4 +97,5 @@ private:
 		MatrixReal trajectories;
 	};
 	std::vector<ParallelSolver> Solvers;
+#endif
 };

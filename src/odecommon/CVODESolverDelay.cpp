@@ -99,13 +99,13 @@ bool CVODESolverDelay::Initialize(size_t N, void* user)
 	return true;
 }
 
-bool CVODESolverDelay::SetTolerance(Real relative, Real absolute)
+bool CVODESolverDelay::SetTolerance(OdeReal relative, OdeReal absolute)
 {
-	CVodeSStolerances(cvode_mem, (OdeReal)relative, (OdeReal)absolute);
+	CVodeSStolerances(cvode_mem, relative, absolute);
 	return true;
 }
 
-bool CVODESolverDelay::SetTolerance(Real relative, VectorReal absolute)
+bool CVODESolverDelay::SetTolerance(OdeReal relative, OdeVectorReal absolute)
 {
 	if (absolute.size() != N) {
 		return false;
@@ -113,9 +113,9 @@ bool CVODESolverDelay::SetTolerance(Real relative, VectorReal absolute)
 
 	N_Vector abstol = MakeCVodeVector(N);
 	for (size_t i = 0; i < N; i++) {
-		NV_Ith_S(abstol,i) = (OdeReal)absolute(i);
+		NV_Ith_S(abstol,i) = absolute(i);
 	}
-	CVodeSVtolerances(cvode_mem, (OdeReal)relative, abstol);
+	CVodeSVtolerances(cvode_mem, relative, abstol);
 	N_VDestroy(abstol);
 	return true;
 }
@@ -125,7 +125,7 @@ void CVODESolverDelay::SetUserData(void* user)
 	user_data = user;
 }
 
-void CVODESolverDelay::SetKeepHistory(Real duration)
+void CVODESolverDelay::SetKeepHistory(OdeReal duration)
 {
 	history_duration = duration;
 }
@@ -145,7 +145,7 @@ void CVODESolverDelay::SetDebugLogging(bool log)
 	debug_log = log;
 }
 
-bool CVODESolverDelay::Simulate(const Real* initial_conditions, const VectorReal& timepoints, const VectorReal& discontinuities_t, MatrixReal& output)
+bool CVODESolverDelay::Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, const OdeVectorReal& discontinuities_t, OdeMatrixReal& output)
 {
 	if (timepoints.size() <= 0) {
 		LOGERROR("No time points requested");

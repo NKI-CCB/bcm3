@@ -5,8 +5,6 @@
 #include "RNG.h"
 #include "VariableSet.h"
 
-class SBMLModel;
-
 class LikelihoodPharmacokineticTrajectory : public bcm3::Likelihood
 {
 public:
