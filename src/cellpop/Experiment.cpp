@@ -315,32 +315,29 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	model_filename = xml_node.get<std::string>("<xmlattr>.model_file");
 	std::string data_file = xml_node.get<std::string>("<xmlattr>.data_file", "");
 
-	std::string abs_tol_str = xml_node.get<std::string>("<xmlattr>.absolute_tolerance", "1e-8");
-	std::string rel_tol_str = xml_node.get<std::string>("<xmlattr>.relative_tolerance", "1e-8");
+	std::string abs_tol_str = xml_node.get<std::string>("<xmlattr>.absolute_tolerance", "");
+	std::string rel_tol_str = xml_node.get<std::string>("<xmlattr>.relative_tolerance", "");
 
-	if(abs_tol_str.empty() || rel_tol_str.empty()){
-		LOGERROR("Absolute and relative tolerance were not both defined");
-		return false;
+	if (abs_tol_str.empty()) {
+		abs_tol = 4 * std::numeric_limits<float>::epsilon();
+	} else {
+		try {
+			abs_tol = boost::lexical_cast<Real>(abs_tol_str);
+		} catch (const boost::bad_lexical_cast& e) {
+			LOGERROR("No conversion possible of absolute tolerance \"%s\" in experiment \"%s\"", abs_tol_str.c_str(), Name.c_str());
+			return false;
+		}
 	}
 
-	try {
-		abs_tol = std::stod(abs_tol_str);
-	} catch (const std::invalid_argument&) {
-		LOGERROR("No conversion possible of absolute tolerance \"%s\" in experiment \"%s\"", abs_tol_str.c_str(), Name.c_str());
-		return false;
-	} catch (const std::out_of_range&) {
-		LOGERROR("No conversion possible of absolute tolerance \"%s\" in experiment \"%s\"", abs_tol_str.c_str(), Name.c_str());
-		return false;
-	}
-
-	try {
-		rel_tol = std::stod(rel_tol_str);
-	} catch (const std::invalid_argument&) {
-		LOGERROR("No conversion possible of relative tolerance \"%s\" in experiment \"%s\"", abs_tol_str.c_str(), Name.c_str());
-		return false;
-	} catch (const std::out_of_range&) {
-		LOGERROR("No conversion possible of relative tolerance \"%s\" in experiment \"%s\"", abs_tol_str.c_str(), Name.c_str());
-		return false;
+	if (rel_tol_str.empty()) {
+		rel_tol = 4 * std::numeric_limits<float>::epsilon();
+	} else {
+		try {
+			rel_tol = boost::lexical_cast<Real>(rel_tol_str);
+		} catch (const boost::bad_lexical_cast& e) {
+			LOGERROR("No conversion possible of absolute tolerance \"%s\" in experiment \"%s\"", rel_tol_str.c_str(), Name.c_str());
+			return false;
+		}
 	}
 
 	// Load & initialize the model

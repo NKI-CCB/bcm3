@@ -49,7 +49,7 @@
  *     #define SUNDIALS_DOUBLE_PRECISION 1
  *     #define SUNDIALS_EXTENDED_PRECISION 1
  */
-#define SUNDIALS_DOUBLE_PRECISION 1
+#define SUNDIALS_SINGLE_PRECISION 1
 
 /* Define type of vector indices in SUNDIALS 'sunindextype'.
  * Depending on user choice of index type, one of the following
