@@ -319,7 +319,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	std::string rel_tol_str = xml_node.get<std::string>("<xmlattr>.relative_tolerance", "");
 
 	if (abs_tol_str.empty()) {
-		abs_tol = 4 * std::numeric_limits<float>::epsilon();
+		abs_tol = 1e-5;// 4 * std::numeric_limits<float>::epsilon();
 	} else {
 		try {
 			abs_tol = boost::lexical_cast<Real>(abs_tol_str);
@@ -330,7 +330,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	}
 
 	if (rel_tol_str.empty()) {
-		rel_tol = 4 * std::numeric_limits<float>::epsilon();
+		rel_tol = 1e-5;// 4 * std::numeric_limits<float>::epsilon();
 	} else {
 		try {
 			rel_tol = boost::lexical_cast<Real>(rel_tol_str);
@@ -793,7 +793,7 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "}\n";
 		f << "inline OdeReal hill_function_derivative(OdeReal x, OdeReal k, OdeReal n)\n";
 		f << "{\n";
-		f << "\tif (x < 0.0) return -hill_function_derivative(-x, k, n);\n";
+		f << "\tif (x < 0.0) return hill_function_derivative(-x, k, n);\n";
 		f << "\tOdeReal xn = pow(x, n);\n";
 		f << "\tif (xn == std::numeric_limits<OdeReal>::infinity()) return 0.0;\n";
 		f << "\tif (xn < std::numeric_limits<OdeReal>::min()) return 0.0;\n";
@@ -805,7 +805,7 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "}\n";
 		f << "inline OdeReal hill_function_derivative_fixedn1(OdeReal x, OdeReal k)\n";
 		f << "{\n";
-		f << "\tif (x < 0.0) return -hill_function_derivative_fixedn1(-x, k);\n";
+		f << "\tif (x < 0.0) return hill_function_derivative_fixedn1(-x, k);\n";
 		f << "\tif (x == std::numeric_limits<OdeReal>::infinity()) return 0.0;\n";
 		f << "\tOdeReal xnpkn = x + k;\n";
 		f << "\tif (xnpkn == std::numeric_limits<OdeReal>::min()) return 1.0/k;\n";
@@ -813,17 +813,20 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "}\n";
 		f << "inline OdeReal michaelis_menten_function(OdeReal kcat, OdeReal KM, OdeReal e, OdeReal s)\n";
 		f << "{\n";
-		f << "\tif (s < 0) return -kcat * e * s / (-KM + s);\n";
+		//f << "\tif (s < 0) return -kcat * e * s / (-KM + s);\n";
+		f << "\tif (s < 0) return kcat * e * s / KM;\n";
 		f << "\treturn kcat * e * s / (KM + s);\n";
 		f << "}\n";
-		f << "inline OdeReal michaelis_menten_derivative_enzyme(OdeReal kcat, OdeReal KM, OdeReal e, OdeReal s)\n";
+		f << "inline OdeReal michaelis_menten_derivative_enzyme(OdeReal kcat, OdeReal KM, OdeReal s)\n";
 		f << "{\n";
-		f << "\tif (s < 0) return -kcat * s / (-KM + s);\n";
+		//f << "\tif (s < 0) return -kcat * s / (-KM + s);\n";
+		f << "\tif (s < 0) return kcat * s / KM;\n";
 		f << "\treturn kcat * s / (KM + s);\n";
 		f << "}\n";
 		f << "inline OdeReal michaelis_menten_derivative_substrate(OdeReal kcat, OdeReal KM, OdeReal e, OdeReal s)\n";
 		f << "{\n";
-		f << "\tif (s < 0) return e * kcat * KM / (square(-KM + s));\n";
+		//f << "\tif (s < 0) return e * kcat * KM / (square(-KM + s));\n";
+		f << "\tif (s < 0) return e * kcat / KM;\n";
 		f << "\treturn e * kcat * KM / (square(KM + s));\n";
 		f << "}\n";
 		f << "inline OdeReal safepow(OdeReal x, OdeReal n)\n";

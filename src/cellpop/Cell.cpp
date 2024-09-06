@@ -40,9 +40,9 @@ int Cell::static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_d
 	}
 
 #if 0
-	if (count < 5000) {
+	if (true) {
 		std::ofstream file("tmp.txt", std::ios::app);
-		file.precision(18);
+		file.precision(12);
 		file << t << "\t";
 		for (int i = 0; i < NV_LENGTH_S(y); i++) {
 			file << NV_Ith_S(y, i) << "\t";
@@ -51,11 +51,7 @@ int Cell::static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_d
 			file << NV_Ith_S(ydot, i) << "\t";
 		}
 		file << std::endl;
-		count++;
 	}
-	//if (count == 488) {
-	//	exit(1);
-	//}
 #endif
 
 	return 0;
@@ -73,12 +69,6 @@ int Cell::static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac,
 	file << "Jacobian; t=" << t << std::endl;
 	file << "y=" << EIGV(y).transpose() << std::endl;
 	file << EIGMAT(Jac) << std::endl;
-
-	Real test = -((0.008333 * 1.0) * (1.000000 - ((EIGV(y)[43] + EIGV(y)[44]) + EIGV(y)[47]))) - (0.001155 * 1.0);
-	Real test2 = -(0.008333 * (1.000000 - ((EIGV(y)[43] + EIGV(y)[44]) + EIGV(y)[47]))) - 0.001155;
-
-	file << "Test =" << test << std::endl;
-	file << "Test2=" << test2 << std::endl;
 #endif
 
 	return 0;
@@ -326,7 +316,7 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 		int qcur;
 		CVodeGetCurrentOrder(cvode_mem, &qcur);
 
-		std::ofstream file("tmp.txt", std::ios::app);
+		std::ofstream file("cvode_stats.txt", std::ios::app);
 		file.precision(18);
 		file << "CVode step " << std::to_string(cvode_steps + 1);
 		file << "; time=" << current_simulation_time;
