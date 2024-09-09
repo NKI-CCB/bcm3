@@ -296,22 +296,22 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 		}
 
 		Real prev_time = current_simulation_time;
-		int result = CVode(cvode_mem, cell_end_time, cvode_y, &current_simulation_time, CV_ONE_STEP);
-		if (result < 0) {
+		int cvode_result = CVode(cvode_mem, cell_end_time, cvode_y, &current_simulation_time, CV_ONE_STEP);
+		if (cvode_result < 0) {
 			// Try once more
-			result = CVode(cvode_mem, cell_end_time, cvode_y, &current_simulation_time, CV_ONE_STEP);
+			cvode_result = CVode(cvode_mem, cell_end_time, cvode_y, &current_simulation_time, CV_ONE_STEP);
 		}
-		if (result == CV_ERR_FAILURE || result == CV_CONV_FAILURE) {
+		if (cvode_result == CV_ERR_FAILURE || cvode_result == CV_CONV_FAILURE) {
 			cvode_min_timestep_reached++;
 		}
-		if (result < 0) {
-			//printf("CVode failure: %u", result);
+		if (cvode_result < 0) {
+			//printf("CVode failure: %u", cvode_result);
 			result = false;
 			break;
 		}
 
 #if 0
-		Real hcur;
+		OdeReal hcur;
 		CVodeGetCurrentStep(cvode_mem, &hcur);
 		int qcur;
 		CVodeGetCurrentOrder(cvode_mem, &qcur);
@@ -325,6 +325,16 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 		file <<std::endl;
 		//file << "cvode_y=" << EIGV(cvode_y).transpose() << std::endl;
 		file.close();
+
+		{
+			std::ofstream file("trajectory.txt", std::ios::app);
+			file.precision(18);
+			file << "" << current_simulation_time;
+			file << " " << EIGV(cvode_y).transpose();
+			file << std::endl;
+			//file << "cvode_y=" << EIGV(cvode_y).transpose() << std::endl;
+			file.close();
+		}
 #endif
 
 		// Store relevant information for interpolation at any timepoint later

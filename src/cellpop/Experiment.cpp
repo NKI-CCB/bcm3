@@ -319,7 +319,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	std::string rel_tol_str = xml_node.get<std::string>("<xmlattr>.relative_tolerance", "");
 
 	if (abs_tol_str.empty()) {
-		abs_tol = 1e-5;// 4 * std::numeric_limits<float>::epsilon();
+		abs_tol = 4 * std::numeric_limits<float>::epsilon();
 	} else {
 		try {
 			abs_tol = boost::lexical_cast<Real>(abs_tol_str);
@@ -330,7 +330,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	}
 
 	if (rel_tol_str.empty()) {
-		rel_tol = 1e-5;// 4 * std::numeric_limits<float>::epsilon();
+		rel_tol = 4 * std::numeric_limits<float>::epsilon();
 	} else {
 		try {
 			rel_tol = boost::lexical_cast<Real>(rel_tol_str);
