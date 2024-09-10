@@ -431,8 +431,10 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 		population_average.array() += data_offsets[0];
 	} else {
 		for (size_t i = 0; i < cell_trajectories.size(); i++) {
-			cell_trajectories[i].array() *= data_scales[i];
-			cell_trajectories[i].array() += data_offsets[i];
+			for (int j = 0; j < species_names.size(); j++) {
+				cell_trajectories[i].col(j).array() *= data_scales[j];
+				cell_trajectories[i].col(j).array() += data_offsets[j];
+			}
 		}
 	}
 
@@ -519,15 +521,9 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 						logp = -std::numeric_limits<Real>::infinity();
 						return false;
 					}
-					//cell_likelihoods[i][j] = -CalculateCellLikelihood(observed_cell_ix, j, stdev);
-					//if (j > 0) {
-					//	maxdiff = std::max(maxdiff, fabs(cell_likelihoods[i][j] - cell_likelihoods[i][0]));
-					//}
 
 					out += std::to_string(cell_likelihoods(i,j)) + ",\t";
 					if (cell_likelihoods(i,j) > -std::numeric_limits<Real>::infinity()) {
-					//if (cell_likelihoods[i][j] > -std::numeric_limits<Real>::infinity()) {
-					//if (cell_likelihoods[i][j] < 1e7) {
 						finite_count++;
 					}
 				} else {
