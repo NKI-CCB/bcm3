@@ -157,30 +157,30 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 		//solvers[threadix] = std::make_unique<ODESolverCVODE>();
 		solvers[threadix] = std::make_unique<ODESolverDP5>();
 		if (pk_type == PKMT_OneCompartment) {
-			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartment, this, _1, _2, _3, _4);
+			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartment, this, _1, _2, _3, _4);
 			solvers[threadix]->SetDerivativeFunction(derivative);
 			solvers[threadix]->Initialize(2, NULL);
 		} else if (pk_type == PKMT_TwoCompartment) {
-			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4);
+			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4);
 			solvers[threadix]->SetDerivativeFunction(derivative);
 			solvers[threadix]->Initialize(3, NULL);
 		} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentBiphasic, this, _1, _2, _3, _4);
+			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentBiphasic, this, _1, _2, _3, _4);
 			solvers[threadix]->SetDerivativeFunction(derivative);
 			solvers[threadix]->Initialize(3, NULL);
 		} else if (pk_type == PKMT_OneCompartmentTransit) {
-			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4);
+			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4);
 			solvers[threadix]->SetDerivativeFunction(derivative);
 			solvers[threadix]->Initialize(3, NULL);
 		} else if (pk_type == PKMT_TwoCompartmentTransit) {
-			ODESolverCVODE::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4);
+			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4);
 			solvers[threadix]->SetDerivativeFunction(derivative);
 			solvers[threadix]->Initialize(5, NULL);
 		} else {
 			LOGERROR("Invalid PK model type");
 			return false;
 		}
-		solvers[threadix]->SetTolerance(1e-8, minimum_dose * 1e-8);
+		solvers[threadix]->SetTolerance(1e-7, minimum_dose * 1e-7);
 		parallel_data[threadix].simulated_concentrations.resize(num_patients);
 		parallel_data[threadix].stored_trajectories.resize(num_patients);
 	}
