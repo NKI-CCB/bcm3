@@ -1,32 +1,11 @@
 #include "Utils.h"
 #include "ODESolverDP5.h"
-#include <new>
-
-#ifdef __ARM_ARCH
-#define USE_SSE2 0
-#else
-#define USE_SSE2 1
-#endif
 
 static const OdeReal MIN_DT = 1e-3;
 static const int ATTEMPTS = 5;
 static const OdeReal MIN_SCALE_FACTOR = 0.2;
 static const OdeReal MAX_SCALE_FACTOR = 5.0;
 static const unsigned int MAX_STEPS = 2000;
-
-#if USE_SSE2
-	#if ODE_SINGLE_PRECISION
-		#define XMM_REGISTER __m128
-		#define SSE2_MUL _mm_mul_ps
-		#define SSE2_ADD _mm_add_ps
-		#define SSE2_SET1 _mm_set1_ps
-	#else
-		#define XMM_REGISTER __m128d
-		#define SSE2_MUL _mm_mul_pd
-		#define SSE2_ADD _mm_add_pd
-		#define SSE2_SET1 _mm_set1_pd
-	#endif
-#endif
 
 ODESolverDP5::ODESolverDP5()
 	: ytmp(nullptr)
@@ -252,82 +231,30 @@ void ODESolverDP5::set_y(size_t i, OdeReal y)
 
 OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 {
-	const size_t floats_per_register = 16 / sizeof(OdeReal);
-	const size_t iters = ((N + (floats_per_register - 1)) / floats_per_register);
-
-#if USE_SSE2
-	XMM_REGISTER* k1p = (XMM_REGISTER*)k[0];
-	XMM_REGISTER* k2p = (XMM_REGISTER*)k[1];
-	XMM_REGISTER* k3p = (XMM_REGISTER*)k[2];
-	XMM_REGISTER* k4p = (XMM_REGISTER*)k[3];
-	XMM_REGISTER* k5p = (XMM_REGISTER*)k[4];
-	XMM_REGISTER* k6p = (XMM_REGISTER*)k[5];
-	XMM_REGISTER* k7p = (XMM_REGISTER*)k[6];
-	XMM_REGISTER* ytmpp = (XMM_REGISTER*)ytmp;
-	XMM_REGISTER* ynp = (XMM_REGISTER*)yn;
-	XMM_REGISTER cur_dt_sse = SSE2_SET1(cur_dt);
-#endif
-
 	// K2
-#if USE_SSE2
-	XMM_REGISTER f = SSE2_MUL(cur_dt_sse, SSE2_SET1(0.2));
-	for (size_t i = 0; i < iters; i++) {
-		ytmpp[i] = SSE2_ADD(ynp[i], SSE2_MUL(f, k1p[i]));
-	}
-#else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (OdeReal)0.2 * k[0][i];
 	}
-#endif
 	derivative(t + (OdeReal)0.2 * cur_dt, ytmp, k[1], user_data);
-
+	
 	// K3
-#if USE_SSE2
-	for (size_t i = 0; i < iters; i++) {
-		XMM_REGISTER t;
-		t = SSE2_MUL(SSE2_SET1(0.075), k1p[i]);
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1(0.225), k2p[i]));
-		ytmpp[i] = SSE2_ADD(ynp[i], SSE2_MUL(cur_dt_sse, t));
-	}
-#else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
 			+ (OdeReal)0.075 * k[0][i]
 			+ (OdeReal)0.225 * k[1][i]);
 	}
-#endif
 	derivative(t + (OdeReal)0.3 * cur_dt, ytmp, k[2], user_data);
-
+	
 	// K4
-#if USE_SSE2
-	for (size_t i = 0; i < iters; i++) {
-		XMM_REGISTER t;
-		t = SSE2_MUL(SSE2_SET1( 0.97777777777777777777777777777778), k1p[i]);
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1(-3.7333333333333333333333333333333 ), k2p[i]));
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1( 3.5555555555555555555555555555556 ), k3p[i]));
-		ytmpp[i] = SSE2_ADD(ynp[i], SSE2_MUL(cur_dt_sse, t));
-	}
-#else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
 			+ (OdeReal)0.97777777777777777777777777777778 * k[0][i]
 			- (OdeReal)3.7333333333333333333333333333333  * k[1][i]
 			+ (OdeReal)3.5555555555555555555555555555556  * k[2][i]);
 	}
-#endif
 	derivative(t + (OdeReal)0.8 * cur_dt, ytmp, k[3], user_data);
 
 	// K5
-#if USE_SSE2
-	for (size_t i = 0; i < iters; i++) {
-		XMM_REGISTER t;
-		t = SSE2_MUL(SSE2_SET1(  2.9525986892242036274958085657674 ), k1p[i]);
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1(-11.595793324188385916780978509374  ), k2p[i]));
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1(  9.8228928516994360615759792714525 ), k3p[i]));
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1( -0.29080932784636488340192043895748), k4p[i]));
-		ytmpp[i] = SSE2_ADD(ynp[i], SSE2_MUL(cur_dt_sse, t));
-	}
-#else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
 			+ (OdeReal)2.9525986892242036274958085657674  * k[0][i]
@@ -335,21 +262,9 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 			+ (OdeReal)9.8228928516994360615759792714525  * k[2][i]
 			- (OdeReal)0.29080932784636488340192043895748 * k[3][i]);
 	}
-#endif
 	derivative(t + (OdeReal)0.88888888888888888888888888888889 * cur_dt, ytmp, k[4], user_data);
 
 	// K6
-#if USE_SSE2
-	for (size_t i = 0; i < iters; i++) {
-		XMM_REGISTER t;
-		t =SSE2_MUL(SSE2_SET1(  2.8462752525252525252525252525253 ), k1p[i]);
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1(-10.757575757575757575757575757576  ), k2p[i]));
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1(  8.9064227177434724604535925290642 ), k3p[i]));
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1(  0.27840909090909090909090909090909), k4p[i]));
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1( -0.27353130360205831903945111492281), k5p[i]));
-		ytmpp[i] = SSE2_ADD(ynp[i], SSE2_MUL(cur_dt_sse, t));
-	}
-#else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
 			+ (OdeReal)2.8462752525252525252525252525253  * k[0][i]
@@ -358,21 +273,9 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 			+ (OdeReal)0.27840909090909090909090909090909 * k[3][i]
 			- (OdeReal)0.27353130360205831903945111492281 * k[4][i]);
 	}
-#endif
 	derivative(t + cur_dt, ytmp, k[5], user_data);
 
 	// 5th order accurate
-#if USE_SSE2
-	for (size_t i = 0; i < iters; i++) {
-		XMM_REGISTER t;
-		t = SSE2_MUL(SSE2_SET1( 0.09114583333333333333333333333333), k1p[i]);
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1( 0.44923629829290206648697214734951), k3p[i]));
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1( 0.65104166666666666666666666666667), k4p[i]));
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1(-0.32237617924528301886792452830189), k5p[i]));
-		t = SSE2_ADD(t,	SSE2_MUL(SSE2_SET1( 0.13095238095238095238095238095238), k6p[i]));
-		ytmpp[i] = SSE2_ADD(ynp[i], SSE2_MUL(cur_dt_sse, t));
-	}
-#else
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (
 			+ (OdeReal)0.09114583333333333333333333333333 * k[0][i]
@@ -381,7 +284,6 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 			- (OdeReal)0.32237617924528301886792452830189 * k[4][i]
 			+ (OdeReal)0.13095238095238095238095238095238 * k[5][i]);
 	}
-#endif
 
 	// K7
 	derivative(t + cur_dt, ytmp, k[6], user_data);
