@@ -98,10 +98,20 @@ void bcm3_rbridge_popPK_get_simulated_data(char** bcm3info_ptr, double* param_va
 	*out_num_patients = (int)ll->GetNumPatients();
 	*out_num_compartments = (int)ll->GetSimulatedTrajectories(0, 0).rows();
 	for (size_t j = 0; j < ll->GetNumPatients(); j++) {
-		for (ptrdiff_t i = 0; i < t.size(); i++) {
-			out_concentrations[j * t.size() + i] = ll->GetSimulatedConcentrations(0, j)(i);
+		const OdeVectorReal& simulated_concentrations = ll->GetSimulatedConcentrations(0, j);
+		const OdeVectorReal& simulated_trajectories = ll->GetSimulatedTrajectories(0, j);
+		for (ptrdiff_t i = 0; i < simulated_concentrations.size(); i++) {
+			out_concentrations[j * t.size() + i] = simulated_concentrations(i);
 			for (int k = 0; k < (*out_num_compartments); k++) {
-				out_trajectories[j * t.size() * (*out_num_compartments) + k * t.size() + i] = ll->GetSimulatedTrajectories(0, j)(k, i);
+				out_trajectories[j * t.size() * (*out_num_compartments) + k * t.size() + i] = simulated_trajectories(k, i);
+			}
+		}
+		if (simulated_concentrations.size() < t.size()) {
+			for (ptrdiff_t i = simulated_concentrations.size(); i < t.size(); i++) {
+				out_concentrations[j * t.size() + i] = std::numeric_limits<double>::quiet_NaN();
+				for (int k = 0; k < (*out_num_compartments); k++) {
+					out_trajectories[j * t.size() * (*out_num_compartments) + k * t.size() + i] = std::numeric_limits<double>::quiet_NaN();
+				}
 			}
 		}
 	}

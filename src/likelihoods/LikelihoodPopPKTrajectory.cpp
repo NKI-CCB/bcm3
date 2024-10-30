@@ -120,12 +120,9 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 	dosing_interval.resize(num_patients);
 	intermittent.resize(num_patients, 0);
 	skipped_days.resize(num_patients);
+	simulate_until.resize(num_patients);
 	for (size_t j = 0; j < num_patients; j++) {
-		observed_concentration[j].resize(num_timepoints);
-		for (size_t i = 0; i < num_timepoints; i++) {
-			result &= data.GetValue(trial, drug + "_plasma_concentration", j, i, observed_concentration[j].data() + i);
-		}
-
+		result &= data.GetValuesDim2(trial, drug + "_plasma_concentration", j, 0, num_timepoints, observed_concentration[j]);
 		result &= data.GetValue(trial, drug + "_dose", j, &dose[j]);
 		result &= data.GetValue(trial, drug + "_dose_cycle2", j, &dose_cycle2[j]);
 		result &= data.GetValue(trial, drug + "_dosing_interval", j, &dosing_interval[j]);
@@ -138,6 +135,19 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 			if (tmp) {
 				skipped_days[j].insert(i);
 			}
+		}
+
+		// Patients marked as intermittent from day 2 are those where we do not know exactly when any interruptions occured
+		// So we'll only simulate those for the very first day
+		if (skipped_days[j].find(1) != skipped_days[j].end()) {
+			for (ptrdiff_t i = 0; i < time.size(); i++) {
+				if (time[i] >= 24.0) {
+					simulate_until[j] = i;
+					break;
+				}
+			}
+		} else {
+			simulate_until[j] = time.size();
 		}
 
 		if (std::isnan(dose_cycle2[j])) {
@@ -316,8 +326,10 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		}
 		Real conversion = (1e6 / MW) / pd.k_vod;
 
+		OdeVectorReal simulate_time = time.segment(0, simulate_until[j]);
+
 		Real patient_logllh = 0.0;
-		if (!solvers[threadix]->Simulate(initial_conditions, time, pd.simulated_trajectories)) {
+		if (!solvers[threadix]->Simulate(initial_conditions, simulate_time, pd.simulated_trajectories)) {
 #if 0
 			LOG("Patient %u failed", j);
 			LOG(" k_absorption: %g", pd.k_absorption);
@@ -329,10 +341,10 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		} else {
 			pd.simulated_concentrations[j] = pd.simulated_trajectories.row(1) * conversion;
 			pd.stored_trajectories[j] = pd.simulated_trajectories;
-			for (size_t i = 0; i < time.size(); i++) {
+			for (size_t i = 0; i < simulate_time.size(); i++) {
 				Real x = conversion * pd.simulated_trajectories(1, i);
 				Real y = observed_concentration[j](i);
-				if (y == y) {
+				if (!std::isnan(y)) {
 					patient_logllh += bcm3::LogPdfTnu3(x, y, sd);
 				}
 				if (std::isnan(x)) {

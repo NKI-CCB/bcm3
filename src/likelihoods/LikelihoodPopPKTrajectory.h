@@ -81,6 +81,7 @@ private:
 	std::vector<unsigned int> intermittent;
 	std::vector<std::string> patient_ids;
 	std::vector< std::set<int> > skipped_days;
+	std::vector<ptrdiff_t> simulate_until;
 	PKModelType pk_type;
 	size_t num_pk_params;
 	size_t num_pk_pop_params;
