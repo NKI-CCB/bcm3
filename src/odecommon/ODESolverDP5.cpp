@@ -158,7 +158,7 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 		// Interpolate any timepoints we may have passed
 		OdeReal target_t = t + cur_dt;
 		while (target_t >= timepoints(ti)) {
-			OdeReal theta = timepoints(ti) - t;
+			OdeReal theta = (timepoints(ti) - t) / cur_dt;
 			if (theta >= 1.0) { // theta should not be bigger than 1.0; if it is than it should be only a rounding error
 				for (size_t i = 0; i < N; i++) {
 					output(i, ti) = ytmp[i];

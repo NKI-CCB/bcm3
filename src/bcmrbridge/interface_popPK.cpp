@@ -99,7 +99,7 @@ void bcm3_rbridge_popPK_get_simulated_data(char** bcm3info_ptr, double* param_va
 	*out_num_compartments = (int)ll->GetSimulatedTrajectories(0, 0).rows();
 	for (size_t j = 0; j < ll->GetNumPatients(); j++) {
 		const OdeVectorReal& simulated_concentrations = ll->GetSimulatedConcentrations(0, j);
-		const OdeVectorReal& simulated_trajectories = ll->GetSimulatedTrajectories(0, j);
+		const OdeMatrixReal& simulated_trajectories = ll->GetSimulatedTrajectories(0, j);
 		for (ptrdiff_t i = 0; i < simulated_concentrations.size(); i++) {
 			out_concentrations[j * t.size() + i] = simulated_concentrations(i);
 			for (int k = 0; k < (*out_num_compartments); k++) {
