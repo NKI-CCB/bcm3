@@ -13,21 +13,27 @@ inline Real hill_function(Real x, Real k, Real n)
 inline Real michaelis_menten_function(Real kcat, Real KM, Real e, Real s)
 {
 	ASSERT(KM > std::numeric_limits<Real>::epsilon());
-	if (s < 0) return -kcat * e * s / (-KM + s);
+	//if (s < 0) return -kcat * e * s / (-KM + s);
+	if (e <= 0) return 0.0;
+	if (s < 0) return kcat * e * s / KM;
 	return kcat * e * s / (KM + s);
 }
 
-inline Real michaelis_menten_derivative_enzyme(Real kcat, Real KM, Real s)
+inline Real michaelis_menten_derivative_enzyme(Real kcat, Real KM, Real e, Real s)
 {
 	ASSERT(KM > std::numeric_limits<Real>::epsilon());
-	if (s < 0) return -kcat * s / (-KM + s);
+	//if (s < 0) return -kcat * s / (-KM + s);
+	if (e <= 0) return 0.0;
+	if (s < 0) return kcat / KM;
 	return kcat * s / (KM + s);
 }
 
 inline Real michaelis_menten_derivative_substrate(Real kcat, Real KM, Real e, Real s)
 {
 	ASSERT(KM > std::numeric_limits<Real>::epsilon());
-	if (s < 0) return e * kcat * KM / (bcm3::square(-KM + s));
+	//if (s < 0) return e * kcat * KM / (bcm3::square(-KM + s));
+	if (e <= 0) return 0.0;
+	if (s < 0) return e * kcat / KM;
 	return e * kcat * KM / (bcm3::square(KM + s));
 }
 
@@ -985,6 +991,8 @@ std::string SBMLRatelawElementFunctionMM::GenerateDerivative(size_t species_ix)
 		result += children[0]->GenerateEquation();
 		result += ",";
 		result += children[1]->GenerateEquation();
+		result += ",";
+		result += children[2]->GenerateEquation();
 		result += ",";
 		result += children[3]->GenerateEquation();
 		result += ")*(";
