@@ -41,6 +41,16 @@ int Cell::static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_d
 
 #if 0
 	if (true) {
+		for (int i = 0; i < NV_LENGTH_S(y); i++) {
+			if (std::isnan(NV_Ith_S(y, i))) {
+				int a;
+				a = 6;
+			}
+			if (std::isnan(NV_Ith_S(ydot, i))) {
+				int a;
+				a = 6;
+			}
+		}
 		std::ofstream file("tmp.txt", std::ios::app);
 		file.precision(12);
 		file << t << "\t";
@@ -64,6 +74,15 @@ int Cell::static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac,
 	cell->jacobian(Jac, NV_DATA_S(y), cell->constant_species_y.data(), cell->cell_specific_transformed_variables.data(), cell->cell_specific_non_sampled_transformed_variables.data());
 
 #if 0
+	for (int i = 0; i < NV_LENGTH_S(y); i++) {
+		for (int j = 0; j < NV_LENGTH_S(y); j++) {
+			if (std::isnan(SM_ELEMENT_D(Jac, i, j))) {
+				int a;
+				a = 6;
+			}
+		}
+	}
+
 	std::ofstream file("tmp_jac.txt", std::ios::app);
 	file.precision(18);
 	file << "Jacobian; t=" << t << std::endl;
