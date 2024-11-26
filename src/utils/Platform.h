@@ -27,6 +27,7 @@
 		#define snprintf _snprintf
 	#endif
 	#define strcasecmp _stricmp
+	#define _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR 
 #elif PLATFORM_LINUX
 	#define _aligned_malloc(size, alignment) memalign(alignment, size)
 	#define _aligned_free(p) free(p)
