@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ODESolverCVODE.h"
+#include "ODESolver.h"
 #include "Likelihood.h"
 #include "RNG.h"
 #include "VariableSet.h"
@@ -30,9 +30,18 @@ private:
 		PKMT_Undefined
 	};
 	struct ParallelData {
+		ParallelData();
+
+		Real dose;
+		Real dose_cycle2;
+		Real dosing_interval;
+		unsigned int intermittent;
+		std::set<int>* skipped_days;
+
 		Real k_absorption;
 		Real k_excretion;
 		Real k_elimination;
+		Real k_vod;
 		Real k_periphery_fwd;
 		Real k_periphery_bwd;
 		Real k_transit;
@@ -42,6 +51,8 @@ private:
 
 		Real current_dose_time;
 		OdeMatrixReal simulated_trajectories;
+		std::vector<OdeVectorReal> simulated_concentrations;
+		std::vector<OdeMatrixReal> stored_trajectories;
 	};
 
 	bool CalculateDerivative_OneCompartment(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
@@ -66,6 +77,6 @@ private:
 	PKModelType pk_type;
 
 	// Runtime variables
-	std::vector< ODESolverCVODE > solvers;
+	std::vector< std::unique_ptr<ODESolver> > solvers;
 	std::vector< ParallelData > parallel_data;
 };
