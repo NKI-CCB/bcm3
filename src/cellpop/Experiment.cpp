@@ -832,6 +832,28 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "\t\treturn pow(x, n);\n";
 		f << "\t}\n";
 		f << "}\n";
+		f << "inline OdeReal synthcap(OdeReal x)\n";
+		f << "{\n";
+		f << "\tif (x <= 0) {\n";
+		f << "\t\treturn 1.0;\n";
+		f << "\t} else {\n";
+		f << "\t\tOdeReal x2 = x * x;\n";
+		f << "\t\tOdeReal x4 = x2 * x2;\n";
+		f << "\t\tOdeReal x8 = x4 * x4;\n";
+		f << "\t\treturn 1.0 - x8 * x2;\n";
+		f << "\t}\n";
+		f << "}\n";
+		f << "inline OdeReal synthcap_derivative(OdeReal x, OdeReal dx)\n";
+		f << "{\n";
+		f << "\tif (x <= 0) {\n";
+		f << "\t\treturn 0.0;\n";
+		f << "\t} else {\n";
+		f << "\t\tOdeReal x2 = x * x;\n";
+		f << "\t\tOdeReal x4 = x2 * x2;\n";
+		f << "\t\tOdeReal x8 = x4 * x4;\n";
+		f << "\t\treturn -10.0 * x8 * x * dx;\n";
+		f << "\t}\n";
+		f << "}\n";
 		f << std::endl;
 
 		f << code;

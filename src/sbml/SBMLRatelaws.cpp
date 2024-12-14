@@ -46,6 +46,18 @@ inline Real safepow(Real x, Real n)
 	}
 }
 
+inline Real synthcap(Real x)
+{
+	if (x < 0) {
+		return 0.0;
+	} else {
+		Real x2 = x * x;
+		Real x4 = x2 * x2;
+		Real x8 = x4 * x4;
+		return 1.0 - x8 * x2;
+	}
+}
+
 bool SBMLRatelawElement::Generate(const ASTNode* node,
 								  const Model* model,
 								  const std::map<std::string, size_t>& species_index_map,
@@ -282,6 +294,16 @@ bool SBMLRatelawElement::Generate(const ASTNode* node,
 				return false;
 			}
 			if (!Generate(node->getChild(3), model, species_index_map, parameter_index_map, constant_species_index_map, non_sampled_parameter_index_map, forced_parameter_values, &(*element)->children[3])) {
+				return false;
+			}
+		} else if (strcmp(node->getName(), "synthcap") == 0) {
+			if (node->getNumChildren() != 1) {
+				LOGERROR("synthcap function should have one parameter");
+				return false;
+			}
+			*element = std::make_unique<SBMLRatelawElementFunctionSynthcap>();
+			(*element)->children.resize(1);
+			if (!Generate(node->getChild(0), model, species_index_map, parameter_index_map, constant_species_index_map, non_sampled_parameter_index_map, forced_parameter_values, &(*element)->children[0])) {
 				return false;
 			}
 		} else {
@@ -1017,6 +1039,39 @@ std::string SBMLRatelawElementFunctionMM::GenerateDerivative(size_t species_ix)
 
 	if (!enzyme_deriv.empty() && !substrate_deriv.empty()) {
 		LOGERROR("Not implemented");
+	}
+
+	return result;
+}
+
+Real SBMLRatelawElementFunctionSynthcap::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
+{
+	ASSERT(children.size() == 1);
+	return synthcap(children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters));
+}
+
+std::string SBMLRatelawElementFunctionSynthcap::GenerateEquation()
+{
+	std::string result;
+	result = "synthcap(";
+	result += children[0]->GenerateEquation();
+	result += ")";
+	return result;
+}
+
+std::string SBMLRatelawElementFunctionSynthcap::GenerateDerivative(size_t species_ix)
+{
+	ASSERT(children.size() == 1);
+	std::string result;
+
+	std::string child = children[0]->GenerateEquation();
+	std::string child_deriv = children[0]->GenerateDerivative(species_ix);
+	if (!child_deriv.empty()) {
+		result = "synthcap_derivative(";
+		result += child;
+		result += ",";
+		result += child_deriv;
+		result += ")";
 	}
 
 	return result;
