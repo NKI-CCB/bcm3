@@ -190,7 +190,7 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 			LOGERROR("Invalid PK model type");
 			return false;
 		}
-		solvers[threadix]->SetTolerance(1e-7, minimum_dose * 1e-7);
+		solvers[threadix]->SetTolerance(5e-7f, minimum_dose * 5e-7f);
 		parallel_data[threadix].simulated_concentrations.resize(num_patients);
 		parallel_data[threadix].stored_trajectories.resize(num_patients);
 	}
@@ -345,7 +345,7 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 				Real x = conversion * pd.simulated_trajectories(1, i);
 				Real y = observed_concentration[j](i);
 				if (!std::isnan(y)) {
-					patient_logllh += bcm3::LogPdfTnu3(x, y, sd);
+					patient_logllh += bcm3::LogPdfTnu4(x, y, sd);
 				}
 				if (std::isnan(x)) {
 					//LOGERROR("NaN in trajectory for patient %zu, timepoint %zu", j, i);
