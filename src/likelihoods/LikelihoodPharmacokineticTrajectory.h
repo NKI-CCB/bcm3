@@ -25,6 +25,8 @@ public:
 	inline OdeVectorReal GetSimulatedConcentrations(size_t threadix) const { return parallel_data[threadix].simulated_concentrations; }
 	inline const OdeMatrixReal& GetSimulatedTrajectories(size_t threadix) const { return parallel_data[threadix].simulated_trajectories; }
 
+	static void AddOptionsDescription(boost::program_options::options_description& pod);
+
 private:
 	enum PKModelType {
 		PKMT_OneCompartment,
@@ -79,6 +81,10 @@ private:
 	bool intermittent;
 	std::string patient_id;
 	PKModelType pk_type;
+
+	Real fixed_vod;
+	Real fixed_periphery_fwd;
+	Real fixed_periphery_bwd;
 
 	// Runtime variables
 	std::vector< std::unique_ptr<ODESolver> > solvers;

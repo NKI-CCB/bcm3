@@ -80,6 +80,7 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 
 void LikelihoodFactory::AddOptionsDescription(boost::program_options::options_description& pod)
 {
+	LikelihoodPharmacokineticTrajectory::AddOptionsDescription(pod);
 	CellPopulationLikelihood::AddOptionsDescription(pod);
 }
 

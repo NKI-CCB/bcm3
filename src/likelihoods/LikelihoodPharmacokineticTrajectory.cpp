@@ -84,35 +84,53 @@ bool LikelihoodPharmacokineticTrajectory::Initialize(std::shared_ptr<const bcm3:
 		drug = modelnode.get<std::string>("<xmlattr>.drug");
 		pk_type_str = modelnode.get<std::string>("<xmlattr>.type");
 		trial = modelnode.get<std::string>("<xmlattr>.trial");
-		patient_id = modelnode.get<std::string>("<xmlattr>.patient");
+		patient_id = modelnode.get<std::string>("<xmlattr>.patient", "");
+
+		fixed_vod = modelnode.get<Real>("<xmlattr>.volume_of_distribution", std::numeric_limits<Real>::quiet_NaN());
+		fixed_periphery_fwd = modelnode.get<Real>("<xmlattr>.k_periphery_fwd", std::numeric_limits<Real>::quiet_NaN());
+		fixed_periphery_bwd = modelnode.get<Real>("<xmlattr>.k_periphery_bwd", std::numeric_limits<Real>::quiet_NaN());
 	} catch (boost::property_tree::ptree_error& e) {
 		LOGERROR("Error parsing likelihood file: %s", e.what());
 		return false;
 	}
 
+	std::string use_patient_str = vm["pk.patient"].as<std::string>();
+	if (!use_patient_str.empty()) {
+		patient_id = use_patient_str;
+	}
+	if (patient_id.empty()) {
+		LOGERROR("Patient ID has not been specified in either the likelihood or as command-line option.");
+		return false;
+	}
+
+	size_t fixed_var_count = 0;
+	if (!std::isnan(fixed_vod)) fixed_var_count++;
+	if (!std::isnan(fixed_periphery_fwd)) fixed_var_count++;
+	if (!std::isnan(fixed_periphery_bwd)) fixed_var_count++;
+
 	SetPKModelType(pk_type_str);
 	if (pk_type == PKMT_OneCompartment) {
-		if (varset->GetNumVariables() != 5) {
+		if (varset->GetNumVariables() != 5 - fixed_var_count) {
 			LOGERROR("Incorrect number of variables in prior - should be 5 variables for a one-compartment model");
 			return false;
 		}
 	} else if (pk_type == PKMT_TwoCompartment) {
-		if (varset->GetNumVariables() != 7) {
+		if (varset->GetNumVariables() != 7 - fixed_var_count) {
 			LOGERROR("Incorrect number of variables in prior - should be 7 variables for a two-compartment model");
 			return false;
 		}
 	} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-		if (varset->GetNumVariables() != 9) {
+		if (varset->GetNumVariables() != 9 - fixed_var_count) {
 			LOGERROR("Incorrect number of variables in prior - should be 9 variables for a two-compartment biphasic model");
 			return false;
 		}
 	} else if (pk_type == PKMT_OneCompartmentTransit) {
-		if (varset->GetNumVariables() != 6) {
+		if (varset->GetNumVariables() != 6 - fixed_var_count) {
 			LOGERROR("Incorrect number of variables in prior - should be 6 variables for a one-compartment transit model");
 			return false;
 		}
 	} else if (pk_type == PKMT_TwoCompartmentTransit) {
-		if (varset->GetNumVariables() != 8) {
+		if (varset->GetNumVariables() != 8 - fixed_var_count) {
 			LOGERROR("Incorrect number of variables in prior - should be 8 variables for a two-compartment transit model");
 			return false;
 		}
@@ -133,7 +151,10 @@ bool LikelihoodPharmacokineticTrajectory::Initialize(std::shared_ptr<const bcm3:
 
 	// Find patient index
 	size_t patient_ix;
-	data.GetDimensionIx(trial, "patients", patient_id, &patient_ix);
+	if (!data.GetDimensionIx(trial, "patients", patient_id, &patient_ix)) {
+		LOGERROR("Cannot find patient \"%s\" in data file", patient_id.c_str());
+		return false;
+	}
 
 	time.resize(num_timepoints);
 	observed_concentration.resize(num_timepoints);
@@ -200,17 +221,23 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 	pd.dosing_interval	= dosing_interval;
 	pd.k_absorption		= varset->TransformVariable(0, values[0]);
 	pd.k_excretion		= varset->TransformVariable(1, values[1]);
-	pd.k_vod			= varset->TransformVariable(3, values[3]);
+	pd.k_vod			= std::isnan(fixed_vod) ? varset->TransformVariable(3, values[3]) : fixed_vod;
 	pd.k_elimination	= varset->TransformVariable(2, values[2]) / pd.k_vod;
 	if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
-		pd.k_periphery_fwd = varset->TransformVariable(4, values[4]);
-		pd.k_periphery_bwd = varset->TransformVariable(5, values[5]);
+		if (std::isnan(fixed_periphery_fwd)) {
+			pd.k_periphery_fwd = varset->TransformVariable(4, values[4]);
+			pd.k_periphery_bwd = varset->TransformVariable(5, values[5]);
+		} else {
+			pd.k_periphery_fwd = fixed_periphery_fwd;
+			pd.k_periphery_bwd = fixed_periphery_bwd;
+		}
 	}
 	if (pk_type == PKMT_OneCompartmentTransit) {
 		pd.k_transit = varset->TransformVariable(5, values[5]);
 	}
 	if (pk_type == PKMT_TwoCompartmentTransit) {
-		pd.k_transit = varset->TransformVariable(6, values[6]);
+		size_t k_transit_ix = varset->GetVariableIndex("k_transit");
+		pd.k_transit = varset->TransformVariable(k_transit_ix, values[k_transit_ix]);
 	}
 	solvers[threadix]->SetUserData((void*)threadix);
 	if (pk_type == PKMT_TwoCompartmentBiPhasic) {
@@ -225,12 +252,11 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 		solvers[threadix]->SetDiscontinuity(dosing_interval, boost::bind(&LikelihoodPharmacokineticTrajectory::TreatmentCallback, this, _1, _2), (void*)threadix);
 	}
 
-	OdeReal initial_conditions[5];
+	OdeReal initial_conditions[4];
 	initial_conditions[0] = dose;
 	initial_conditions[1] = 0.0;
 	initial_conditions[2] = 0.0;
 	initial_conditions[3] = 0.0;
-	initial_conditions[4] = 0.0;
 
 	// The simulated trajectories are in mg; divide by volume of distribution in liters gives mg/l
 	// Divide by mol weight gives mmol/l so 1e6 to go to nM (the units used in the datafile)
@@ -331,10 +357,10 @@ bool LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentTran
 	ParallelData& pd = parallel_data[threadix];
 
 	dydt[0] = -(pd.k_absorption + pd.k_excretion) * y[0];
-	dydt[1] = pd.k_transit * y[3] - pd.k_elimination * y[1] - pd.k_periphery_fwd * y[1] + pd.k_periphery_bwd * y[4];
+	dydt[1] = pd.k_transit * y[2] - pd.k_elimination * y[1] - pd.k_periphery_fwd * y[1] + pd.k_periphery_bwd * y[3];
 	dydt[2] = pd.k_absorption * y[0] - pd.k_transit * y[2];
-	dydt[3] = pd.k_transit * y[2] - pd.k_transit * y[3];
-	dydt[4] = pd.k_periphery_fwd * y[1] - pd.k_periphery_bwd * y[4];
+	//dydt[3] = pd.k_transit * y[2] - pd.k_transit * y[3];
+	dydt[3] = pd.k_periphery_fwd * y[1] - pd.k_periphery_bwd * y[3];
 
 	return true;
 }
@@ -380,4 +406,11 @@ Real LikelihoodPharmacokineticTrajectory::TreatmentCallbackBiphasic(OdeReal t, v
 		}
 		return pd.current_dose_time + pd.k_biphasic_switch_time;
 	}
+}
+
+void LikelihoodPharmacokineticTrajectory::AddOptionsDescription(boost::program_options::options_description& pod)
+{
+	pod.add_options()
+		("pk.patient", boost::program_options::value<std::string>()->default_value(""), "Fit the data from this specific patient.")
+	;
 }
