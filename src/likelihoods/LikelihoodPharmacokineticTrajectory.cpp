@@ -200,9 +200,9 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 	pd.dosing_interval	= dosing_interval;
 	pd.k_absorption		= varset->TransformVariable(0, values[0]);
 	pd.k_excretion		= varset->TransformVariable(1, values[1]);
-	pd.k_vod			= varset->TransformVariable(3, values[3]); 
+	pd.k_vod			= varset->TransformVariable(3, values[3]);
 	pd.k_elimination	= varset->TransformVariable(2, values[2]) / pd.k_vod;
-	if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic) {
+	if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
 		pd.k_periphery_fwd = varset->TransformVariable(4, values[4]);
 		pd.k_periphery_bwd = varset->TransformVariable(5, values[5]);
 	}
@@ -210,13 +210,13 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 		pd.k_transit = varset->TransformVariable(5, values[5]);
 	}
 	if (pk_type == PKMT_TwoCompartmentTransit) {
-		pd.k_transit = varset->TransformVariable(7, values[7]);
+		pd.k_transit = varset->TransformVariable(6, values[6]);
 	}
 	solvers[threadix]->SetUserData((void*)threadix);
 	if (pk_type == PKMT_TwoCompartmentBiPhasic) {
 		// The biphasic logic assumes that the switching time is always bigger than 0 and strictly less than the treatment interval
-		pd.k_biphasic_switch_time = varset->TransformVariable(7, values[7]);
-		pd.k_absorption2 = varset->TransformVariable(8, values[8]);
+		pd.k_biphasic_switch_time = varset->TransformVariable(6, values[6]);
+		pd.k_absorption2 = varset->TransformVariable(7, values[7]);
 		pd.biphasic_switch = true;
 		pd.current_dose_time = 0;
 		solvers[threadix]->SetDiscontinuity(pd.k_biphasic_switch_time, boost::bind(&LikelihoodPharmacokineticTrajectory::TreatmentCallbackBiphasic, this, _1, _2), (void*)threadix);
@@ -253,12 +253,14 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 	}
 	Real conversion = (1e6 / MW) / pd.k_vod;
 
-	if (!solvers[threadix]->Simulate(initial_conditions, time, pd.simulated_trajectories, true)) {
+	if (!solvers[threadix]->Simulate(initial_conditions, time, pd.simulated_trajectories)) {
 		logp = -std::numeric_limits<Real>::infinity();
 		return true;
 	} else {
+		pd.simulated_concentrations = pd.simulated_trajectories.row(1) * conversion;
+
 		for (size_t i = 0; i < time.size(); i++) {
-			Real x = conversion * pd.simulated_trajectories(1, i);
+			Real x = pd.simulated_concentrations(i);
 			Real y = observed_concentration[i];
 			if (!std::isnan(y)) {
 				logp += bcm3::LogPdfTnu4(x, y, sd);

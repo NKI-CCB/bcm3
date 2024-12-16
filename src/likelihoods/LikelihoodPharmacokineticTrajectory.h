@@ -20,6 +20,11 @@ public:
 	virtual bool IsReentrant() { return true; }
 	virtual bool EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp);
 
+	inline const OdeVectorReal& GetTimepoints() const { return time; }
+	inline const VectorReal& GetObservedConcentrations() const { return observed_concentration; }
+	inline OdeVectorReal GetSimulatedConcentrations(size_t threadix) const { return parallel_data[threadix].simulated_concentrations; }
+	inline const OdeMatrixReal& GetSimulatedTrajectories(size_t threadix) const { return parallel_data[threadix].simulated_trajectories; }
+
 private:
 	enum PKModelType {
 		PKMT_OneCompartment,
@@ -51,8 +56,7 @@ private:
 
 		Real current_dose_time;
 		OdeMatrixReal simulated_trajectories;
-		std::vector<OdeVectorReal> simulated_concentrations;
-		std::vector<OdeMatrixReal> stored_trajectories;
+		OdeVectorReal simulated_concentrations;
 	};
 
 	bool CalculateDerivative_OneCompartment(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
