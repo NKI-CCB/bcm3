@@ -2,7 +2,7 @@
 #include "LikelihoodPharmacokineticTrajectory.h"
 #include "interface.h"
 
-std::shared_ptr<LikelihoodPharmacokineticTrajectory> GetPopPKLikelihood(bcm3info* info, int* retval)
+std::shared_ptr<LikelihoodPharmacokineticTrajectory> GetPKLikelihood(bcm3info* info, int* retval)
 {
 	if (!info) {
 		return std::shared_ptr<LikelihoodPharmacokineticTrajectory>();
@@ -41,7 +41,7 @@ extern "C" {
 void bcm3_rbridge_PK_get_log_likelihood(char** bcm3info_ptr, double* param_values, double* logl, int* retval)
 {
 	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-	std::shared_ptr<LikelihoodPharmacokineticTrajectory> ll = GetPopPKLikelihood(info, retval);
+	std::shared_ptr<LikelihoodPharmacokineticTrajectory> ll = GetPKLikelihood(info, retval);
 	if (!info || !ll) {
 		return;
 	}
@@ -56,7 +56,7 @@ void bcm3_rbridge_PK_get_log_likelihood(char** bcm3info_ptr, double* param_value
 void bcm3_rbridge_PK_get_observed_data(char** bcm3info_ptr, double* out_values, double* out_timepoints, int* out_num_timepoints, int* retval)
 {
 	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-	std::shared_ptr<LikelihoodPharmacokineticTrajectory> ll = GetPopPKLikelihood(info, retval);
+	std::shared_ptr<LikelihoodPharmacokineticTrajectory> ll = GetPKLikelihood(info, retval);
 	if (!info || !ll) {
 		return;
 	}
@@ -76,7 +76,7 @@ void bcm3_rbridge_PK_get_observed_data(char** bcm3info_ptr, double* out_values, 
 void bcm3_rbridge_PK_get_simulated_data(char** bcm3info_ptr, double* param_values, double* out_trajectories, double* out_concentrations, double* out_timepoints, int* out_num_timepoints, int* out_num_compartments, int* retval)
 {
 	bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-	std::shared_ptr<LikelihoodPharmacokineticTrajectory> ll = GetPopPKLikelihood(info, retval);
+	std::shared_ptr<LikelihoodPharmacokineticTrajectory> ll = GetPKLikelihood(info, retval);
 	if (!info || !ll) {
 		return;
 	}
