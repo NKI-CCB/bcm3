@@ -38,8 +38,9 @@ private:
 		ParallelData();
 
 		Real dose;
-		Real dose_cycle2;
 		Real dosing_interval;
+		Real dose_after_dose_change;
+		Real dose_change_time;
 		unsigned int intermittent;
 		std::set<int>* skipped_days;
 
@@ -76,8 +77,9 @@ private:
 	std::vector<VectorReal> observed_concentration;
 	std::string drug;
 	std::vector<Real> dose;
-	std::vector<Real> dose_cycle2;
 	std::vector<Real> dosing_interval;
+	std::vector<Real> dose_after_dose_change;
+	std::vector<Real> dose_change_time;
 	std::vector<unsigned int> intermittent;
 	std::vector<std::string> patient_ids;
 	std::vector< std::set<int> > skipped_days;

@@ -12,8 +12,9 @@ typedef std::function<bool(OdeReal, const OdeReal*, OdeReal*, void*)> TDeriviati
 
 LikelihoodPopPKTrajectory::ParallelData::ParallelData()
 	: dose(std::numeric_limits<Real>::quiet_NaN())
-	, dose_cycle2(std::numeric_limits<Real>::quiet_NaN())
 	, dosing_interval(std::numeric_limits<Real>::quiet_NaN())
+	, dose_after_dose_change(std::numeric_limits<Real>::quiet_NaN())
+	, dose_change_time(std::numeric_limits<Real>::quiet_NaN())
 	, intermittent(0)
 	, k_absorption(std::numeric_limits<Real>::quiet_NaN())
 	, k_excretion(std::numeric_limits<Real>::quiet_NaN())
@@ -116,7 +117,8 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 	Real minimum_dose = std::numeric_limits<Real>::max();
 	observed_concentration.resize(num_patients);
 	dose.resize(num_patients);
-	dose_cycle2.resize(num_patients);
+	dose_after_dose_change.resize(num_patients);
+	dose_change_time.resize(num_patients);
 	dosing_interval.resize(num_patients);
 	intermittent.resize(num_patients, 0);
 	skipped_days.resize(num_patients);
@@ -124,7 +126,8 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 	for (size_t j = 0; j < num_patients; j++) {
 		result &= data.GetValuesDim2(trial, drug + "_plasma_concentration", j, 0, num_timepoints, observed_concentration[j]);
 		result &= data.GetValue(trial, drug + "_dose", j, &dose[j]);
-		result &= data.GetValue(trial, drug + "_dose_cycle2", j, &dose_cycle2[j]);
+		result &= data.GetValue(trial, drug + "_dose_after_dose_change", j, &dose_after_dose_change[j]);
+		result &= data.GetValue(trial, drug + "_dose_change_time", j, &dose_change_time[j]);
 		result &= data.GetValue(trial, drug + "_dosing_interval", j, &dosing_interval[j]);
 		result &= data.GetValue(trial, drug + "_intermittent", j, &intermittent[j]);
 
@@ -150,15 +153,33 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 			simulate_until[j] = time.size();
 		}
 
-		if (std::isnan(dose_cycle2[j])) {
-			dose_cycle2[j] = dose[j];
+		for (ptrdiff_t i = 0; i < observed_concentration[j].size(); i++) {
+			if (!std::isnan(observed_concentration[j](i))) {
+				if (time[i] > 15 * 24) {
+					// First measurement is too far into the start of treatment, can't trust the earlier estimates
+					simulate_until[j] = 0.0;
+				}
+				break;
+			}
 		}
 
+		if (!std::isnan(dose_after_dose_change[j])) {
+			if (std::isnan(dose_change_time[j])) {
+				LOGERROR("Patient %d has dose change, but time of dose change is not specified.", j);
+				return false;
+			}
+			if (dose_change_time[j] / dosing_interval[j] != 0.0) {
+				LOGERROR("Dose change time for patient  %d is not an exact multiple of the dosing interval.", j);
+				return false;
+			}
+		}
+
+		// Store minimum dose across patients for setting integration tolerances
 		if (dose[j] < minimum_dose) {
 			minimum_dose = dose[j];
 		}
-		if (dose_cycle2[j] < minimum_dose) {
-			minimum_dose = dose_cycle2[j];
+		if (!std::isnan(dose_after_dose_change[j]) && dose_after_dose_change[j] < minimum_dose) {
+			minimum_dose = dose_after_dose_change[j];
 		}
 	}
 
@@ -221,9 +242,10 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 	for (size_t j = 0; j < patient_ids.size(); j++) {
 		ParallelData& pd = parallel_data[threadix];
 		pd.dose = dose[j];
-		pd.dose_cycle2 = dose_cycle2[j];
-		pd.intermittent = intermittent[j];
 		pd.dosing_interval = dosing_interval[j];
+		pd.dose_after_dose_change = dose_after_dose_change[j];
+		pd.dose_change_time = dose_change_time[j];
+		pd.intermittent = intermittent[j];
 		pd.skipped_days = &skipped_days[j];
 		
 		pd.k_absorption  = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 0], values[0], values[num_pk_params + 0]));
@@ -329,28 +351,30 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		OdeVectorReal simulate_time = time.segment(0, simulate_until[j]);
 
 		Real patient_logllh = 0.0;
-		if (!solvers[threadix]->Simulate(initial_conditions, simulate_time, pd.simulated_trajectories)) {
+		if (simulate_time.size() > 0) {
+			if (!solvers[threadix]->Simulate(initial_conditions, simulate_time, pd.simulated_trajectories)) {
 #if 0
-			LOG("Patient %u failed", j);
-			LOG(" k_absorption: %g", pd.k_absorption);
-			LOG(" k_excretion: %g", pd.k_excretion);
-			LOG(" k_vod: %g", pd.k_vod);
-			LOG(" k_elimination: %g", pd.k_elimination);
+				LOG("Patient %u failed", j);
+				LOG(" k_absorption: %g", pd.k_absorption);
+				LOG(" k_excretion: %g", pd.k_excretion);
+				LOG(" k_vod: %g", pd.k_vod);
+				LOG(" k_elimination: %g", pd.k_elimination);
 #endif
-			patient_logllh = -std::numeric_limits<Real>::infinity();
-		} else {
-			pd.simulated_concentrations[j] = pd.simulated_trajectories.row(1) * conversion;
-			pd.stored_trajectories[j] = pd.simulated_trajectories;
-			for (size_t i = 0; i < simulate_time.size(); i++) {
-				Real x = conversion * pd.simulated_trajectories(1, i);
-				Real y = observed_concentration[j](i);
-				if (!std::isnan(y)) {
-					patient_logllh += bcm3::LogPdfTnu4(x, y, sd);
-				}
-				if (std::isnan(x)) {
-					//LOGERROR("NaN in trajectory for patient %zu, timepoint %zu", j, i);
-					patient_logllh = -std::numeric_limits<Real>::infinity();
-					break;
+				patient_logllh = -std::numeric_limits<Real>::infinity();
+			} else {
+				pd.simulated_concentrations[j] = pd.simulated_trajectories.row(1) * conversion;
+				pd.stored_trajectories[j] = pd.simulated_trajectories;
+				for (size_t i = 0; i < simulate_time.size(); i++) {
+					Real x = conversion * pd.simulated_trajectories(1, i);
+					Real y = observed_concentration[j](i);
+					if (!std::isnan(y)) {
+						patient_logllh += bcm3::LogPdfTnu4(x, y, sd);
+					}
+					if (std::isnan(x)) {
+						//LOGERROR("NaN in trajectory for patient %zu, timepoint %zu", j, i);
+						patient_logllh = -std::numeric_limits<Real>::infinity();
+						break;
+					}
 				}
 			}
 		}
@@ -472,8 +496,8 @@ Real LikelihoodPopPKTrajectory::TreatmentCallback(OdeReal t, void* user)
 		}
 	}
 	Real dose = pd.dose;
-	if (day >= 28) {
-		dose = pd.dose_cycle2;
+	if (t >= pd.dose_change_time) {
+		dose = pd.dose_after_dose_change;
 	}
 	if (give_treatment) {
 		solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
@@ -515,8 +539,8 @@ Real LikelihoodPopPKTrajectory::TreatmentCallbackBiphasic(OdeReal t, void* user)
 			}
 		}
 		Real dose = pd.dose;
-		if (day >= 28) {
-			dose = pd.dose_cycle2;
+		if (t >= pd.dose_change_time) {
+			dose = pd.dose_after_dose_change;
 		}
 		if (give_treatment) {
 			solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
