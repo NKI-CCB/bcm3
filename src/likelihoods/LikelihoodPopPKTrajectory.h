@@ -48,7 +48,8 @@ private:
 		Real k_excretion;
 		Real k_elimination;
 		Real k_vod;
-		Real k_intercompartmental;
+		Real k_periphery_fwd;
+		Real k_periphery_bwd;
 		Real k_transit;
 		Real k_biphasic_switch_time;
 		Real k_absorption2;
@@ -65,7 +66,6 @@ private:
 	bool CalculateDerivative_TwoCompartmentBiphasic(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
 	bool CalculateDerivative_OneCompartmentTransit(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
 	bool CalculateDerivative_TwoCompartmentTransit(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
-	bool CalculateDerivative_TwoCompartmentLagAndMetabolite(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
 	Real TreatmentCallback(OdeReal t, void* user);
 	Real TreatmentCallbackBiphasic(OdeReal t, void* user);
 
@@ -89,7 +89,6 @@ private:
 	size_t num_pk_pop_params;
 
 	// Runtime variables
-	//std::vector< std::unique_ptr<ODESolverCVODE> > solvers;
 	std::vector< std::unique_ptr<ODESolver> > solvers;
 	std::vector<ParallelData> parallel_data;
 

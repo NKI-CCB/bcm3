@@ -20,7 +20,8 @@ LikelihoodPopPKTrajectory::ParallelData::ParallelData()
 	, k_excretion(std::numeric_limits<Real>::quiet_NaN())
 	, k_elimination(std::numeric_limits<Real>::quiet_NaN())
 	, k_vod(std::numeric_limits<Real>::quiet_NaN())
-	, k_intercompartmental(std::numeric_limits<Real>::quiet_NaN())
+	, k_periphery_fwd(std::numeric_limits<Real>::quiet_NaN())
+	, k_periphery_bwd(std::numeric_limits<Real>::quiet_NaN())
 	, k_transit(std::numeric_limits<Real>::quiet_NaN())
 	, k_biphasic_switch_time(std::numeric_limits<Real>::quiet_NaN())
 	, k_absorption2(std::numeric_limits<Real>::quiet_NaN())
@@ -82,23 +83,26 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 	size_t num_timepoints, num_patients;
 	result &= data.GetDimensionSize(trial, "time", &num_timepoints);
 	result &= data.GetDimensionSize(trial, "patients", &num_patients);
+
+	num_patients = 4;
+
 	result &= data.GetValues(trial, "patients", 0, num_patients, patient_ids);
 
 	if (pk_type == PKMT_OneCompartment) {
 		num_pk_params = 4;
-		num_pk_pop_params = 4;
+		num_pk_pop_params = 2;
 	} else if (pk_type == PKMT_TwoCompartment) {
-		num_pk_params = 5;
-		num_pk_pop_params = 4;
+		num_pk_params = 6;
+		num_pk_pop_params = 2;
 	} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
 		num_pk_params = 7;
-		num_pk_pop_params = 5;
+		num_pk_pop_params = 4;
 	} else if (pk_type == PKMT_OneCompartmentTransit) {
 		num_pk_params = 5;
-		num_pk_pop_params = 4;
+		num_pk_pop_params = 2;
 	} else if (pk_type == PKMT_TwoCompartmentTransit) {
-		num_pk_params = 6;
-		num_pk_pop_params = 4;
+		num_pk_params = 7;
+		num_pk_pop_params = 2;
 	} else {
 		LOGERROR("Invalid PK model type");
 		return false;
@@ -250,41 +254,42 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		
 		pd.k_absorption  = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 0], values[0], values[num_pk_params + 0]));
 		pd.k_excretion	 = bcm3::fastpow10(values[1]);
-		pd.k_vod		 = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 2], values[3], values[num_pk_params + 2]));
+		pd.k_vod		 = bcm3::fastpow10(values[3]); //bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 2], values[3], values[num_pk_params + 2]));
 		pd.k_elimination = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 1], values[2], values[num_pk_params + 1])) / pd.k_vod;
 		if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
-			pd.k_intercompartmental = bcm3::fastpow10(values[4]) / pd.k_vod;
+			pd.k_periphery_fwd = bcm3::fastpow10(values[4]);
+			pd.k_periphery_bwd = bcm3::fastpow10(values[5]);
 		}
 		if (pk_type == PKMT_OneCompartmentTransit) {
-			pd.k_transit = bcm3::fastpow10(values[4]);
-		}
-		if (pk_type == PKMT_TwoCompartmentTransit) {
 			pd.k_transit = bcm3::fastpow10(values[5]);
 		}
+		if (pk_type == PKMT_TwoCompartmentTransit) {
+			pd.k_transit = bcm3::fastpow10(values[6]);
+		}
 		if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-			// No between-subject variation in biphasic time
-			pd.k_biphasic_switch_time = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 3], values[5], values[num_pk_params + 3]));
+			pd.k_biphasic_switch_time = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 2], values[6], values[num_pk_params + 2]));
 
 			// The biphasic logic assumes that the switching time is always bigger than 0 and strictly less than the treatment interval
 			pd.k_biphasic_switch_time = std::min(pd.k_biphasic_switch_time, pd.dosing_interval - 1e-2);
-			pd.k_absorption2 = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 4], values[6], values[num_pk_params + 4]));
+			pd.k_absorption2 = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 3], values[7], values[num_pk_params + 3]));
 		}
 
-		VectorReal parameters = VectorReal::Constant(8, 0);
+		VectorReal parameters = VectorReal::Constant(9, 0);
 		parameters(0) = pd.k_absorption;
 		parameters(1) = pd.k_excretion;
 		parameters(2) = pd.k_vod;
 		parameters(3) = pd.k_elimination;
 		if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
-			parameters(4) = pd.k_intercompartmental;
+			parameters(4) = pd.k_periphery_fwd;
+			parameters(5) = pd.k_periphery_bwd;
 		}
 		if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
-			parameters(5) = pd.k_transit;
+			parameters(6) = pd.k_transit;
 		} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-			parameters(5) = pd.k_biphasic_switch_time;
-			parameters(6) = pd.k_absorption2;
+			parameters(6) = pd.k_biphasic_switch_time;
+			parameters(7) = pd.k_absorption2;
 		}
-		parameters(7) = sd;
+		parameters(8) = sd;
 
 		buffer_spinlock.lock();
 		int which_exactly_equal = -1;
@@ -415,8 +420,8 @@ bool LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartment(OdeReal t, co
 	ParallelData& pd = parallel_data[threadix];
 
 	dydt[0] = -(pd.k_absorption + pd.k_excretion) * y[0];
-	dydt[1] = pd.k_absorption * y[0] - pd.k_elimination * y[1] - pd.k_intercompartmental * y[1] + pd.k_intercompartmental * y[2];
-	dydt[2] = pd.k_intercompartmental * y[1] - pd.k_intercompartmental * y[2];
+	dydt[1] = pd.k_absorption * y[0] - pd.k_elimination * y[1] - pd.k_periphery_fwd * y[1] + pd.k_periphery_bwd * y[2];
+	dydt[2] = pd.k_periphery_fwd * y[1] - pd.k_periphery_bwd * y[2];
 
 	return true;
 }
@@ -434,8 +439,8 @@ bool LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentBiphasic(OdeRe
 	}
 
 	dydt[0] = -(current_k_absorption + pd.k_excretion) * y[0];
-	dydt[1] = current_k_absorption * y[0] - pd.k_elimination * y[1] - pd.k_intercompartmental * y[1] + pd.k_intercompartmental * y[2];
-	dydt[2] = pd.k_intercompartmental * y[1] - pd.k_intercompartmental * y[2];
+	dydt[1] = current_k_absorption * y[0] - pd.k_elimination * y[1] - pd.k_periphery_fwd * y[1] + pd.k_periphery_bwd * y[2];
+	dydt[2] = pd.k_periphery_fwd * y[1] - pd.k_periphery_bwd * y[2];
 
 	return true;
 }
@@ -458,10 +463,10 @@ bool LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentTransit(OdeRea
 	ParallelData& pd = parallel_data[threadix];
 
 	dydt[0] = -(pd.k_absorption + pd.k_excretion) * y[0];
-	dydt[1] = pd.k_transit * y[3] - pd.k_elimination * y[1] - pd.k_intercompartmental * y[1] + pd.k_intercompartmental * y[4];
+	dydt[1] = pd.k_transit * y[3] - pd.k_elimination * y[1] - pd.k_periphery_fwd * y[1] + pd.k_periphery_bwd * y[4];
 	dydt[2] = pd.k_absorption * y[0] - pd.k_transit * y[2];
 	dydt[3] = pd.k_transit * y[2] - pd.k_transit * y[3];
-	dydt[4] = pd.k_intercompartmental * y[1] - pd.k_intercompartmental * y[4];
+	dydt[4] = pd.k_periphery_fwd * y[1] - pd.k_periphery_bwd * y[4];
 
 	return true;
 }
