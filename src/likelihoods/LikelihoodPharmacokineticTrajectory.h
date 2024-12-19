@@ -52,9 +52,11 @@ private:
 		Real k_periphery_fwd;
 		Real k_periphery_bwd;
 		Real k_transit;
+		Real n_transit;
 		Real k_biphasic_switch_time;
 		Real k_absorption2;
 		bool biphasic_switch;
+		Real last_treatment;
 
 		Real current_dose_time;
 		OdeMatrixReal simulated_trajectories;

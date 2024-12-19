@@ -88,6 +88,10 @@ private:
 	size_t num_pk_params;
 	size_t num_pk_pop_params;
 
+	Real fixed_vod;
+	Real fixed_periphery_fwd;
+	Real fixed_periphery_bwd;
+
 	// Runtime variables
 	std::vector< std::unique_ptr<ODESolver> > solvers;
 	std::vector<ParallelData> parallel_data;
