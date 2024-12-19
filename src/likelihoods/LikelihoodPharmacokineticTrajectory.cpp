@@ -110,7 +110,7 @@ bool LikelihoodPharmacokineticTrajectory::Initialize(std::shared_ptr<const bcm3:
 
 	SetPKModelType(pk_type_str);
 	if (pk_type == PKMT_OneCompartment) {
-		if (varset->GetNumVariables() != 5 - fixed_var_count) {
+		if (varset->GetNumVariables() != 6 - fixed_var_count) {
 			LOGERROR("Incorrect number of variables in prior - should be 5 variables for a one-compartment model");
 			return false;
 		}
@@ -213,6 +213,7 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 
 	size_t sdix = varset->GetVariableIndex("standard_deviation");
 	Real sd = varset->TransformVariable(sdix, values[sdix]);
+	Real sd2 = varset->TransformVariable(sdix+1, values[sdix+1]);
 
 	ParallelData& pd = parallel_data[threadix];
 	pd.dose				= dose;
@@ -289,7 +290,7 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 			Real x = pd.simulated_concentrations(i);
 			Real y = observed_concentration[i];
 			if (!std::isnan(y)) {
-				logp += bcm3::LogPdfTnu4(x, y, sd);
+				logp += bcm3::LogPdfTnu4(x, y, sd + sd2 * std::max(x, 0.0));
 			}
 		}
 	}
