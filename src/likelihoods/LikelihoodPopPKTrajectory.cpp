@@ -33,6 +33,9 @@ LikelihoodPopPKTrajectory::ParallelData::ParallelData()
 LikelihoodPopPKTrajectory::LikelihoodPopPKTrajectory(size_t sampling_threads, size_t evaluation_threads)
 	: sampling_threads(sampling_threads)
 	, pk_type(PKMT_Undefined)
+	, fixed_vod(std::numeric_limits<Real>::quiet_NaN())
+	, fixed_periphery_fwd(std::numeric_limits<Real>::quiet_NaN())
+	, fixed_periphery_bwd(std::numeric_limits<Real>::quiet_NaN())
 {
 	solvers.resize(sampling_threads);
 	parallel_data.resize(sampling_threads);
@@ -56,6 +59,10 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 		std::string pk_type_str = modelnode.get<std::string>("<xmlattr>.type");
 		trial = modelnode.get<std::string>("<xmlattr>.trial");
 		pkdata_file = modelnode.get<std::string>("<xmlattr>.pkdata_file");
+
+		fixed_vod = modelnode.get<Real>("<xmlattr>.volume_of_distribution", std::numeric_limits<Real>::quiet_NaN());
+		fixed_periphery_fwd = modelnode.get<Real>("<xmlattr>.k_periphery_fwd", std::numeric_limits<Real>::quiet_NaN());
+		fixed_periphery_bwd = modelnode.get<Real>("<xmlattr>.k_periphery_bwd", std::numeric_limits<Real>::quiet_NaN());
 
 		if (pk_type_str == "one") {
 			pk_type = PKMT_OneCompartment;
@@ -108,7 +115,12 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 		return false;
 	}
 
-	if (varset->GetNumVariables() != num_pk_params + num_pk_pop_params * (num_patients + 1) + 1) {
+	size_t fixed_var_count = 0;
+	if (!std::isnan(fixed_vod)) fixed_var_count++;
+	if (!std::isnan(fixed_periphery_fwd)) fixed_var_count++;
+	if (!std::isnan(fixed_periphery_bwd)) fixed_var_count++;
+
+	if (varset->GetNumVariables() != num_pk_params - fixed_var_count + num_pk_pop_params * (num_patients + 1) + 1) {
 		LOGERROR("Incorrect number of variables in prior");
 		return false;
 	}
@@ -254,11 +266,16 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		
 		pd.k_absorption  = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 0], values[0], values[num_pk_params + 0]));
 		pd.k_excretion	 = bcm3::fastpow10(values[1]);
-		pd.k_vod		 = bcm3::fastpow10(values[3]); //bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 2], values[3], values[num_pk_params + 2]));
+		pd.k_vod		 = std::isnan(fixed_vod) ? varset->TransformVariable(3, values[3]) : fixed_vod;
 		pd.k_elimination = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 1], values[2], values[num_pk_params + 1])) / pd.k_vod;
 		if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
-			pd.k_periphery_fwd = bcm3::fastpow10(values[4]);
-			pd.k_periphery_bwd = bcm3::fastpow10(values[5]);
+			if (std::isnan(fixed_periphery_fwd)) {
+				pd.k_periphery_fwd = varset->TransformVariable(4, values[4]);
+				pd.k_periphery_bwd = varset->TransformVariable(5, values[5]);
+			} else {
+				pd.k_periphery_fwd = fixed_periphery_fwd;
+				pd.k_periphery_bwd = fixed_periphery_bwd;
+			}
 		}
 		if (pk_type == PKMT_OneCompartmentTransit) {
 			pd.k_transit = bcm3::fastpow10(values[5]);
