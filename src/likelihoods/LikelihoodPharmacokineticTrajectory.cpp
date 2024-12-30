@@ -12,8 +12,9 @@ typedef std::function<bool(OdeReal, const OdeReal*, OdeReal*, void*)> TDeriviati
 
 LikelihoodPharmacokineticTrajectory::ParallelData::ParallelData()
 	: dose(std::numeric_limits<Real>::quiet_NaN())
-	, dose_cycle2(std::numeric_limits<Real>::quiet_NaN())
 	, dosing_interval(std::numeric_limits<Real>::quiet_NaN())
+	, dose_after_dose_change(std::numeric_limits<Real>::quiet_NaN())
+	, dose_change_time(std::numeric_limits<Real>::quiet_NaN())
 	, intermittent(0)
 	, k_absorption(std::numeric_limits<Real>::quiet_NaN())
 	, k_excretion(std::numeric_limits<Real>::quiet_NaN())
@@ -68,8 +69,10 @@ void LikelihoodPharmacokineticTrajectory::SetPKModelType(std::string type)
 		pk_type = PKMT_OneCompartment;
 	} else if (type == "two") {
 		pk_type = PKMT_TwoCompartment;
-	} else if (type == "two_biphasic") {
-		pk_type = PKMT_TwoCompartmentBiPhasic;
+	} else if (type == "one_biphasic_uptake") {
+		pk_type = PKMT_TwoCompartmentBiphasicUptake;
+	} else if (type == "two_biphasic_uptake") {
+		pk_type = PKMT_TwoCompartmentBiphasicUptake;
 	} else if (type == "one_transit") {
 		pk_type = PKMT_OneCompartmentTransit;
 	} else if (type == "two_transit") {
@@ -173,9 +176,20 @@ bool LikelihoodPharmacokineticTrajectory::Initialize(std::shared_ptr<const bcm3:
 
 	result &= data.GetValue(trial, drug + "_dose", patient_ix, &dose);
 	result &= data.GetValue(trial, drug + "_dosing_interval", patient_ix, &dosing_interval);
+	result &= data.GetValue(trial, drug + "_dose_after_dose_change", patient_ix, &dose_after_dose_change);
+	result &= data.GetValue(trial, drug + "_dose_change_time", patient_ix, &dose_change_time);
 	unsigned int intermittint_int;
 	result &= data.GetValue(trial, drug + "_intermittent", patient_ix, &intermittint_int);
 	intermittent = intermittint_int ? true : false;
+
+	std::vector<unsigned int> interruptions;
+	for (int i = 0; i < 29; i++) {
+		unsigned int tmp;
+		result &= data.GetValue(trial, "treatment_interruptions", patient_ix, (size_t)i, &tmp);
+		if (tmp) {
+			skipped_days.insert(i);
+		}
+	}
 
 	// Allocate structures for parallel evaluation
 	for (size_t threadix = 0; threadix < sampling_threads; threadix++) {
@@ -186,16 +200,20 @@ bool LikelihoodPharmacokineticTrajectory::Initialize(std::shared_ptr<const bcm3:
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_OneCompartment, this, _1, _2, _3, _4, _5));
 			solvers[threadix]->Initialize(2, NULL);
 		} else if (pk_type == PKMT_TwoCompartment) {
-			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4);
-			solvers[threadix]->SetDerivativeFunction(derivative);
+			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4));
+			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_TwoCompartment, this, _1, _2, _3, _4, _5));
 			solvers[threadix]->Initialize(3, NULL);
-		} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentBiphasic, this, _1, _2, _3, _4);
-			solvers[threadix]->SetDerivativeFunction(derivative);
+		} else if (pk_type == PKMT_OneCompartmentBiphasicUptake) {
+			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_OneCompartmentBiphasicUptake, this, _1, _2, _3, _4, _5));
+			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartmentBiphasicUptake, this, _1, _2, _3, _4));
+			solvers[threadix]->Initialize(2, NULL);
+		} else if (pk_type == PKMT_TwoCompartmentBiphasicUptake) {
+			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_TwoCompartmentBiphasicUptake, this, _1, _2, _3, _4, _5));
+			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentBiphasicUptake, this, _1, _2, _3, _4));
 			solvers[threadix]->Initialize(3, NULL);
 		} else if (pk_type == PKMT_OneCompartmentTransit) {
-			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4);
-			solvers[threadix]->SetDerivativeFunction(derivative);
+			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4));
+			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_OneCompartmentTransit, this, _1, _2, _3, _4, _5));
 			solvers[threadix]->Initialize(2, NULL);
 		} else if (pk_type == PKMT_TwoCompartmentTransit) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4));
@@ -225,21 +243,23 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 	Real sd2 = varset->TransformVariable(sdix+1, values[sdix+1]);
 
 	size_t absorption_ix = 0;
-	size_t elimination_ix = 1;
-	size_t vod_ix = 2;
-	size_t periphery_fwd_ix = 3;
-	size_t periphery_bwd_ix = 4;
+	size_t excretion_ix = 1;
+	size_t elimination_ix = 2;
+	size_t vod_ix = 3;
+	size_t periphery_fwd_ix = 4;
+	size_t periphery_bwd_ix = 5;
 
 	ParallelData& pd = parallel_data[threadix];
 	pd.dose				= dose;
-	pd.dose_cycle2		= 0.0;// dose_cycle2;
 	pd.intermittent		= intermittent;
 	pd.dosing_interval	= dosing_interval;
+	pd.dose_after_dose_change = dose_after_dose_change;
+	pd.dose_change_time = dose_change_time;
 	pd.k_absorption		= varset->TransformVariable(absorption_ix, values[absorption_ix]);
-	pd.k_excretion		= 0;//varset->TransformVariable(1, values[1]);
+	pd.k_excretion		= varset->TransformVariable(excretion_ix, values[excretion_ix]);
 	pd.k_vod			= std::isnan(fixed_vod) ? varset->TransformVariable(vod_ix, values[vod_ix]) : fixed_vod;
 	pd.k_elimination	= varset->TransformVariable(elimination_ix, values[elimination_ix]) / pd.k_vod;
-	if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
+	if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiphasicUptake || pk_type == PKMT_TwoCompartmentTransit) {
 		if (std::isnan(fixed_periphery_fwd)) {
 			pd.k_periphery_fwd = varset->TransformVariable(periphery_fwd_ix, values[periphery_fwd_ix]);
 			pd.k_periphery_bwd = varset->TransformVariable(periphery_bwd_ix, values[periphery_bwd_ix]);
@@ -248,18 +268,13 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 			pd.k_periphery_bwd = fixed_periphery_bwd;
 		}
 	}
-	if (pk_type == PKMT_OneCompartmentTransit) {
-		pd.n_transit = varset->TransformVariable(4, values[4]);
-		pd.k_transit = (pd.n_transit + 1) / varset->TransformVariable(3, values[3]);
-	}
-	if (pk_type == PKMT_TwoCompartmentTransit) {
+	if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
 		size_t n_transit_ix = varset->GetVariableIndex("n_transit");
 		pd.n_transit = varset->TransformVariable(n_transit_ix, values[n_transit_ix]);
 		size_t transit_time_ix = varset->GetVariableIndex("mean_transit_time");
 		pd.k_transit = (pd.n_transit + 1) / varset->TransformVariable(transit_time_ix, values[transit_time_ix]);
 	}
-	solvers[threadix]->SetUserData((void*)threadix);
-	if (pk_type == PKMT_TwoCompartmentBiPhasic) {
+	if (pk_type == PKMT_OneCompartmentBiphasicUptake || pk_type == PKMT_TwoCompartmentBiphasicUptake) {
 		// The biphasic logic assumes that the switching time is always bigger than 0 and strictly less than the treatment interval
 		pd.k_biphasic_switch_time = varset->TransformVariable(6, values[6]);
 		pd.k_absorption2 = varset->TransformVariable(7, values[7]);
@@ -270,7 +285,9 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 		pd.current_dose_time = dosing_interval;
 		solvers[threadix]->SetDiscontinuity(dosing_interval, boost::bind(&LikelihoodPharmacokineticTrajectory::TreatmentCallback, this, _1, _2), (void*)threadix);
 	}
+	pd.skipped_days = &skipped_days;
 	pd.last_treatment = 0.0;
+	solvers[threadix]->SetUserData((void*)threadix);
 
 	OdeReal initial_conditions[3];
 	if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
@@ -355,7 +372,59 @@ bool LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartment(Ode
 	return true;
 }
 
-bool LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentBiphasic(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user)
+bool LikelihoodPharmacokineticTrajectory::CalculateJacobian_TwoCompartment(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user)
+{
+	size_t threadix = (size_t)user;
+	ParallelData& pd = parallel_data[threadix];
+
+	jac(0, 0) = -(pd.k_absorption + pd.k_excretion);
+	jac(1, 0) = pd.k_absorption;
+	jac(1, 1) = -(pd.k_elimination + pd.k_periphery_fwd);
+	jac(1, 2) = pd.k_periphery_bwd;
+	jac(2, 1) = pd.k_periphery_fwd;
+	jac(2, 2) = -pd.k_periphery_bwd;
+
+	return true;
+}
+
+bool LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartmentBiphasicUptake(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user)
+{
+	size_t threadix = (size_t)user;
+	ParallelData& pd = parallel_data[threadix];
+
+	Real current_k_absorption;
+	if (pd.biphasic_switch) {
+		current_k_absorption = pd.k_absorption;
+	} else {
+		current_k_absorption = pd.k_absorption2;
+	}
+
+	dydt[0] = -(current_k_absorption + pd.k_excretion) * y[0];
+	dydt[1] = current_k_absorption * y[0] - pd.k_elimination * y[1] - pd.k_periphery_fwd * y[1];
+
+	return true;
+}
+
+bool LikelihoodPharmacokineticTrajectory::CalculateJacobian_OneCompartmentBiphasicUptake(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user)
+{
+	size_t threadix = (size_t)user;
+	ParallelData& pd = parallel_data[threadix];
+
+	Real current_k_absorption;
+	if (pd.biphasic_switch) {
+		current_k_absorption = pd.k_absorption;
+	} else {
+		current_k_absorption = pd.k_absorption2;
+	}
+
+	jac(0, 0) = -(current_k_absorption + pd.k_excretion);
+	jac(1, 0) = current_k_absorption;
+	jac(1, 1) = -pd.k_elimination;
+
+	return true;
+}
+
+bool LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentBiphasicUptake(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user)
 {
 	size_t threadix = (size_t)user;
 	ParallelData& pd = parallel_data[threadix];
@@ -374,18 +443,57 @@ bool LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentBiph
 	return true;
 }
 
+bool LikelihoodPharmacokineticTrajectory::CalculateJacobian_TwoCompartmentBiphasicUptake(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user)
+{
+	size_t threadix = (size_t)user;
+	ParallelData& pd = parallel_data[threadix];
+
+	Real current_k_absorption;
+	if (pd.biphasic_switch) {
+		current_k_absorption = pd.k_absorption;
+	} else {
+		current_k_absorption = pd.k_absorption2;
+	}
+
+	jac(0, 0) = -(current_k_absorption + pd.k_excretion);
+	jac(1, 0) = current_k_absorption;
+	jac(1, 1) = -(pd.k_elimination + pd.k_periphery_fwd);
+	jac(1, 2) = pd.k_periphery_bwd;
+	jac(2, 1) = pd.k_periphery_fwd;
+	jac(2, 2) = -pd.k_periphery_bwd;
+
+	return true;
+}
+
 bool LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartmentTransit(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user)
 {
 	size_t threadix = (size_t)user;
 	ParallelData& pd = parallel_data[threadix];
 
+	Real dose = pd.dose;
+	if (t >= pd.dose_change_time) {
+		dose = pd.dose_after_dose_change;
+	}
+
 	Real t_since_treatment = t - pd.last_treatment;
 	Real log_n_transit_factorial = 0.9189385332046727 + (pd.n_transit + 0.5) * log(pd.n_transit) - pd.n_transit + log(1 + 1 / (12.0 * pd.n_transit));
 	Real transit = exp((pd.n_transit * log(pd.k_transit * t_since_treatment) - pd.k_transit * t_since_treatment) - log_n_transit_factorial);
-	transit = pd.k_transit * transit * pd.dose;
+	transit = pd.k_transit * transit * dose;
 
 	dydt[0] = transit - (pd.k_absorption + pd.k_excretion) * y[0];
 	dydt[1] = pd.k_absorption * y[0] - pd.k_elimination * y[1];
+
+	return true;
+}
+
+bool LikelihoodPharmacokineticTrajectory::CalculateJacobian_OneCompartmentTransit(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user)
+{
+	size_t threadix = (size_t)user;
+	ParallelData& pd = parallel_data[threadix];
+
+	jac(0, 0) = -(pd.k_absorption + pd.k_excretion);
+	jac(1, 0) = pd.k_absorption;
+	jac(1, 1) = -pd.k_elimination;
 
 	return true;
 }
@@ -395,10 +503,15 @@ bool LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentTran
 	size_t threadix = (size_t)user;
 	ParallelData& pd = parallel_data[threadix];
 
+	Real dose = pd.dose;
+	if (t >= pd.dose_change_time) {
+		dose = pd.dose_after_dose_change;
+	}
+
 	Real t_since_treatment = t - pd.last_treatment;
 	Real log_n_transit_factorial = 0.9189385332046727 + (pd.n_transit + 0.5) * log(pd.n_transit) - pd.n_transit + log(1 + 1 / (12.0 * pd.n_transit));
 	Real transit = exp((pd.n_transit * log(pd.k_transit * t_since_treatment) - pd.k_transit * t_since_treatment) - log_n_transit_factorial);
-	transit = pd.k_transit * transit * pd.dose;
+	transit = pd.k_transit * transit * dose;
 
 	dydt[0] = transit - (pd.k_absorption + pd.k_excretion) * y[0];
 	dydt[1] = pd.k_absorption * y[0] - pd.k_elimination * y[1] - pd.k_periphery_fwd * y[1] + pd.k_periphery_bwd * y[2];
@@ -413,42 +526,60 @@ bool LikelihoodPharmacokineticTrajectory::CalculateJacobian_TwoCompartmentTransi
 	ParallelData& pd = parallel_data[threadix];
 
 	jac(0, 0) = -(pd.k_absorption + pd.k_excretion);
-
 	jac(1, 0) = pd.k_absorption;
 	jac(1, 1) = -(pd.k_elimination + pd.k_periphery_fwd);
 	jac(1, 2) = pd.k_periphery_bwd;
-
 	jac(2, 1) = pd.k_periphery_fwd;
 	jac(2, 2) = -pd.k_periphery_bwd;
 
 	return true;
 }
 
+inline bool LikelihoodPharmacokineticTrajectory::CheckGiveTreatment(OdeReal t, ParallelData& pd)
+{
+	bool give_treatment = true;
+	int day = static_cast<int>(floor(t / 24.0));
+	if (pd.skipped_days->find(day) != pd.skipped_days->end()) {
+		give_treatment = false;
+	}
+	if (pd.intermittent == 1) {
+		Real time_in_week = t - 7.0 * 24.0 * floor(t / (7.0 * 24.0));
+		if (time_in_week >= 5.0 * 24.0) {
+			// No dose in day 6 and 7
+			give_treatment = false;
+		}
+	} else if (pd.intermittent == 2) {
+		Real time_in_treatment_course = t - 28.0 * 24.0 * floor(t / (28.0 * 24.0));
+		if (time_in_treatment_course >= 21.0 * 24.0) {
+			// No dose in day 22 through 28
+			give_treatment = false;
+		}
+	} else if (pd.intermittent == 3) {
+		Real time_in_week = t - 7.0 * 24.0 * floor(t / (7.0 * 24.0));
+		if (time_in_week >= 4.0 * 24.0) {
+			// No dose in day 5, 6 and 7
+			give_treatment = false;
+		}
+	}
+	return give_treatment;
+}
+
 Real LikelihoodPharmacokineticTrajectory::TreatmentCallback(OdeReal t, void* user)
 {
 	size_t threadix = (size_t)user;
 	ParallelData& pd = parallel_data[threadix];
-	pd.current_dose_time += dosing_interval;
-
-	if (pd.intermittent) {
-		Real time_in_week = t - floor(t / 7.0 * 24.0);
-		if (time_in_week < 5.0 * 24.0) {
-			if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
-				pd.last_treatment = t;
-			} else {
-				solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + pd.dose);
-			}
-		} else {
-			// No dose in day 6 and 7
+	pd.current_dose_time += pd.dosing_interval;
+	if (CheckGiveTreatment(t, pd)) {
+		Real dose = pd.dose;
+		if (t >= pd.dose_change_time) {
+			dose = pd.dose_after_dose_change;
 		}
-	} else {
 		if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
 			pd.last_treatment = t;
 		} else {
-			solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + pd.dose);
+			solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
 		}
 	}
-
 	return pd.current_dose_time;
 }
 
@@ -461,19 +592,22 @@ Real LikelihoodPharmacokineticTrajectory::TreatmentCallbackBiphasic(OdeReal t, v
 		pd.current_dose_time += pd.dosing_interval;
 		return pd.current_dose_time;
 	} else {
-		pd.biphasic_switch = true;
-
-		if (pd.intermittent) {
-			Real time_in_week = t - floor(t / 7.0 * 24.0);
-			if (time_in_week < 5.0 * 24.0) {
-				solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + pd.dose);
-			} else {
-				// No dose in day 6 and 7
+		if (CheckGiveTreatment(t, pd)) {
+			Real dose = pd.dose;
+			if (t >= pd.dose_change_time) {
+				dose = pd.dose_after_dose_change;
 			}
+			if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
+				pd.last_treatment = t;
+			} else {
+				solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
+			}
+			pd.biphasic_switch = true;
+			return pd.current_dose_time + pd.k_biphasic_switch_time;
 		} else {
-			solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + pd.dose);
+			pd.current_dose_time += pd.dosing_interval;
+			return pd.current_dose_time;
 		}
-		return pd.current_dose_time + pd.k_biphasic_switch_time;
 	}
 }
 

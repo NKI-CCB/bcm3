@@ -28,8 +28,8 @@ private:
 	enum PKModelType {
 		PKMT_OneCompartment,
 		PKMT_TwoCompartment,
-		PKMT_TwoCompartmentBiPhasic,
-		PKMT_TwoCompartmentLagAndMetabolite,
+		PKMT_OneCompartmentBiphasicUptake,
+		PKMT_TwoCompartmentBiphasicUptake,
 		PKMT_OneCompartmentTransit,
 		PKMT_TwoCompartmentTransit,
 		PKMT_Undefined
@@ -65,15 +65,21 @@ private:
 
 	bool CalculateDerivative_OneCompartment(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
 	bool CalculateDerivative_TwoCompartment(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
-	bool CalculateDerivative_TwoCompartmentBiphasic(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
+	bool CalculateDerivative_OneCompartmentBiphasicUptake(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
+	bool CalculateDerivative_TwoCompartmentBiphasicUptake(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
 	bool CalculateDerivative_OneCompartmentTransit(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
 	bool CalculateDerivative_TwoCompartmentTransit(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
 
 	bool CalculateJacobian_OneCompartment(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user);
+	bool CalculateJacobian_TwoCompartment(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user);
+	bool CalculateJacobian_OneCompartmentBiphasicUptake(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user);
+	bool CalculateJacobian_TwoCompartmentBiphasicUptake(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user);
+	bool CalculateJacobian_OneCompartmentTransit(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user);
 	bool CalculateJacobian_TwoCompartmentTransit(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user);
 
 	Real TreatmentCallback(OdeReal t, void* user);
 	Real TreatmentCallbackBiphasic(OdeReal t, void* user);
+	inline bool CheckGiveTreatment(OdeReal t, ParallelData& pd);
 
 	// Static variables
 	size_t sampling_threads;
