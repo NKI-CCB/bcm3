@@ -11,8 +11,11 @@ public:
 	template<typename InputType>
 	PartialPivLUExtended& compute_select(const Eigen::EigenBase<InputType>& matrix)
 	{
-		if (matrix.rows() == 3) {
-			ASSERT(matrix.cols() == 3);
+		if (matrix.rows() == 2) {
+			inverse.resize(2, 2);
+			Eigen::internal::compute_inverse<MatrixType, MatrixType, 2>::run(matrix, inverse);
+			return *this;
+		} else if (matrix.rows() == 3) {
 			inverse.resize(3, 3);
 			Eigen::internal::compute_inverse<MatrixType, MatrixType, 3>::run(matrix, inverse);
 			return *this;
@@ -24,7 +27,7 @@ public:
 	template<typename RhsType, typename DstType>
 	void apply_select(const RhsType& b, DstType& x)
 	{
-		if (b.size() == 3) {
+		if (b.size() <= 3) {
 			x.noalias() = inverse * b;
 		} else {
 			x.noalias() = Eigen::PartialPivLU< MatrixType >::solve(b);

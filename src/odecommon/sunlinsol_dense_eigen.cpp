@@ -16,6 +16,9 @@
 inline PartialPivLUExtended<OdeMatrixReal>& EIGSOL(SUNLinearSolver S) {
 	return reinterpret_cast<SUNLinearSolverContent_Dense_Eigen>(S->content)->lu;
 }
+inline Eigen::Matrix3f& INVERSE(SUNLinearSolver S) {
+	return reinterpret_cast<SUNLinearSolverContent_Dense_Eigen>(S->content)->inverse;
+}
 
 /* ----------------------------------------------------------------------------
  * Function to create a new dense linear solver
@@ -41,8 +44,16 @@ SUNLinearSolver SUNLinSol_Dense_Eigen(N_Vector y, SUNMatrix A)
   S->ops->gettype    = SUNLinSolGetType_Dense_Eigen;
   S->ops->getid      = SUNLinSolGetID_Dense_Eigen;
   S->ops->initialize = SUNLinSolInitialize_Dense_Eigen;
-  S->ops->setup      = SUNLinSolSetup_Dense_Eigen;
-  S->ops->solve      = SUNLinSolSolve_Dense_Eigen;
+  if (EIGMAT(A).cols() == 2) {
+	  S->ops->setup = SUNLinSolSetup_Dense_Eigen2x2;
+	  S->ops->solve = SUNLinSolSolve_Dense_Eigen2x2;
+  } else if (EIGMAT(A).cols() == 3) {
+	  S->ops->setup = SUNLinSolSetup_Dense_Eigen3x3;
+	  S->ops->solve = SUNLinSolSolve_Dense_Eigen3x3;
+  } else {
+	  S->ops->setup = SUNLinSolSetup_Dense_Eigen;
+	  S->ops->solve = SUNLinSolSolve_Dense_Eigen;
+  }
   S->ops->lastflag   = SUNLinSolLastFlag_Dense_Eigen;
   S->ops->space      = SUNLinSolSpace_Dense_Eigen;
   S->ops->free       = SUNLinSolFree_Dense_Eigen;
@@ -91,17 +102,44 @@ int SUNLinSolSetup_Dense_Eigen(SUNLinearSolver S, SUNMatrix A)
 	if (SUNMatGetID(A) != SUNMATRIX_EIGEN_DENSE) {
 		return(SUNLS_ILL_INPUT);
 	}
+	
+	EIGSOL(S).compute_optimized(EIGMAT(A));
 
-	EIGSOL(S).compute_select(EIGMAT(A));
-	//EIGSOL(S).compute_optimized(EIGMAT(A));
+	return(SUNLS_SUCCESS);
+}
 
-#if 0
-	std::cout << EIGMAT(A) << std::endl << std::endl;
-	std::cout << EIGSOL(S).matrixLU() << std::endl << std::endl;
-	Eigen::PartialPivLU< MatrixReal > test;
-	test.compute(EIGMAT(A));
-	std::cout << test.matrixLU() << std::endl;
-#endif
+int SUNLinSolSetup_Dense_Eigen2x2(SUNLinearSolver S, SUNMatrix A)
+{
+	/* check for valid inputs */
+	if ((A == NULL) || (S == NULL))
+		return(SUNLS_MEM_NULL);
+
+	/* Ensure that A is a dense eigen matrix */
+	if (SUNMatGetID(A) != SUNMATRIX_EIGEN_DENSE) {
+		return(SUNLS_ILL_INPUT);
+	}
+
+	float invdet = 1.0 / (SM_ELEMENT_D(A, 0, 0) * SM_ELEMENT_D(A, 1, 1) - SM_ELEMENT_D(A, 0, 1) * SM_ELEMENT_D(A, 1, 0));
+	INVERSE(S)(0, 0) = SM_ELEMENT_D(A, 1, 1) * invdet;
+	INVERSE(S)(0, 1) = -SM_ELEMENT_D(A, 0, 1) * invdet;
+	INVERSE(S)(1, 0) = -SM_ELEMENT_D(A, 1, 0) * invdet;
+	INVERSE(S)(1, 1) = SM_ELEMENT_D(A, 0, 0) * invdet;
+
+	return(SUNLS_SUCCESS);
+}
+
+int SUNLinSolSetup_Dense_Eigen3x3(SUNLinearSolver S, SUNMatrix A)
+{
+	/* check for valid inputs */
+	if ((A == NULL) || (S == NULL))
+		return(SUNLS_MEM_NULL);
+
+	/* Ensure that A is a dense eigen matrix */
+	if (SUNMatGetID(A) != SUNMATRIX_EIGEN_DENSE) {
+		return(SUNLS_ILL_INPUT);
+	}
+
+	Eigen::internal::compute_inverse<OdeMatrixReal, Eigen::Matrix3f, 3>::run(EIGMAT(A), INVERSE(S));
 
 	return(SUNLS_SUCCESS);
 }
@@ -112,9 +150,30 @@ int SUNLinSolSolve_Dense_Eigen(SUNLinearSolver S, SUNMatrix A, N_Vector x,
 	if ( (A == NULL) || (S == NULL) || (x == NULL) || (b == NULL) )
 		return(SUNLS_MEM_NULL);
 
-	EIGSOL(S).apply_select(EIGV(b), EIGV(x));
-	//EIGV(x).noalias() = EIGSOL(S).solve(EIGV(b));
+	EIGV(x).noalias() = EIGSOL(S).solve(EIGV(b));
 
+	return(SUNLS_SUCCESS);
+}
+
+int SUNLinSolSolve_Dense_Eigen2x2(SUNLinearSolver S, SUNMatrix A, N_Vector x,
+	N_Vector b, realtype tol)
+{
+	if ((A == NULL) || (S == NULL) || (x == NULL) || (b == NULL))
+		return(SUNLS_MEM_NULL);
+
+	NV_Ith_S(x, 0) = INVERSE(S)(0, 0) * NV_Ith_S(b, 0) + INVERSE(S)(0, 1) * NV_Ith_S(b, 1);
+	NV_Ith_S(x, 1) = INVERSE(S)(1, 0) * NV_Ith_S(b, 0) + INVERSE(S)(1, 1) * NV_Ith_S(b, 1);
+
+	return(SUNLS_SUCCESS);
+}
+
+int SUNLinSolSolve_Dense_Eigen3x3(SUNLinearSolver S, SUNMatrix A, N_Vector x,
+	N_Vector b, realtype tol)
+{
+	if ((A == NULL) || (S == NULL) || (x == NULL) || (b == NULL))
+		return(SUNLS_MEM_NULL);
+
+	EIGV(x).noalias() = INVERSE(S) * EIGV(b);
 	return(SUNLS_SUCCESS);
 }
 
