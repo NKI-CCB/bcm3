@@ -27,7 +27,7 @@ public:
 		if (b.size() == 3) {
 			x.noalias() = inverse * b;
 		} else {
-			x.noalias() = solve(b);
+			x.noalias() = Eigen::PartialPivLU< MatrixType >::solve(b);
 		}
 	}
 
