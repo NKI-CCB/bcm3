@@ -188,7 +188,7 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 				LOGERROR("Patient %d has dose change, but time of dose change is not specified.", j);
 				return false;
 			}
-			if (dose_change_time[j] / dosing_interval[j] != 0.0) {
+			if (std::abs(dose_change_time[j] / dosing_interval[j]) < 1e-6) {
 				LOGERROR("Dose change time for patient  %d is not an exact multiple of the dosing interval.", j);
 				return false;
 			}
