@@ -51,9 +51,11 @@ private:
 		Real k_periphery_fwd;
 		Real k_periphery_bwd;
 		Real k_transit;
+		Real n_transit;
 		Real k_biphasic_switch_time;
 		Real k_absorption2;
 		bool biphasic_switch;
+		Real last_treatment;
 
 		Real current_dose_time;
 		OdeMatrixReal simulated_trajectories;
@@ -66,6 +68,10 @@ private:
 	bool CalculateDerivative_TwoCompartmentBiphasic(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
 	bool CalculateDerivative_OneCompartmentTransit(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
 	bool CalculateDerivative_TwoCompartmentTransit(OdeReal t, const OdeReal* y, OdeReal* dydt, void* user);
+
+	bool CalculateJacobian_OneCompartment(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user);
+	bool CalculateJacobian_TwoCompartmentTransit(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user);
+
 	Real TreatmentCallback(OdeReal t, void* user);
 	Real TreatmentCallbackBiphasic(OdeReal t, void* user);
 

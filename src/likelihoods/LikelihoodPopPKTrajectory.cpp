@@ -23,9 +23,11 @@ LikelihoodPopPKTrajectory::ParallelData::ParallelData()
 	, k_periphery_fwd(std::numeric_limits<Real>::quiet_NaN())
 	, k_periphery_bwd(std::numeric_limits<Real>::quiet_NaN())
 	, k_transit(std::numeric_limits<Real>::quiet_NaN())
+	, n_transit(std::numeric_limits<Real>::quiet_NaN())
 	, k_biphasic_switch_time(std::numeric_limits<Real>::quiet_NaN())
 	, k_absorption2(std::numeric_limits<Real>::quiet_NaN())
 	, biphasic_switch(std::numeric_limits<Real>::quiet_NaN())
+	, last_treatment(0.0)
 	, current_dose_time(std::numeric_limits<Real>::quiet_NaN())
 {
 }
@@ -91,7 +93,7 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 	result &= data.GetDimensionSize(trial, "time", &num_timepoints);
 	result &= data.GetDimensionSize(trial, "patients", &num_patients);
 
-	num_patients = 4;
+	num_patients = 5;
 
 	result &= data.GetValues(trial, "patients", 0, num_patients, patient_ids);
 
@@ -105,10 +107,10 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 		num_pk_params = 7;
 		num_pk_pop_params = 4;
 	} else if (pk_type == PKMT_OneCompartmentTransit) {
-		num_pk_params = 5;
+		num_pk_params = 6;
 		num_pk_pop_params = 2;
 	} else if (pk_type == PKMT_TwoCompartmentTransit) {
-		num_pk_params = 7;
+		num_pk_params = 8;
 		num_pk_pop_params = 2;
 	} else {
 		LOGERROR("Invalid PK model type");
@@ -120,7 +122,7 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 	if (!std::isnan(fixed_periphery_fwd)) fixed_var_count++;
 	if (!std::isnan(fixed_periphery_bwd)) fixed_var_count++;
 
-	if (varset->GetNumVariables() != num_pk_params - fixed_var_count + num_pk_pop_params * (num_patients + 1) + 1) {
+	if (varset->GetNumVariables() != num_pk_params - fixed_var_count + num_pk_pop_params * (num_patients + 1) + 2) {
 		LOGERROR("Incorrect number of variables in prior");
 		return false;
 	}
@@ -201,33 +203,30 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 
 	// Allocate structures for parallel evaluation
 	for (size_t threadix = 0; threadix < sampling_threads; threadix++) {
-		//solvers[threadix] = std::make_unique<ODESolverCVODE>();
-		solvers[threadix] = std::make_unique<ODESolverDP5>();
+		solvers[threadix] = std::make_unique<ODESolverCVODE>();
+		//solvers[threadix] = std::make_unique<ODESolverDP5>();
 		if (pk_type == PKMT_OneCompartment) {
-			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartment, this, _1, _2, _3, _4);
-			solvers[threadix]->SetDerivativeFunction(derivative);
+			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartment, this, _1, _2, _3, _4));
+			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateJacobian_OneCompartment, this, _1, _2, _3, _4, _5));
 			solvers[threadix]->Initialize(2, NULL);
 		} else if (pk_type == PKMT_TwoCompartment) {
-			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4);
-			solvers[threadix]->SetDerivativeFunction(derivative);
+			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4));
 			solvers[threadix]->Initialize(3, NULL);
 		} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
-			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentBiphasic, this, _1, _2, _3, _4);
-			solvers[threadix]->SetDerivativeFunction(derivative);
+			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentBiphasic, this, _1, _2, _3, _4));
 			solvers[threadix]->Initialize(3, NULL);
 		} else if (pk_type == PKMT_OneCompartmentTransit) {
-			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4);
-			solvers[threadix]->SetDerivativeFunction(derivative);
+			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4));
 			solvers[threadix]->Initialize(3, NULL);
 		} else if (pk_type == PKMT_TwoCompartmentTransit) {
-			ODESolver::TDeriviativeFunction derivative = boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4);
-			solvers[threadix]->SetDerivativeFunction(derivative);
-			solvers[threadix]->Initialize(5, NULL);
+			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4));
+			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateJacobian_TwoCompartmentTransit, this, _1, _2, _3, _4, _5));
+			solvers[threadix]->Initialize(3, NULL);
 		} else {
 			LOGERROR("Invalid PK model type");
 			return false;
 		}
-		solvers[threadix]->SetTolerance(5e-7f, minimum_dose * 5e-7f);
+		solvers[threadix]->SetTolerance(1e-6f, minimum_dose * 1e-6f);
 		parallel_data[threadix].simulated_concentrations.resize(num_patients);
 		parallel_data[threadix].stored_trajectories.resize(num_patients);
 	}
@@ -251,9 +250,17 @@ bool LikelihoodPopPKTrajectory::PostInitialize()
 bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp)
 {
 	logp = 0.0;
-
+	
 	size_t sdix = varset->GetVariableIndex("standard_deviation");
 	Real sd = varset->TransformVariable(sdix, values[sdix]);
+	Real sd2 = varset->TransformVariable(sdix+1, values[sdix+1]);
+
+	size_t absorption_ix = 0;
+	size_t excretion_ix = 1;
+	size_t elimination_ix = 2;
+	size_t vod_ix = 3;
+	size_t periphery_fwd_ix = 4;
+	size_t periphery_bwd_ix = 5;
 
 	for (size_t j = 0; j < patient_ids.size(); j++) {
 		ParallelData& pd = parallel_data[threadix];
@@ -264,24 +271,24 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		pd.intermittent = intermittent[j];
 		pd.skipped_days = &skipped_days[j];
 		
-		pd.k_absorption  = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 0], values[0], values[num_pk_params + 0]));
-		pd.k_excretion	 = bcm3::fastpow10(values[1]);
-		pd.k_vod		 = std::isnan(fixed_vod) ? varset->TransformVariable(3, values[3]) : fixed_vod;
-		pd.k_elimination = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 1], values[2], values[num_pk_params + 1])) / pd.k_vod;
+		pd.k_absorption  = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 0], values[absorption_ix], values[num_pk_params + 0]));
+		pd.k_excretion	 = varset->TransformVariable(excretion_ix, values[excretion_ix]);
+		pd.k_vod		 = std::isnan(fixed_vod) ? varset->TransformVariable(vod_ix, values[vod_ix]) : fixed_vod;
+		pd.k_elimination = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 1], values[elimination_ix], values[num_pk_params + 1])) / pd.k_vod;
 		if (pk_type == PKMT_TwoCompartment || pk_type == PKMT_TwoCompartmentBiPhasic || pk_type == PKMT_TwoCompartmentTransit) {
 			if (std::isnan(fixed_periphery_fwd)) {
-				pd.k_periphery_fwd = varset->TransformVariable(4, values[4]);
-				pd.k_periphery_bwd = varset->TransformVariable(5, values[5]);
+				pd.k_periphery_fwd = varset->TransformVariable(periphery_fwd_ix, values[periphery_fwd_ix]);
+				pd.k_periphery_bwd = varset->TransformVariable(periphery_bwd_ix, values[periphery_bwd_ix]);
 			} else {
 				pd.k_periphery_fwd = fixed_periphery_fwd;
 				pd.k_periphery_bwd = fixed_periphery_bwd;
 			}
 		}
-		if (pk_type == PKMT_OneCompartmentTransit) {
-			pd.k_transit = bcm3::fastpow10(values[5]);
-		}
-		if (pk_type == PKMT_TwoCompartmentTransit) {
-			pd.k_transit = bcm3::fastpow10(values[6]);
+		if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
+			size_t n_transit_ix = varset->GetVariableIndex("n_transit");
+			pd.n_transit = varset->TransformVariable(n_transit_ix, values[n_transit_ix]);
+			size_t transit_time_ix = varset->GetVariableIndex("mean_transit_time");
+			pd.k_transit = (pd.n_transit + 1) / varset->TransformVariable(transit_time_ix, values[transit_time_ix]);
 		}
 		if (pk_type == PKMT_TwoCompartmentBiPhasic) {
 			pd.k_biphasic_switch_time = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 2], values[6], values[num_pk_params + 2]));
@@ -290,8 +297,9 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 			pd.k_biphasic_switch_time = std::min(pd.k_biphasic_switch_time, pd.dosing_interval - 1e-2);
 			pd.k_absorption2 = bcm3::fastpow10(bcm3::QuantileNormal(values[num_pk_params + num_pk_pop_params * (j + 1) + 3], values[7], values[num_pk_params + 3]));
 		}
+		pd.last_treatment = 0.0;
 
-		VectorReal parameters = VectorReal::Constant(9, 0);
+		VectorReal parameters = VectorReal::Constant(10, 0);
 		parameters(0) = pd.k_absorption;
 		parameters(1) = pd.k_excretion;
 		parameters(2) = pd.k_vod;
@@ -302,11 +310,13 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		}
 		if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
 			parameters(6) = pd.k_transit;
+			parameters(7) = pd.n_transit;
 		} else if (pk_type == PKMT_TwoCompartmentBiPhasic) {
 			parameters(6) = pd.k_biphasic_switch_time;
 			parameters(7) = pd.k_absorption2;
 		}
 		parameters(8) = sd;
+		parameters(9) = sd2;
 
 		buffer_spinlock.lock();
 		int which_exactly_equal = -1;
@@ -343,11 +353,13 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 		}
 
 		OdeReal initial_conditions[5];
-		initial_conditions[0] = pd.dose;
+		if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
+			initial_conditions[0] = 0.0;
+		} else {
+			initial_conditions[0] = pd.dose;
+		}
 		initial_conditions[1] = 0.0;
 		initial_conditions[2] = 0.0;
-		initial_conditions[3] = 0.0;
-		initial_conditions[4] = 0.0;
 
 		// The simulated trajectories are in mg; divide by volume of distribution in liters gives mg/l
 		// Divide by mol weight gives mmol/l so 1e6 to go to nM (the units used in the datafile)
@@ -390,7 +402,7 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 					Real x = conversion * pd.simulated_trajectories(1, i);
 					Real y = observed_concentration[j](i);
 					if (!std::isnan(y)) {
-						patient_logllh += bcm3::LogPdfTnu4(x, y, sd);
+						patient_logllh += bcm3::LogPdfTnu4(x, y, sd + sd2 * std::max(x, 0.0));
 					}
 					if (std::isnan(x)) {
 						//LOGERROR("NaN in trajectory for patient %zu, timepoint %zu", j, i);
@@ -427,6 +439,18 @@ bool LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartment(OdeReal t, co
 
 	dydt[0] = -(pd.k_absorption + pd.k_excretion) * y[0];
 	dydt[1] = pd.k_absorption * y[0] - pd.k_elimination * y[1];
+
+	return true;
+}
+
+bool LikelihoodPopPKTrajectory::CalculateJacobian_OneCompartment(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user)
+{
+	size_t threadix = (size_t)user;
+	ParallelData& pd = parallel_data[threadix];
+
+	jac(0, 0) = -(pd.k_absorption + pd.k_excretion);
+	jac(1, 0) = pd.k_absorption;
+	jac(1, 1) = -pd.k_elimination;
 
 	return true;
 }
@@ -479,11 +503,31 @@ bool LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentTransit(OdeRea
 	size_t threadix = (size_t)user;
 	ParallelData& pd = parallel_data[threadix];
 
-	dydt[0] = -(pd.k_absorption + pd.k_excretion) * y[0];
-	dydt[1] = pd.k_transit * y[3] - pd.k_elimination * y[1] - pd.k_periphery_fwd * y[1] + pd.k_periphery_bwd * y[4];
-	dydt[2] = pd.k_absorption * y[0] - pd.k_transit * y[2];
-	dydt[3] = pd.k_transit * y[2] - pd.k_transit * y[3];
-	dydt[4] = pd.k_periphery_fwd * y[1] - pd.k_periphery_bwd * y[4];
+	Real t_since_treatment = t - pd.last_treatment;
+	Real log_n_transit_factorial = 0.9189385332046727 + (pd.n_transit + 0.5) * log(pd.n_transit) - pd.n_transit + log(1 + 1 / (12.0 * pd.n_transit));
+	Real transit = exp((pd.n_transit * log(pd.k_transit * t_since_treatment) - pd.k_transit * t_since_treatment) - log_n_transit_factorial);
+	transit = pd.k_transit * transit * pd.dose;
+
+	dydt[0] = transit - (pd.k_absorption + pd.k_excretion) * y[0];
+	dydt[1] = pd.k_absorption * y[0] - pd.k_elimination * y[1] - pd.k_periphery_fwd * y[1] + pd.k_periphery_bwd * y[2];
+	dydt[2] = pd.k_periphery_fwd * y[1] - pd.k_periphery_bwd * y[2];
+
+	return true;
+}
+
+bool LikelihoodPopPKTrajectory::CalculateJacobian_TwoCompartmentTransit(OdeReal t, const OdeReal* y, const OdeReal* dydt, OdeMatrixReal& jac, void* user)
+{
+	size_t threadix = (size_t)user;
+	ParallelData& pd = parallel_data[threadix];
+
+	jac(0, 0) = -(pd.k_absorption + pd.k_excretion);
+
+	jac(1, 0) = pd.k_absorption;
+	jac(1, 1) = -(pd.k_elimination + pd.k_periphery_fwd);
+	jac(1, 2) = pd.k_periphery_bwd;
+
+	jac(2, 1) = pd.k_periphery_fwd;
+	jac(2, 2) = -pd.k_periphery_bwd;
 
 	return true;
 }
@@ -522,7 +566,11 @@ Real LikelihoodPopPKTrajectory::TreatmentCallback(OdeReal t, void* user)
 		dose = pd.dose_after_dose_change;
 	}
 	if (give_treatment) {
-		solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
+		if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
+			pd.last_treatment = t;
+		} else {
+			solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
+		}
 	}
 	return pd.current_dose_time;
 }
@@ -565,7 +613,11 @@ Real LikelihoodPopPKTrajectory::TreatmentCallbackBiphasic(OdeReal t, void* user)
 			dose = pd.dose_after_dose_change;
 		}
 		if (give_treatment) {
-			solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
+			if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
+				pd.last_treatment = t;
+			} else {
+				solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
+			}
 			pd.biphasic_switch = true;
 			return pd.current_dose_time + pd.k_biphasic_switch_time;
 		} else {

@@ -12,7 +12,7 @@ source(paste(Sys.getenv("BCM3_ROOT"), "/R/stats.r", sep=""))
 # Based on Notes for Nonparametric Statistics at
 # https://bookdown.org/egarpor/NP-UC3M/kde-i-bwd.html
 bw.bcv.mod <- function(x, nb = 1000L,
-                       h_grid = 10^seq(log10(0.01 * diff(quantile(x, c(0.25,0.75)))), log10(1.5 * diff(quantile(x, c(0.25,0.75)))), l = 200),
+                       h_grid = 10^seq(log10(0.001 * sd(x) * length(x)^(-1/5)), log10(2 * sd(x) * length(x)^(-1/5)), l = 200),
                        plot_cv = FALSE) {
   if ((n <- length(x)) < 2L)
     stop("need at least 2 data points")

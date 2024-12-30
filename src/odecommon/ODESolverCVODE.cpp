@@ -21,6 +21,12 @@ int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data)
 	return solver->cvode_rhs_fn(t, NV_DATA_S(y), NV_DATA_S(ydot));
 }
 
+int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3)
+{
+	ODESolverCVODE* solver = reinterpret_cast<ODESolverCVODE*>(user_data);
+	return solver->cvode_jac_fn(t, NV_DATA_S(y), NV_DATA_S(fy), EIGMAT(Jac));
+}
+
 ODESolverCVODE::ODESolverCVODE()
 	: cvode_mem(NULL)
 	, LS(NULL)
@@ -75,18 +81,19 @@ bool ODESolverCVODE::Initialize(size_t N, void* user)
 
 	user_data = user;
 
+	J = MakeCVodeMatrix(N, N);
+	LS = MakeCVodeLinearSolver(y, J);
+	NLS = SUNNonlinSol_Newton(y);
+
 	CVodeInit(cvode_mem, &static_cvode_rhs_fn, 0.0, y);
 	CVodeSetUserData(cvode_mem, this);
 	CVodeSetMaxNumSteps(cvode_mem, 500); // Note that this is not actually used, since we take one step at a time.
 	CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
-	CVodeSetMinStep(cvode_mem, (OdeReal)1e-12);
-
-	J = MakeCVodeMatrix(N, N);
-	LS = MakeCVodeLinearSolver(y, J);
+	CVodeSetMinStep(cvode_mem, (OdeReal)1e-6);
+	CVodeSetMaxStep(cvode_mem, 1.0);
 	CVodeSetLinearSolver(cvode_mem, LS, J);
-
-	NLS = SUNNonlinSol_Newton(y);
 	CVodeSetNonlinearSolver(cvode_mem, NLS);
+	CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
 
 	step_counts.resize(MAX_CVODE_STEPS + 1, 0);
 	failed_step_counts.resize(MAX_CVODE_STEPS + 1, 0);
@@ -209,6 +216,20 @@ int ODESolverCVODE::cvode_rhs_fn(OdeReal t, OdeReal* y, OdeReal* ydot)
 	}
 
 	bool result = derivative(t, y, ydot, user_data);
+	if (result) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+int ODESolverCVODE::cvode_jac_fn(OdeReal t, OdeReal* y, OdeReal* ydot, OdeMatrixReal& jac)
+{
+	if (!jacobian) {
+		return -2;
+	}
+
+	bool result = jacobian(t, y, ydot, jac, user_data);
 	if (result) {
 		return 0;
 	} else {
