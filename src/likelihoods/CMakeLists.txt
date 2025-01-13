@@ -33,6 +33,7 @@ target_link_libraries(likelihoods
     odecommon
     fISA
     cellpop
+    pharmaco
 )
 
 set_target_properties(likelihoods PROPERTIES DEBUG_POSTFIX d)
