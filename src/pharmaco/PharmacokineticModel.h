@@ -9,22 +9,32 @@ public:
 	bool SetAbsorption(Real value);
 	bool SetExcretion(Real value);
 	bool SetElimination(Real value);
-	bool SetIntercompartmentalForward(Real value);
-	bool SetIntercompartmentalBackward(Real value);
+	bool SetUsePeripheralCompartment(bool enable);
+	bool SetPeripheralForwardRate(Real value);
+	bool SetPeripheralBackwardRate(Real value);
 	bool SetNumTransitCompartments(size_t value);
-	bool SetMeanTransitTime(Real value);
+	bool SetTransitRate(Real value);
 
-	bool Solve(const VectorReal& treatment_times, const VectorReal& treatment_doses, const VectorReal& observation_timepoints, VectorReal& central_compartment_values);
+	bool Solve(const VectorReal& treatment_times, const VectorReal& treatment_doses, const VectorReal& observation_timepoints, VectorReal& central_compartment_values, MatrixReal* all_compartments);
 
 	void Evaluate(Real t, Real& central_y);
 	void Evaluate(Real t, VectorReal& y);
 
 private:
+	bool UpdateVariable(Real& target, Real value);
 	void ConstructMatrix();
 
 	Real absorption;
 	Real excretion;
 	Real elimination;
+
+	bool use_peripheral_compartment;
+	Real peripheral_forward_rate;
+	Real peripheral_backward_rate;
+
+	bool use_transit_compartments;
+	size_t num_transit_compartments;
+	Real transit_rate;
 
 	MatrixReal A;
 	MatrixReal tmp1;

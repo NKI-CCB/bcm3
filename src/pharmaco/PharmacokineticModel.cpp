@@ -6,46 +6,71 @@ PharmacokineticModel::PharmacokineticModel()
 	: absorption(std::numeric_limits<Real>::quiet_NaN())
 	, excretion(std::numeric_limits<Real>::quiet_NaN())
 	, elimination(std::numeric_limits<Real>::quiet_NaN())
+	, use_peripheral_compartment(false)
+	, peripheral_forward_rate(std::numeric_limits<Real>::quiet_NaN())
+	, peripheral_backward_rate(std::numeric_limits<Real>::quiet_NaN())
+	, use_transit_compartments(false)
+	, num_transit_compartments(0)
+	, transit_rate(std::numeric_limits<Real>::quiet_NaN())
 {
-
 }
 
 PharmacokineticModel::~PharmacokineticModel()
 {
-
 }
 
 bool PharmacokineticModel::SetAbsorption(Real value)
 {
-	if (this->absorption != value) {
-		this->absorption = value;
-		return true;
-	} else {
-		return false;
-	}
+	return UpdateVariable(this->absorption, value);
 }
 
 bool PharmacokineticModel::SetExcretion(Real value)
 {
-	if (this->excretion != value) {
-		this->excretion = value;
-		return true;
-	} else {
-		return false;
-	}
+	return UpdateVariable(this->excretion, value);
 }
 
 bool PharmacokineticModel::SetElimination(Real value)
 {
-	if (this->elimination != value) {
-		this->elimination = value;
+	return UpdateVariable(this->elimination, value);
+}
+
+bool PharmacokineticModel::SetUsePeripheralCompartment(bool enable)
+{
+	use_peripheral_compartment = enable;
+	return true;
+}
+
+bool PharmacokineticModel::SetPeripheralForwardRate(Real value)
+{
+	return UpdateVariable(this->peripheral_forward_rate, value);
+}
+
+bool PharmacokineticModel::SetPeripheralBackwardRate(Real value)
+{
+	return UpdateVariable(this->peripheral_backward_rate, value);
+}
+
+bool PharmacokineticModel::SetNumTransitCompartments(size_t value)
+{
+	if (this->num_transit_compartments != value) {
+		if (value > 0) {
+			use_transit_compartments = true;
+		} else {
+			use_transit_compartments = false;
+		}
+		this->num_transit_compartments = value;
 		return true;
 	} else {
 		return false;
 	}
 }
 
-bool PharmacokineticModel::Solve(const VectorReal& treatment_times, const VectorReal& treatment_doses, const VectorReal& observation_timepoints, VectorReal& central_compartment_values)
+bool PharmacokineticModel::SetTransitRate(Real value)
+{
+	return UpdateVariable(this->transit_rate, value);
+}
+
+bool PharmacokineticModel::Solve(const VectorReal& treatment_times, const VectorReal& treatment_doses, const VectorReal& observation_timepoints, VectorReal& central_compartment_values, MatrixReal* all_compartments)
 {
 	ASSERT(treatment_doses.size() == treatment_times.size());
 	ASSERT(central_compartment_values.size() == observation_timepoints.size());
@@ -53,47 +78,55 @@ bool PharmacokineticModel::Solve(const VectorReal& treatment_times, const Vector
 	ConstructMatrix();
 
 	solution_timepoints = treatment_times;
-	solution_concentrations.resize(treatment_times.size(), 2);
+	solution_concentrations.resize(treatment_times.size(), A.rows());
 
-	current_y.setZero(2);
+	if (all_compartments) {
+		all_compartments->setConstant(observation_timepoints.size(), A.rows(), std::numeric_limits<Real>::quiet_NaN());
+	}
 
+	current_y.setZero(A.rows());
+
+	Real simulate_until = observation_timepoints.tail(1)(0);
+
+	ptrdiff_t tti = 0;
 	ptrdiff_t oti = 0;
 	Real current_t = 0;
-	for (ptrdiff_t i = 0; i < treatment_times.size(); i++) {
-		// If there are any observation timepoints between now and the next treatment timepoint (or end of simulation), evalute them
-		Real evaluate_observation_until;
-		if (i == treatment_times.size() - 1) {
-			evaluate_observation_until = std::numeric_limits<Real>::max();
+	while (tti < treatment_times.size() && current_t < simulate_until) {
+		// Calculate target time for this timestep
+		Real target_t;
+		if (tti < treatment_times.size() - 1) {
+			target_t = treatment_times[tti + 1];
 		} else {
-			evaluate_observation_until = treatment_times(i + 1);
+			target_t = simulate_until;
 		}
-		while (oti < observation_timepoints.size() && observation_timepoints(oti) < evaluate_observation_until) {
+		current_y(0) += treatment_doses(tti);
+
+		// If there are any observation timepoints between now and the next treatment timepoint (or end of simulation), evaluate them
+		while (oti < observation_timepoints.size() && observation_timepoints(oti) <= target_t) {
 			Real offset_t = observation_timepoints(oti) - current_t;
 			tmp1.noalias() = A * offset_t;
 			tmp2.noalias() = tmp1.exp();
 
 			tmp_y = tmp2 * current_y;
 			central_compartment_values(oti) = tmp_y(1);
+
+			if (all_compartments) {
+				all_compartments->row(oti) = tmp_y;
+			}
+
 			oti++;
 		}
 
 		// Advance the trajectory to the next treatment timepoint
-		Real dt;
-		if (i == 0) {
-			dt = treatment_times[0];
-		} else {
-			dt = treatment_times[i] - treatment_times[i - 1];
-		}
-
+		Real dt = target_t - current_t;
 		tmp1.noalias() = A * dt;
 		tmp2.noalias()  = tmp1.exp();
 
-		current_y(0) += treatment_doses(i);
+		solution_concentrations.row(tti) = tmp2 * current_y;
 
-		solution_concentrations.row(i) = tmp2 * current_y;
-
-		current_t = treatment_times(i);
-		current_y = solution_concentrations.row(i);
+		current_t = target_t;
+		current_y = solution_concentrations.row(tti);
+		tti++;
 	}
 
 	return true;
@@ -109,13 +142,55 @@ void PharmacokineticModel::Evaluate(Real t, VectorReal& y)
 
 }
 
+bool PharmacokineticModel::UpdateVariable(Real& target, Real value)
+{
+	if (target != value) {
+		target = value;
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void PharmacokineticModel::ConstructMatrix()
 {
-	A.resize(2, 2);
-	A(0, 0) = -(absorption + excretion);
-	A(0, 1) = 0;
-	A(1, 0) = absorption;
-	A(1, 1) = -elimination;
+	size_t num_compartments = 2;
+	size_t first_transit_compartment_ix = 0;
+	if (use_peripheral_compartment) {
+		num_compartments++;
+	}
+	if (use_transit_compartments) {
+		first_transit_compartment_ix = num_compartments;
+		num_compartments += num_transit_compartments;
+	}
+
+	A.setZero(num_compartments, num_compartments);
+
+	A(0, 0) -= excretion;
+	A(0, 0) -= absorption;
+	
+	if (use_transit_compartments) {
+		A(first_transit_compartment_ix, 0) += absorption;
+		if (num_transit_compartments > 2) {
+			for (size_t i = 0; i < num_transit_compartments - 1; i++) {
+				A(first_transit_compartment_ix + i,     first_transit_compartment_ix + i) -= transit_rate;
+				A(first_transit_compartment_ix + i + 1, first_transit_compartment_ix + i) += transit_rate;
+			}
+		}
+		A(first_transit_compartment_ix + num_transit_compartments - 1, first_transit_compartment_ix + num_transit_compartments - 1) = -transit_rate;
+		A(1, first_transit_compartment_ix + num_transit_compartments - 1) += transit_rate;
+	} else {
+		A(1, 0) += absorption;
+	}
+
+	if (use_peripheral_compartment) {
+		A(1, 1) -= peripheral_forward_rate;
+		A(2, 1) += peripheral_forward_rate;
+		A(1, 2) += peripheral_backward_rate;
+		A(2, 2) -= peripheral_backward_rate;
+	}
+
+	A(1, 1) -= elimination;
 
 	tmp1.resizeLike(A);
 	tmp2.resizeLike(A);
