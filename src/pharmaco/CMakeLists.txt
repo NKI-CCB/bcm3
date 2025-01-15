@@ -2,10 +2,15 @@ add_library(pharmaco)
 
 target_sources(pharmaco
   PRIVATE
+    DrugConstants.h
     PharmacokineticModel.h
     PharmacokineticModel.cpp
+    PharmacoLikelihoodPopulation.h
+    PharmacoLikelihoodPopulation.cpp
     PharmacoLikelihoodSingle.h
     PharmacoLikelihoodSingle.cpp
+    PharmacoPatient.h
+    PharmacoPatient.cpp
 )
 
 target_include_directories(pharmaco

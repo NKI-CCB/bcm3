@@ -1,4 +1,5 @@
 #include "Utils.h"
+#include "DrugConstants.h"
 #include "PharmacoLikelihoodSingle.h"
 #include "NetCDFDataFile.h"
 #include "ProbabilityDistributions.h"
@@ -6,18 +7,19 @@
 #include <boost/property_tree/xml_parser.hpp>
 
 PharmacoLikelihoodSingle::PharmacoLikelihoodSingle(size_t sampling_threads, size_t evaluation_threads)
-	: sampling_threads(sampling_threads)
-	, evaluation_threads(evaluation_threads)
+	: concentration_conversion(0.0)
 	, additive_sd_ix(std::numeric_limits<size_t>::max())
 	, proportional_sd_ix(std::numeric_limits<size_t>::max())
+	, absorption_ix(std::numeric_limits<size_t>::max())
+	, excretion_ix(std::numeric_limits<size_t>::max())
+	, clearance_ix(std::numeric_limits<size_t>::max())
+	, volume_of_distribution_ix(std::numeric_limits<size_t>::max())
 	, use_peripheral_compartment(false)
 	, peripheral_forward_rate_ix(std::numeric_limits<size_t>::max())
 	, peripheral_backward_rate_ix(std::numeric_limits<size_t>::max())
 	, use_transit_compartment(false)
 	, num_transit_compartments(0)
-	, mean_transit_time_ix(false)
-	, dose(std::numeric_limits<Real>::quiet_NaN())
-	, dosing_interval(std::numeric_limits<Real>::quiet_NaN())
+	, mean_transit_time_ix(std::numeric_limits<size_t>::max())
 {
 	
 }
@@ -30,31 +32,27 @@ bool PharmacoLikelihoodSingle::Initialize(std::shared_ptr<const bcm3::VariableSe
 {
 	this->varset = varset;
 
-	bool result = true;
-
 	std::string trial;
 	try {
 		boost::property_tree::ptree& modelnode = likelihood_node.get_child("pk_model");
 		drug = modelnode.get<std::string>("<xmlattr>.drug");
 		trial = modelnode.get<std::string>("<xmlattr>.trial");
-		patient_id = modelnode.get<std::string>("<xmlattr>.patient", "");
+		patient.patient_id = modelnode.get<std::string>("<xmlattr>.patient", "");
 		use_peripheral_compartment = modelnode.get<bool>("<xmlattr>.peripheral_compartment", false);
 		num_transit_compartments = modelnode.get<size_t>("<xmlattr>.num_transit_compartments", 0);
-	}
-	catch (boost::property_tree::ptree_error& e) {
+		if (num_transit_compartments > 0) {
+			use_transit_compartment = true;
+		}
+	} catch (boost::property_tree::ptree_error& e) {
 		LOGERROR("Error parsing likelihood file: %s", e.what());
 		return false;
 	}
 
-	if (num_transit_compartments > 0) {
-		use_transit_compartment = true;
-	}
-
-	std::string use_patient_str = vm["pk.patient"].as<std::string>();
+	std::string use_patient_str = vm["pharmacosingle.patient"].as<std::string>();
 	if (!use_patient_str.empty()) {
-		patient_id = use_patient_str;
+		patient.patient_id = use_patient_str;
 	}
-	if (patient_id.empty()) {
+	if (patient.patient_id.empty()) {
 		LOGERROR("Patient ID has not been specified in either the likelihood or as command-line option.");
 		return false;
 	}
@@ -63,107 +61,17 @@ bool PharmacoLikelihoodSingle::Initialize(std::shared_ptr<const bcm3::VariableSe
 	if (!data.Open("pkdata.nc", false)) {
 		return false;
 	}
-
-	size_t num_timepoints;
-	result &= data.GetDimensionSize(trial, "time", &num_timepoints);
-
-	// Find patient index
-	size_t patient_ix;
-	if (!data.GetDimensionIx(trial, "patients", patient_id, &patient_ix)) {
-		LOGERROR("Cannot find patient \"%s\" in data file", patient_id.c_str());
+	if (!patient.Load(data, trial, drug)) {
 		return false;
 	}
 
-	Real dose_after_dose_change;
-	Real dose_change_time;
-	unsigned int intermittent;
-	std::set<int> skipped_days;
-
-	observation_timepoints.resize(num_timepoints);
-	observed_concentrations.resize(num_timepoints);
-	result &= data.GetValues(trial, "time", 0, num_timepoints, observation_timepoints);
-	result &= data.GetValuesDim2(trial, drug + "_plasma_concentration", patient_ix, 0, num_timepoints, observed_concentrations);
-	result &= data.GetValue(trial, drug + "_dose", patient_ix, &dose);
-	result &= data.GetValue(trial, drug + "_dosing_interval", patient_ix, &dosing_interval);
-	result &= data.GetValue(trial, drug + "_dose_after_dose_change", patient_ix, &dose_after_dose_change);
-	result &= data.GetValue(trial, drug + "_dose_change_time", patient_ix, &dose_change_time);
-	result &= data.GetValue(trial, drug + "_intermittent", patient_ix, &intermittent);
-
-	std::vector<unsigned int> interruptions;
-	for (int i = 0; i < 29; i++) {
-		unsigned int tmp;
-		result &= data.GetValue(trial, "treatment_interruptions", patient_ix, (size_t)i, &tmp);
-		if (tmp) {
-			skipped_days.insert(i);
-		}
-	}
-
-	std::vector<Real> times;
-	Real last_time = 696;
-	Real t = 0;
-	while (t < last_time) {
-		bool give_treatment = true;
-		int day = static_cast<int>(floor(t / 24.0));
-		if (skipped_days.find(day) != skipped_days.end()) {
-			give_treatment = false;
-		}
-		if (intermittent == 1) {
-			Real time_in_week = t - 7.0 * 24.0 * floor(t / (7.0 * 24.0));
-			if (time_in_week >= 5.0 * 24.0) {
-				// No dose in day 6 and 7
-				give_treatment = false;
-			}
-		} else if (intermittent == 2) {
-			Real time_in_treatment_course = t - 28.0 * 24.0 * floor(t / (28.0 * 24.0));
-			if (time_in_treatment_course >= 21.0 * 24.0) {
-				// No dose in day 22 through 28
-				give_treatment = false;
-			}
-		} else if (intermittent == 3) {
-			Real time_in_week = t - 7.0 * 24.0 * floor(t / (7.0 * 24.0));
-			if (time_in_week >= 4.0 * 24.0) {
-				// No dose in day 5, 6 and 7
-				give_treatment = false;
-			}
-		}
-
-		if (give_treatment) {
-			times.push_back(t);
-		}
-		t += dosing_interval;
-	}
-	treatment_timepoints.resize(times.size());
-	treatment_doses.resize(times.size());
-	for (ptrdiff_t i = 0; i < times.size(); i++) {
-		treatment_timepoints(i) = times[i];
-		if (!std::isnan(dose_change_time) && times[i] >= dose_change_time) {
-			treatment_doses(i) = dose_after_dose_change;
-		} else {
-			treatment_doses(i) = dose;
-		}
-	}
-
-	VectorReal new_observed_timepoints = observation_timepoints;
-	VectorReal new_observed_concentrations = observed_concentrations;
-	ptrdiff_t out_i = 0;
-	for (ptrdiff_t i = 0; i < observation_timepoints.size(); i++) {
-		if (!std::isnan(observed_concentrations(i))) {
-			new_observed_timepoints(out_i) = observation_timepoints(i);
-			new_observed_concentrations(out_i) = observed_concentrations(i);
-			out_i++;
-		}
-	}
-	observation_timepoints = new_observed_timepoints.segment(0, out_i);
-	observed_concentrations = new_observed_concentrations.segment(0, out_i);
-	simulated_concentrations.resize(observed_concentrations.size());
-
-	return result;
+	return true;
 }
 
 bool PharmacoLikelihoodSingle::PostInitialize()
 {
-	additive_sd_ix = varset->GetVariableIndex("additive_error_standard_deviation");
-	proportional_sd_ix = varset->GetVariableIndex("proportional_error_standard_deviation");
+	additive_sd_ix = varset->GetVariableIndex("additive_error_standard_deviation", false);
+	proportional_sd_ix = varset->GetVariableIndex("proportional_error_standard_deviation", false);
 	if (additive_sd_ix == std::numeric_limits<size_t>::max() && proportional_sd_ix == std::numeric_limits<size_t>::max()) {
 		LOGERROR("Neither \"additive_error_standard_deviation\" nor \"proportional_error_standard_deviation\" has been specified in the prior; at least one of these variables should be included.");
 		return false;
@@ -241,31 +149,12 @@ bool PharmacoLikelihoodSingle::EvaluateLogProbability(size_t threadix, const Vec
 		model.SetTransitRate(num_transit_compartments / mean_transit_time);
 	}
 
-	// The simulated trajectories are in mg; divide by volume of distribution in liters gives mg/l
-	// Divide by mol weight gives mmol/l so 1e6 to go to nM (the units used in the datafile)
-	Real MW;
-	if (drug == "lapatinib") {
-		MW = 581.06;
-	} else if (drug == "dacomitinib") {
-		MW = 469.95;
-	} else if (drug == "afatinib") {
-		MW = 485.94;
-	} else if (drug == "trametinib") {
-		MW = 615.404;
-	} else if (drug == "mirdametinib") {
-		MW = 482.19;
-	} else if (drug == "selumetinib") {
-		MW = 457.68;
-	} else {
-		LOGERROR("Unknown drug \"%s\"", drug.c_str());
-		return false;
-	}
-	concentration_conversion = (1e6 / MW) / volume_of_distribution;
+	concentration_conversion = (1e6 / GetDrugMolecularWeight(drug)) / volume_of_distribution;
 
-	if (model.Solve(treatment_timepoints, treatment_doses, observation_timepoints, simulated_concentrations, NULL)) {
-		for (ptrdiff_t i = 0; i < observation_timepoints.size(); i++) {
-			Real x = concentration_conversion * simulated_concentrations(i);
-			Real y = observed_concentrations(i);
+	if (model.Solve(patient.treatment_timepoints, patient.treatment_doses, patient.observation_timepoints, patient.simulated_concentrations, NULL)) {
+		for (ptrdiff_t i = 0; i < patient.observation_timepoints.size(); i++) {
+			Real x = concentration_conversion * patient.simulated_concentrations(i);
+			Real y = patient.observed_concentrations(i);
 
 			if (!std::isnan(y)) {
 				logp += bcm3::LogPdfTnu4(x, y, additive_sd + proportional_sd * std::max(x, 0.0));
@@ -280,7 +169,7 @@ bool PharmacoLikelihoodSingle::EvaluateLogProbability(size_t threadix, const Vec
 
 bool PharmacoLikelihoodSingle::GetSimulatedTrajectory(const VectorReal& timepoints, VectorReal& concentrations, MatrixReal& trajectory)
 {
-	if (!model.Solve(treatment_timepoints, treatment_doses, timepoints, concentrations, &trajectory)) {
+	if (!model.Solve(patient.treatment_timepoints, patient.treatment_doses, timepoints, concentrations, &trajectory)) {
 		return false;
 	}
 	for (int i = 0; i < timepoints.size(); i++) {
@@ -291,4 +180,7 @@ bool PharmacoLikelihoodSingle::GetSimulatedTrajectory(const VectorReal& timepoin
 
 void PharmacoLikelihoodSingle::AddOptionsDescription(boost::program_options::options_description& pod)
 {
+	pod.add_options()
+		("pharmacosingle.patient", boost::program_options::value<std::string>()->default_value(""), "Fit the data from this specific patient.")
+	;
 }

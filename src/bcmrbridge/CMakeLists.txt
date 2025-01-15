@@ -8,6 +8,7 @@ target_sources(bcmrbridge
     interface_fISA.cpp
     interface_incucyte.cpp
     interface_ODE.cpp
+    interface_pharmaco_population.cpp
     interface_pharmaco_single.cpp
     interface_PK.cpp
     interface_popPK.cpp

@@ -132,16 +132,6 @@ bool PharmacokineticModel::Solve(const VectorReal& treatment_times, const Vector
 	return true;
 }
 
-void PharmacokineticModel::Evaluate(Real t, Real& central_y)
-{
-
-}
-
-void PharmacokineticModel::Evaluate(Real t, VectorReal& y)
-{
-
-}
-
 bool PharmacokineticModel::UpdateVariable(Real& target, Real value)
 {
 	if (target != value) {

@@ -17,9 +17,6 @@ public:
 
 	bool Solve(const VectorReal& treatment_times, const VectorReal& treatment_doses, const VectorReal& observation_timepoints, VectorReal& central_compartment_values, MatrixReal* all_compartments);
 
-	void Evaluate(Real t, Real& central_y);
-	void Evaluate(Real t, VectorReal& y);
-
 private:
 	bool UpdateVariable(Real& target, Real value);
 	void ConstructMatrix();

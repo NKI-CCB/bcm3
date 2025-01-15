@@ -27,6 +27,10 @@ EXPORTS
 	bcm3_rbridge_pharmacosingle_get_observed_data
 	bcm3_rbridge_pharmacosingle_get_simulated_data
     bcm3_rbridge_pharmacosingle_get_simulated_trajectory
+	bcm3_rbridge_pharmacopop_get_log_likelihood
+    bcm3_rbridge_pharmacopop_get_num_patients
+	bcm3_rbridge_pharmacopop_get_observed_data
+    bcm3_rbridge_pharmacopop_get_simulated_trajectory
 	bcm3_rbridge_PK_get_log_likelihood
 	bcm3_rbridge_PK_get_observed_data
 	bcm3_rbridge_PK_get_simulated_data

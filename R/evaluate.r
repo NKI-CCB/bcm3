@@ -66,6 +66,7 @@ bcm3.release.cpp <- function(bcm3) {
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/evaluate_cellpop.r", sep=""))
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/evaluate_dynamicISA.r", sep=""))
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/evaluate_fISA.r", sep=""))
+source(paste(Sys.getenv("BCM3_ROOT"), "/R/evaluate_pharmacopop.r", sep=""))
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/evaluate_pharmacosingle.r", sep=""))
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/evaluate_PK.r", sep=""))
 source(paste(Sys.getenv("BCM3_ROOT"), "/R/evaluate_popPK.r", sep=""))

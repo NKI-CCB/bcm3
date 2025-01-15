@@ -9,6 +9,7 @@
 #include "LikelihoodODE.h"
 #include "LikelihoodPharmacokineticTrajectory.h"
 #include "LikelihoodPopPKTrajectory.h"
+#include "PharmacoLikelihoodPopulation.h"
 #include "PharmacoLikelihoodSingle.h"
 #include "TestLikelihoodBanana.h"
 #include "TestLikelihoodCircular.h"
@@ -54,6 +55,8 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 			ll = std::make_shared<LikelihoodPopPKTrajectory>(sampling_threads, evaluation_threads);
 		} else if (type == "pharmaco_single") {
 			ll = std::make_shared<PharmacoLikelihoodSingle>(sampling_threads, evaluation_threads);
+		} else if (type == "pharmaco_population") {
+			ll = std::make_shared<PharmacoLikelihoodPopulation>(sampling_threads, evaluation_threads);
 		} else if (type == "banana") {
 			ll = std::make_shared<TestLikelihoodBanana>(sampling_threads, evaluation_threads);
 		} else if (type == "circular") {
