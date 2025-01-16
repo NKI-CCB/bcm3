@@ -124,6 +124,12 @@ bool PharmacokineticModel::Solve(const VectorReal& treatment_times, const Vector
 
 		solution_concentrations.row(tti) = tmp2 * current_y;
 
+		for (int i = 0; i < A.rows(); i++) {
+			if (std::isnan(solution_concentrations(tti, i))) {
+				return false;
+			}
+		}
+
 		current_t = target_t;
 		current_y = solution_concentrations.row(tti);
 		tti++;
