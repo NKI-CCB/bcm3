@@ -193,101 +193,111 @@ bool PharmacoLikelihoodPopulation::EvaluateLogProbability(size_t threadix, const
 	}
 
 	for (ptrdiff_t i = 0; i < patients.size(); i++) {
-		Real absorption;
-		if (sigma_absorption_ix == std::numeric_limits<size_t>::max()) {
-			absorption = bcm3::fastpow10(values(mean_absorption_ix));
-		} else {
-			absorption = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_absorption_ix[i]), values(mean_absorption_ix), values(sigma_absorption_ix)));
-		}
-
-		Real excretion;
-		if (sigma_excretion_ix == std::numeric_limits<size_t>::max()) {
-			excretion = bcm3::fastpow10(values(mean_excretion_ix));
-		} else {
-			excretion = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_excretion_ix[i]), values(mean_excretion_ix), values(sigma_excretion_ix)));
-		}
-
-		Real clearance;
-		if (sigma_clearance_ix == std::numeric_limits<size_t>::max()) {
-			clearance = bcm3::fastpow10(values(mean_clearance_ix));
-		} else {
-			clearance = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_clearance_ix[i]), values(mean_clearance_ix), values(sigma_clearance_ix)));
-		}
-
-		Real volume_of_distribution;
-		if (sigma_volume_of_distribution_ix == std::numeric_limits<size_t>::max()) {
-			volume_of_distribution = bcm3::fastpow10(values(mean_volume_of_distribution_ix));
-		} else {
-			volume_of_distribution = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_volume_of_distribution_ix[i]), values(mean_volume_of_distribution_ix), values(sigma_volume_of_distribution_ix)));
-		}
-
-		pd.cache_lookup_params(0) = absorption;
-		pd.cache_lookup_params(1) = excretion;
-		pd.cache_lookup_params(2) = clearance;
-		pd.cache_lookup_params(3) = volume_of_distribution;
-		pd.cache_lookup_params(4) = additive_sd;
-		pd.cache_lookup_params(5) = proportional_sd;
-
-		if (use_peripheral_compartment) {
-			Real peripheral_forward = varset->TransformVariable(peripheral_forward_rate_ix, values(peripheral_forward_rate_ix));
-			Real peripheral_backward = varset->TransformVariable(peripheral_backward_rate_ix, values(peripheral_backward_rate_ix));
-			pd.model.SetPeripheralForwardRate(peripheral_forward);
-			pd.model.SetPeripheralBackwardRate(peripheral_backward);
-			pd.cache_lookup_params(6) = peripheral_forward;
-			pd.cache_lookup_params(7) = peripheral_backward;
-		}
-		if (use_transit_compartment) {
-			Real mean_transit_time = varset->TransformVariable(mean_transit_time_ix, values(mean_transit_time_ix));
-			pd.model.SetTransitRate(num_transit_compartments / mean_transit_time);
-			pd.cache_lookup_params(8) = mean_transit_time;
-		}
-
 		Real this_logp = 0.0;
-		//if (LookupCache(pd.cache_lookup_params, i, this_logp)) {
-		//	logp += this_logp;
-		//} else {
-			pd.model.SetAbsorption(absorption);
-			pd.model.SetExcretion(excretion);
-			pd.model.SetElimination(clearance / volume_of_distribution);
-			pd.concentration_conversion = (1e6 / GetDrugMolecularWeight(drug)) / volume_of_distribution;
+		const Patient& patient = patients[i];
 
-			const Patient& patient = patients[i];
-			if (pd.model.Solve(patient.treatment_timepoints, patient.treatment_doses, patient.observation_timepoints, pd.simulated_concentrations[i], nullptr)) {
-				for (ptrdiff_t ti = 0; ti < patient.observation_timepoints.size(); ti++) {
-					Real x = pd.concentration_conversion * pd.simulated_concentrations[i](ti);
-					Real y = patient.observed_concentrations(ti);
-
-					if (!std::isnan(y)) {
-						this_logp += bcm3::LogPdfTnu4(x, y, additive_sd + proportional_sd * std::max(x, 0.0));
-					}
+		SetupSimulation(threadix, values, i);
+		bool result = pd.model.Solve(patient.treatment_timepoints, patient.treatment_doses, patient.observation_timepoints, pd.simulated_concentrations[i], nullptr);
+		if (result) {
+			for (ptrdiff_t ti = 0; ti < patient.observation_timepoints.size(); ti++) {
+				Real x = pd.concentration_conversion * pd.simulated_concentrations[i](ti);
+				if (std::isnan(x)) {
+					this_logp = -std::numeric_limits<Real>::infinity();
+					break;
 				}
-			} else {
-				this_logp = -std::numeric_limits<Real>::infinity();
+
+				Real y = patient.observed_concentrations(ti);
+				if (!std::isnan(y)) {
+					this_logp += bcm3::LogPdfTnu4(x, y, additive_sd + proportional_sd * std::max(x, 0.0));
+				}
 			}
-		//	SetCache(pd.cache_lookup_params, i, this_logp);
-		//}
+		} else {
+			this_logp = -std::numeric_limits<Real>::infinity();
+			break;
+		}
 		logp += this_logp;
 	}
 
 	return true;
 }
 
-bool PharmacoLikelihoodPopulation::GetSimulatedTrajectory(size_t patient_ix, const VectorReal& timepoints, VectorReal& concentrations, MatrixReal& trajectory)
+bool PharmacoLikelihoodPopulation::GetSimulatedTrajectory(size_t threadix, const VectorReal& values, size_t patient_ix, const VectorReal& timepoints, VectorReal& concentrations, MatrixReal& trajectory)
 {
 	if (patient_ix > patients.size()) {
 		return false;
 	}
 
-	ParallelData& pd = parallel_data[0];
+	ParallelData& pd = parallel_data[threadix];
 	const Patient& patient = patients[patient_ix];
 
-	if (!pd.model.Solve(patient.treatment_timepoints, patient.treatment_doses, timepoints, concentrations, &trajectory)) {
+	SetupSimulation(threadix, values, patient_ix);
+	bool result = pd.model.Solve(patient.treatment_timepoints, patient.treatment_doses, timepoints, concentrations, &trajectory);
+	if (result) {
+		concentrations *= pd.concentration_conversion;
+		return true;
+	} else {
 		return false;
 	}
-	for (int i = 0; i < timepoints.size(); i++) {
-		concentrations(i) *= pd.concentration_conversion;
+}
+
+void PharmacoLikelihoodPopulation::SetupSimulation(size_t threadix, const VectorReal& values, size_t patient_ix)
+{
+	ParallelData& pd = parallel_data[threadix];
+	const Patient& patient = patients[patient_ix];
+
+	Real absorption;
+	if (sigma_absorption_ix == std::numeric_limits<size_t>::max()) {
+		absorption = bcm3::fastpow10(values(mean_absorption_ix));
+	} else {
+		absorption = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_absorption_ix[patient_ix]), values(mean_absorption_ix), values(sigma_absorption_ix)));
 	}
-	return true;
+
+	Real excretion;
+	if (sigma_excretion_ix == std::numeric_limits<size_t>::max()) {
+		excretion = bcm3::fastpow10(values(mean_excretion_ix));
+	} else {
+		excretion = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_excretion_ix[patient_ix]), values(mean_excretion_ix), values(sigma_excretion_ix)));
+	}
+
+	Real clearance;
+	if (sigma_clearance_ix == std::numeric_limits<size_t>::max()) {
+		clearance = bcm3::fastpow10(values(mean_clearance_ix));
+	} else {
+		clearance = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_clearance_ix[patient_ix]), values(mean_clearance_ix), values(sigma_clearance_ix)));
+	}
+
+	Real volume_of_distribution;
+	if (sigma_volume_of_distribution_ix == std::numeric_limits<size_t>::max()) {
+		volume_of_distribution = bcm3::fastpow10(values(mean_volume_of_distribution_ix));
+	} else {
+		volume_of_distribution = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_volume_of_distribution_ix[patient_ix]), values(mean_volume_of_distribution_ix), values(sigma_volume_of_distribution_ix)));
+	}
+
+	//pd.cache_lookup_params(0) = absorption;
+	//pd.cache_lookup_params(1) = excretion;
+	//pd.cache_lookup_params(2) = clearance;
+	//pd.cache_lookup_params(3) = volume_of_distribution;
+	//pd.cache_lookup_params(4) = additive_sd;
+	//pd.cache_lookup_params(5) = proportional_sd;
+
+	if (use_peripheral_compartment) {
+		Real peripheral_forward = varset->TransformVariable(peripheral_forward_rate_ix, values(peripheral_forward_rate_ix));
+		Real peripheral_backward = varset->TransformVariable(peripheral_backward_rate_ix, values(peripheral_backward_rate_ix));
+		pd.model.SetPeripheralForwardRate(peripheral_forward);
+		pd.model.SetPeripheralBackwardRate(peripheral_backward);
+		//pd.cache_lookup_params(6) = peripheral_forward;
+		//pd.cache_lookup_params(7) = peripheral_backward;
+	}
+	if (use_transit_compartment) {
+		Real mean_transit_time = varset->TransformVariable(mean_transit_time_ix, values(mean_transit_time_ix));
+		pd.model.SetTransitRate(num_transit_compartments / mean_transit_time);
+		//pd.cache_lookup_params(8) = mean_transit_time;
+	}
+
+	pd.model.SetAbsorption(absorption);
+	pd.model.SetExcretion(excretion);
+	pd.model.SetElimination(clearance / volume_of_distribution);
+	pd.concentration_conversion = (1e6 / GetDrugMolecularWeight(drug)) / volume_of_distribution;
 }
 
 bool PharmacoLikelihoodPopulation::InitializePatientMarginals(std::string name, std::vector<size_t>& ixs)

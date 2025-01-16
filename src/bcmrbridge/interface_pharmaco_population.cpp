@@ -103,25 +103,24 @@ extern "C" {
 			return;
 		}
 
+		size_t c_patient_ix = (*patient_ix) - 1;
 		if (*patient_ix > ll->GetNumPatients()) {
 			LOGERROR("Invalid patient index %d", *patient_ix);
 			*retval = -7;
-		}
-
-		Real logl;
-		if (!EvaluatePKLikelihood(info, ll, param_values, &logl, retval)) {
-			*retval = -4;
-			return;
 		}
 
 		VectorReal time(*num_timepoints);
 		for (int i = 0; i < *num_timepoints; i++) {
 			time(i) = timepoints[i];
 		}
+		VectorReal param_vector(info->varset->GetNumVariables());
+		for (size_t i = 0; i < info->varset->GetNumVariables(); i++) {
+			param_vector(i) = param_values[i];
+		}
 
 		VectorReal concentrations(*num_timepoints);
 		MatrixReal trajectory;
-		if (!ll->GetSimulatedTrajectory((*patient_ix) - 1, time, concentrations, trajectory)) {
+		if (!ll->GetSimulatedTrajectory(0, param_vector, c_patient_ix, time, concentrations, trajectory)) {
 			*retval = -6;
 			return;
 		}
