@@ -3,7 +3,8 @@
 #include "unsupported/Eigen/MatrixFunctions"
 
 PharmacokineticModel::PharmacokineticModel()
-	: absorption(std::numeric_limits<Real>::quiet_NaN())
+	: bioavailability(1.0)
+	, absorption(std::numeric_limits<Real>::quiet_NaN())
 	, excretion(std::numeric_limits<Real>::quiet_NaN())
 	, elimination(std::numeric_limits<Real>::quiet_NaN())
 	, use_peripheral_compartment(false)
@@ -17,6 +18,11 @@ PharmacokineticModel::PharmacokineticModel()
 
 PharmacokineticModel::~PharmacokineticModel()
 {
+}
+
+bool PharmacokineticModel::SetBioavailability(Real value)
+{
+	return UpdateVariable(this->bioavailability, value);
 }
 
 bool PharmacokineticModel::SetAbsorption(Real value)
@@ -99,7 +105,7 @@ bool PharmacokineticModel::Solve(const VectorReal& treatment_times, const Vector
 		} else {
 			target_t = simulate_until;
 		}
-		current_y(0) += treatment_doses(tti);
+		current_y(0) += treatment_doses(tti) * bioavailability;
 
 		// If there are any observation timepoints between now and the next treatment timepoint (or end of simulation), evaluate them
 		while (oti < observation_timepoints.size() && observation_timepoints(oti) <= target_t) {

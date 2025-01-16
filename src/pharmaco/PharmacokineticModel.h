@@ -6,6 +6,7 @@ public:
 	PharmacokineticModel();
 	~PharmacokineticModel();
 
+	bool SetBioavailability(Real value);
 	bool SetAbsorption(Real value);
 	bool SetExcretion(Real value);
 	bool SetElimination(Real value);
@@ -21,6 +22,7 @@ private:
 	bool UpdateVariable(Real& target, Real value);
 	void ConstructMatrix();
 
+	Real bioavailability;
 	Real absorption;
 	Real excretion;
 	Real elimination;

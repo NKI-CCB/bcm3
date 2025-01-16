@@ -13,6 +13,7 @@ PharmacoLikelihoodPopulation::ParallelData::ParallelData()
 
 PharmacoLikelihoodPopulation::PharmacoLikelihoodPopulation(size_t sampling_threads, size_t evaluation_threads)
 	: sampling_threads(sampling_threads)
+	, use_bioavailability(false)
 	, additive_sd_ix(std::numeric_limits<size_t>::max())
 	, proportional_sd_ix(std::numeric_limits<size_t>::max())
 	, mean_absorption_ix(std::numeric_limits<size_t>::max())
@@ -49,6 +50,7 @@ bool PharmacoLikelihoodPopulation::Initialize(std::shared_ptr<const bcm3::Variab
 		trial = modelnode.get<std::string>("<xmlattr>.trial");
 		use_peripheral_compartment = modelnode.get<bool>("<xmlattr>.peripheral_compartment", false);
 		num_transit_compartments = modelnode.get<size_t>("<xmlattr>.num_transit_compartments", 0);
+		use_bioavailability = modelnode.get<bool>("<xmlattr>.bioavailability", false);
 		if (num_transit_compartments > 0) {
 			use_transit_compartment = true;
 		}
@@ -165,6 +167,12 @@ bool PharmacoLikelihoodPopulation::PostInitialize()
 		mean_transit_time_ix = varset->GetVariableIndex("mean_transit_time");
 		if (mean_transit_time_ix == std::numeric_limits<size_t>::max()) {
 			LOGERROR("Transit compartmants were specified, but mean transit time has not been specified in prior.");
+			return false;
+		}
+	}
+
+	if (use_bioavailability) {
+		if (!InitializePatientMarginals("bioavailability", patient_bioavailability_ix)) {
 			return false;
 		}
 	}
@@ -293,7 +301,9 @@ void PharmacoLikelihoodPopulation::SetupSimulation(size_t threadix, const Vector
 		pd.model.SetTransitRate(num_transit_compartments / mean_transit_time);
 		//pd.cache_lookup_params(8) = mean_transit_time;
 	}
-
+	if (use_bioavailability) {
+		pd.model.SetBioavailability(values(patient_bioavailability_ix[patient_ix]));
+	}
 	pd.model.SetAbsorption(absorption);
 	pd.model.SetExcretion(excretion);
 	pd.model.SetElimination(clearance / volume_of_distribution);

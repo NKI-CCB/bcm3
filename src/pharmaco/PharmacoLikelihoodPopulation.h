@@ -42,6 +42,7 @@ private:
 	std::shared_ptr<const bcm3::VariableSet> varset;
 
 	std::string drug;
+	bool use_bioavailability;
 
 	size_t additive_sd_ix;
 	size_t proportional_sd_ix;
@@ -59,6 +60,7 @@ private:
 	std::vector<size_t> patient_excretion_ix;
 	std::vector<size_t> patient_clearance_ix;
 	std::vector<size_t> patient_volume_of_distribution_ix;
+	std::vector<size_t> patient_bioavailability_ix;
 
 	bool use_peripheral_compartment;
 	size_t peripheral_forward_rate_ix;
