@@ -24,6 +24,7 @@ PharmacoLikelihoodPopulation::PharmacoLikelihoodPopulation(size_t sampling_threa
 	, sigma_excretion_ix(std::numeric_limits<size_t>::max())
 	, sigma_clearance_ix(std::numeric_limits<size_t>::max())
 	, sigma_volume_of_distribution_ix(std::numeric_limits<size_t>::max())
+	, sigma_transit_time_ix(std::numeric_limits<size_t>::max())
 	, use_peripheral_compartment(false)
 	, peripheral_forward_rate_ix(std::numeric_limits<size_t>::max())
 	, peripheral_backward_rate_ix(std::numeric_limits<size_t>::max())
@@ -130,6 +131,7 @@ bool PharmacoLikelihoodPopulation::PostInitialize()
 	sigma_excretion_ix = varset->GetVariableIndex("sigma_excretion", false);
 	sigma_clearance_ix = varset->GetVariableIndex("sigma_clearance", false);
 	sigma_volume_of_distribution_ix = varset->GetVariableIndex("sigma_volume_of_distribution", false);
+	sigma_transit_time_ix = varset->GetVariableIndex("sigma_transit_time", false);
 
 	if (sigma_absorption_ix != std::numeric_limits<size_t>::max()) {
 		if (!InitializePatientMarginals("absorption", patient_absorption_ix)) {
@@ -148,6 +150,11 @@ bool PharmacoLikelihoodPopulation::PostInitialize()
 	}
 	if (sigma_volume_of_distribution_ix != std::numeric_limits<size_t>::max()) {
 		if (!InitializePatientMarginals("volume_of_distribution", patient_volume_of_distribution_ix)) {
+			return false;
+		}
+	}
+	if (sigma_transit_time_ix != std::numeric_limits<size_t>::max()) {
+		if (!InitializePatientMarginals("transit_time", patient_transit_time_ix)) {
 			return false;
 		}
 	}
@@ -305,9 +312,14 @@ void PharmacoLikelihoodPopulation::SetupSimulation(size_t threadix, const Vector
 		pd.cache_lookup_params(5) = peripheral_backward;
 	}
 	if (use_transit_compartment) {
-		Real mean_transit_time = varset->TransformVariable(mean_transit_time_ix, values(mean_transit_time_ix));
-		pd.model.SetTransitRate(num_transit_compartments / mean_transit_time);
-		pd.cache_lookup_params(6) = mean_transit_time;
+		Real transit_time;
+		if (sigma_transit_time_ix == std::numeric_limits<size_t>::max()) {
+			transit_time = varset->TransformVariable(mean_transit_time_ix, values(mean_transit_time_ix));
+		} else {
+			transit_time = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_transit_time_ix[patient_ix]), values(mean_transit_time_ix), values(sigma_transit_time_ix)));
+		}
+		pd.model.SetTransitRate(num_transit_compartments / transit_time);
+		pd.cache_lookup_params(6) = transit_time;
 	}
 	if (use_bioavailability) {
 		Real bioavailability = values(patient_bioavailability_ix[patient_ix]);

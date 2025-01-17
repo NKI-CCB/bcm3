@@ -55,12 +55,14 @@ private:
 	size_t sigma_excretion_ix;
 	size_t sigma_clearance_ix;
 	size_t sigma_volume_of_distribution_ix;
+	size_t sigma_transit_time_ix;
 
 	std::vector<size_t> patient_absorption_ix;
 	std::vector<size_t> patient_excretion_ix;
 	std::vector<size_t> patient_clearance_ix;
 	std::vector<size_t> patient_volume_of_distribution_ix;
 	std::vector<size_t> patient_bioavailability_ix;
+	std::vector<size_t> patient_transit_time_ix;
 
 	bool use_peripheral_compartment;
 	size_t peripheral_forward_rate_ix;
