@@ -88,7 +88,7 @@ bool PharmacoLikelihoodPopulation::Initialize(std::shared_ptr<const bcm3::Variab
 	prev_parameters.resize(parallel_data.size());
 	prev_logp.resize(parallel_data.size());
 	for (size_t i = 0; i < prev_parameters.size(); i++) {
-		prev_parameters[i].resize(num_patients, VectorReal::Zero(9));
+		prev_parameters[i].resize(num_patients, VectorReal::Zero(10));
 		prev_logp[i].resize(num_patients, std::numeric_limits<Real>::quiet_NaN());
 	}
 	prev_ix.resize(num_patients, 0);
@@ -112,21 +112,20 @@ bool PharmacoLikelihoodPopulation::PostInitialize()
 		} else {
 			parallel_data[i].model.SetNumTransitCompartments(0);
 		}
-		parallel_data[i].cache_lookup_params.setZero(9);
+		parallel_data[i].cache_lookup_params.setZero(10);
 	}
 
 	mean_absorption_ix = varset->GetVariableIndex("mean_absorption");
-	mean_excretion_ix = varset->GetVariableIndex("mean_excretion");
 	mean_clearance_ix = varset->GetVariableIndex("mean_clearance");
 	mean_volume_of_distribution_ix = varset->GetVariableIndex("mean_volume_of_distribution");
 
 	if (mean_absorption_ix == std::numeric_limits<size_t>::max() ||
-		mean_excretion_ix == std::numeric_limits<size_t>::max() ||
 		mean_clearance_ix == std::numeric_limits<size_t>::max() ||
 		mean_volume_of_distribution_ix == std::numeric_limits<size_t>::max()) {
 		return false;
 	}
 
+	mean_excretion_ix = varset->GetVariableIndex("mean_excretion", false);
 	sigma_absorption_ix = varset->GetVariableIndex("sigma_absorption", false);
 	sigma_excretion_ix = varset->GetVariableIndex("sigma_excretion", false);
 	sigma_clearance_ix = varset->GetVariableIndex("sigma_clearance", false);
@@ -205,23 +204,30 @@ bool PharmacoLikelihoodPopulation::EvaluateLogProbability(size_t threadix, const
 		const Patient& patient = patients[i];
 
 		SetupSimulation(threadix, values, i);
-		bool result = pd.model.Solve(patient.treatment_timepoints, patient.treatment_doses, patient.observation_timepoints, pd.simulated_concentrations[i], nullptr);
-		if (result) {
-			for (ptrdiff_t ti = 0; ti < patient.observation_timepoints.size(); ti++) {
-				Real x = pd.concentration_conversion * pd.simulated_concentrations[i](ti);
-				if (std::isnan(x)) {
-					this_logp = -std::numeric_limits<Real>::infinity();
-					break;
-				}
 
-				Real y = patient.observed_concentrations(ti);
-				if (!std::isnan(y)) {
-					this_logp += bcm3::LogPdfTnu4(x, y, additive_sd + proportional_sd * std::max(x, 0.0));
+		pd.cache_lookup_params(8) = additive_sd;
+		pd.cache_lookup_params(9) = proportional_sd;
+		if (!LookupCache(pd.cache_lookup_params, i, this_logp)) {
+			bool result = pd.model.Solve(patient.treatment_timepoints, patient.treatment_doses, patient.observation_timepoints, pd.simulated_concentrations[i], nullptr);
+			if (result) {
+				for (ptrdiff_t ti = 0; ti < patient.observation_timepoints.size(); ti++) {
+					Real x = pd.concentration_conversion * pd.simulated_concentrations[i](ti);
+					if (std::isnan(x)) {
+						this_logp = -std::numeric_limits<Real>::infinity();
+						break;
+					}
+
+					Real y = patient.observed_concentrations(ti);
+					if (!std::isnan(y)) {
+						this_logp += bcm3::LogPdfTnu4(x, y, additive_sd + proportional_sd * std::max(x, 0.0));
+					}
 				}
+			} else {
+				this_logp = -std::numeric_limits<Real>::infinity();
+				break;
 			}
-		} else {
-			this_logp = -std::numeric_limits<Real>::infinity();
-			break;
+
+			SetCache(pd.cache_lookup_params, i, this_logp);
 		}
 		logp += this_logp;
 	}
@@ -261,10 +267,14 @@ void PharmacoLikelihoodPopulation::SetupSimulation(size_t threadix, const Vector
 	}
 
 	Real excretion;
-	if (sigma_excretion_ix == std::numeric_limits<size_t>::max()) {
-		excretion = bcm3::fastpow10(values(mean_excretion_ix));
+	if (mean_excretion_ix == std::numeric_limits<size_t>::max()) {
+		excretion = 0.0;
 	} else {
-		excretion = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_excretion_ix[patient_ix]), values(mean_excretion_ix), values(sigma_excretion_ix)));
+		if (sigma_excretion_ix == std::numeric_limits<size_t>::max()) {
+			excretion = bcm3::fastpow10(values(mean_excretion_ix));
+		} else {
+			excretion = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_excretion_ix[patient_ix]), values(mean_excretion_ix), values(sigma_excretion_ix)));
+		}
 	}
 
 	Real clearance;
@@ -281,28 +291,28 @@ void PharmacoLikelihoodPopulation::SetupSimulation(size_t threadix, const Vector
 		volume_of_distribution = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_volume_of_distribution_ix[patient_ix]), values(mean_volume_of_distribution_ix), values(sigma_volume_of_distribution_ix)));
 	}
 
-	//pd.cache_lookup_params(0) = absorption;
-	//pd.cache_lookup_params(1) = excretion;
-	//pd.cache_lookup_params(2) = clearance;
-	//pd.cache_lookup_params(3) = volume_of_distribution;
-	//pd.cache_lookup_params(4) = additive_sd;
-	//pd.cache_lookup_params(5) = proportional_sd;
+	pd.cache_lookup_params(0) = absorption;
+	pd.cache_lookup_params(1) = excretion;
+	pd.cache_lookup_params(2) = clearance;
+	pd.cache_lookup_params(3) = volume_of_distribution;
 
 	if (use_peripheral_compartment) {
 		Real peripheral_forward = varset->TransformVariable(peripheral_forward_rate_ix, values(peripheral_forward_rate_ix));
 		Real peripheral_backward = varset->TransformVariable(peripheral_backward_rate_ix, values(peripheral_backward_rate_ix));
 		pd.model.SetPeripheralForwardRate(peripheral_forward);
 		pd.model.SetPeripheralBackwardRate(peripheral_backward);
-		//pd.cache_lookup_params(6) = peripheral_forward;
-		//pd.cache_lookup_params(7) = peripheral_backward;
+		pd.cache_lookup_params(4) = peripheral_forward;
+		pd.cache_lookup_params(5) = peripheral_backward;
 	}
 	if (use_transit_compartment) {
 		Real mean_transit_time = varset->TransformVariable(mean_transit_time_ix, values(mean_transit_time_ix));
 		pd.model.SetTransitRate(num_transit_compartments / mean_transit_time);
-		//pd.cache_lookup_params(8) = mean_transit_time;
+		pd.cache_lookup_params(6) = mean_transit_time;
 	}
 	if (use_bioavailability) {
-		pd.model.SetBioavailability(values(patient_bioavailability_ix[patient_ix]));
+		Real bioavailability = values(patient_bioavailability_ix[patient_ix]);
+		pd.model.SetBioavailability(bioavailability);
+		pd.cache_lookup_params(7) = bioavailability;
 	}
 	pd.model.SetAbsorption(absorption);
 	pd.model.SetExcretion(excretion);
@@ -329,7 +339,13 @@ bool PharmacoLikelihoodPopulation::LookupCache(const VectorReal& params, size_t 
 	buffer_spinlock.lock();
 	ptrdiff_t which_exactly_equal = -1;
 	for (ptrdiff_t hi = 0; hi < prev_parameters.size(); hi++) {
-		bool exactly_equal = params == prev_parameters[hi][patient_ix];
+		bool exactly_equal = true;
+		for (int i = 0; i < params.size(); i++) {
+			if (params(i) != prev_parameters[hi][patient_ix](i)) {
+				exactly_equal = false;
+				break;
+			}
+		}
 		if (exactly_equal) {
 			which_exactly_equal = hi;
 			break;
