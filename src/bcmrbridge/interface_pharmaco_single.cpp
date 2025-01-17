@@ -2,7 +2,7 @@
 #include "PharmacoLikelihoodSingle.h"
 #include "interface.h"
 
-std::shared_ptr<PharmacoLikelihoodSingle> GetPKLikelihood(bcm3info* info, int* retval)
+static std::shared_ptr<PharmacoLikelihoodSingle> GetLikelihood(bcm3info* info, int* retval)
 {
 	if (!info) {
 		return std::shared_ptr<PharmacoLikelihoodSingle>();
@@ -41,7 +41,7 @@ extern "C" {
 	void bcm3_rbridge_pharmacosingle_get_log_likelihood(char** bcm3info_ptr, double* param_values, double* logl, int* retval)
 	{
 		bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-		std::shared_ptr<PharmacoLikelihoodSingle> ll = GetPKLikelihood(info, retval);
+		std::shared_ptr<PharmacoLikelihoodSingle> ll = GetLikelihood(info, retval);
 		if (!info || !ll) {
 			return;
 		}
@@ -56,7 +56,7 @@ extern "C" {
 	void bcm3_rbridge_pharmacosingle_get_observed_data(char** bcm3info_ptr, double* out_values, double* out_timepoints, int* out_num_timepoints, int* retval)
 	{
 		bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-		std::shared_ptr<PharmacoLikelihoodSingle> ll = GetPKLikelihood(info, retval);
+		std::shared_ptr<PharmacoLikelihoodSingle> ll = GetLikelihood(info, retval);
 		if (!info || !ll) {
 			return;
 		}
@@ -81,7 +81,7 @@ extern "C" {
 	void bcm3_rbridge_pharmacosingle_get_simulated_data(char** bcm3info_ptr, double* param_values, double* out_values, double* out_timepoints, int* out_num_timepoints, int* retval)
 	{
 		bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-		std::shared_ptr<PharmacoLikelihoodSingle> ll = GetPKLikelihood(info, retval);
+		std::shared_ptr<PharmacoLikelihoodSingle> ll = GetLikelihood(info, retval);
 		if (!info || !ll) {
 			return;
 		}
@@ -111,7 +111,7 @@ extern "C" {
 	void bcm3_rbridge_pharmacosingle_get_simulated_trajectory(char** bcm3info_ptr, double* param_values, double* timepoints, int* num_timepoints, double* out_trajectories, double* out_concentrations, int* out_num_compartments, int* retval)
 	{
 		bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
-		std::shared_ptr<PharmacoLikelihoodSingle> ll = GetPKLikelihood(info, retval);
+		std::shared_ptr<PharmacoLikelihoodSingle> ll = GetLikelihood(info, retval);
 		if (!info || !ll) {
 			return;
 		}
