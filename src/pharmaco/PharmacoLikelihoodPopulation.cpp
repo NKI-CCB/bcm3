@@ -69,7 +69,6 @@ bool PharmacoLikelihoodPopulation::Initialize(std::shared_ptr<const bcm3::Variab
 	size_t num_patients;
 	std::vector<std::string> patient_ids;
 	result &= data.GetDimensionSize(trial, "patients", &num_patients);
-	num_patients = 5;
 	result &= data.GetValues(trial, "patients", 0, num_patients, patient_ids);
 
 	patients.resize(num_patients);
