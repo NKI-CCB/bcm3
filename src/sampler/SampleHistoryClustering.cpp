@@ -255,10 +255,9 @@ namespace bcm3 {
 
 		VectorReal y = sample.cwiseQuotient(variable_scaling);
 		VectorReal dists(n);
-		VectorReal buffer;
+		VectorReal x(scaled_samples.cols());
 		for (ptrdiff_t i = 0; i < n; i++) {
-			VectorReal x = scaled_samples.row(i);
-			x -= y; // Very weird, but if you do the - y directly from the scaled_samples.row() you get errors.
+			x.noalias() = scaled_samples.row(i).transpose() - y;
 			Real dist = x.dot(x);
 			dists(i) = dist;
 			for (int j = 0; j < nearest_neighbours_needed; j++) {
