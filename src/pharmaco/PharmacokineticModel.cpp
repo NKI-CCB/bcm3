@@ -13,6 +13,9 @@ PharmacokineticModel::PharmacokineticModel()
 	, use_transit_compartments(false)
 	, num_transit_compartments(0)
 	, transit_rate(std::numeric_limits<Real>::quiet_NaN())
+	, use_biphasic_abosprtion(false)
+	, direct_absorption_rate(std::numeric_limits<Real>::quiet_NaN())
+	, fraction_direct(std::numeric_limits<Real>::quiet_NaN())
 {
 }
 
@@ -74,6 +77,22 @@ bool PharmacokineticModel::SetNumTransitCompartments(size_t value)
 bool PharmacokineticModel::SetTransitRate(Real value)
 {
 	return UpdateVariable(this->transit_rate, value);
+}
+
+bool PharmacokineticModel::SetUseBiphasicAbsorption(bool enable)
+{
+	use_biphasic_abosprtion = enable;
+	return true;
+}
+
+bool PharmacokineticModel::SetDirectAbsorptionRate(Real value)
+{
+	return UpdateVariable(this->direct_absorption_rate, value);
+}
+
+bool PharmacokineticModel::SetFractionDirect(Real value)
+{
+	return UpdateVariable(this->fraction_direct, value);
 }
 
 bool PharmacokineticModel::Solve(const VectorReal& treatment_times, const VectorReal& treatment_doses, const VectorReal& observation_timepoints, VectorReal& central_compartment_values, MatrixReal* all_compartments)
@@ -169,10 +188,17 @@ void PharmacokineticModel::ConstructMatrix()
 	A.setZero(num_compartments, num_compartments);
 
 	A(0, 0) -= excretion;
-	A(0, 0) -= absorption;
+
+	Real absorption_indirect;
+	if (use_biphasic_abosprtion) {
+		absorption_indirect = (1 - fraction_direct) * absorption;
+	} else {
+		absorption_indirect = absorption;
+	}
+	A(0, 0) -= absorption_indirect;
 	
 	if (use_transit_compartments) {
-		A(first_transit_compartment_ix, 0) += absorption;
+		A(first_transit_compartment_ix, 0) += absorption_indirect;
 		if (num_transit_compartments > 2) {
 			for (size_t i = 0; i < num_transit_compartments - 1; i++) {
 				A(first_transit_compartment_ix + i,     first_transit_compartment_ix + i) -= transit_rate;
@@ -182,7 +208,7 @@ void PharmacokineticModel::ConstructMatrix()
 		A(first_transit_compartment_ix + num_transit_compartments - 1, first_transit_compartment_ix + num_transit_compartments - 1) = -transit_rate;
 		A(1, first_transit_compartment_ix + num_transit_compartments - 1) += transit_rate;
 	} else {
-		A(1, 0) += absorption;
+		A(1, 0) += absorption_indirect;
 	}
 
 	if (use_peripheral_compartment) {
@@ -190,6 +216,11 @@ void PharmacokineticModel::ConstructMatrix()
 		A(2, 1) += peripheral_forward_rate;
 		A(1, 2) += peripheral_backward_rate;
 		A(2, 2) -= peripheral_backward_rate;
+	}
+
+	if (use_biphasic_abosprtion) {
+		A(0, 0) -= fraction_direct * direct_absorption_rate;
+		A(1, 0) += fraction_direct * direct_absorption_rate;
 	}
 
 	A(1, 1) -= elimination;

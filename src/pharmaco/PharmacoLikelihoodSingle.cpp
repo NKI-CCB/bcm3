@@ -20,6 +20,8 @@ PharmacoLikelihoodSingle::PharmacoLikelihoodSingle(size_t sampling_threads, size
 	, use_transit_compartment(false)
 	, num_transit_compartments(0)
 	, mean_transit_time_ix(std::numeric_limits<size_t>::max())
+	, biphasic_absorption(false)
+	, direct_absorption_ix(std::numeric_limits<size_t>::max())
 {
 	
 }
@@ -40,6 +42,7 @@ bool PharmacoLikelihoodSingle::Initialize(std::shared_ptr<const bcm3::VariableSe
 		patient.patient_id = modelnode.get<std::string>("<xmlattr>.patient", "");
 		use_peripheral_compartment = modelnode.get<bool>("<xmlattr>.peripheral_compartment", false);
 		num_transit_compartments = modelnode.get<size_t>("<xmlattr>.num_transit_compartments", 0);
+		biphasic_absorption = modelnode.get<bool>("<xmlattr>.biphasic_absorption", false);
 		if (num_transit_compartments > 0) {
 			use_transit_compartment = true;
 		}
@@ -113,6 +116,22 @@ bool PharmacoLikelihoodSingle::PostInitialize()
 		model.SetNumTransitCompartments(0);
 	}
 
+	if (biphasic_absorption) {
+		direct_absorption_ix = varset->GetVariableIndex("direct_absorption");
+		if (direct_absorption_ix == std::numeric_limits<size_t>::max()) {
+			LOGERROR("Biphasic absorption was specified, but direct absorption rate has not been specified in prior.");
+			return false;
+		}
+		fraction_direct_ix = varset->GetVariableIndex("fraction_direct");
+		if (fraction_direct_ix == std::numeric_limits<size_t>::max()) {
+			LOGERROR("Biphasic absorption was specified, but fraction absorbed by direct route has not been specified in prior.");
+			return false;
+		}
+		model.SetUseBiphasicAbsorption(true);
+	} else {
+		model.SetUseBiphasicAbsorption(false);
+	}
+
 	return true;
 }
 
@@ -120,7 +139,7 @@ bool PharmacoLikelihoodSingle::EvaluateLogProbability(size_t threadix, const Vec
 {
 	logp = 0.0;
 
-	Real additive_sd = 0.0;
+	Real additive_sd = 1e-12;
 	if (additive_sd_ix != std::numeric_limits<size_t>::max()) {
 		additive_sd = varset->TransformVariable(additive_sd_ix, values(additive_sd_ix));
 	}
@@ -147,6 +166,12 @@ bool PharmacoLikelihoodSingle::EvaluateLogProbability(size_t threadix, const Vec
 	if (use_transit_compartment) {
 		Real mean_transit_time = varset->TransformVariable(mean_transit_time_ix, values(mean_transit_time_ix));
 		model.SetTransitRate(num_transit_compartments / mean_transit_time);
+	}
+	if (biphasic_absorption) {
+		Real direct_absorption_rate = varset->TransformVariable(direct_absorption_ix, values(direct_absorption_ix));
+		model.SetDirectAbsorptionRate(direct_absorption_rate);
+		Real fraction_direct = varset->TransformVariable(fraction_direct_ix, values(fraction_direct_ix));
+		model.SetFractionDirect(fraction_direct);
 	}
 
 	concentration_conversion = (1e6 / GetDrugMolecularWeight(drug)) / volume_of_distribution;

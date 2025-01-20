@@ -45,6 +45,9 @@ private:
 	bool use_transit_compartment;
 	size_t num_transit_compartments;
 	size_t mean_transit_time_ix;
+	bool biphasic_absorption;
+	size_t direct_absorption_ix;
+	size_t fraction_direct_ix;
 
 	Patient patient;
 };
