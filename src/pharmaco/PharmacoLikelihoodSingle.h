@@ -48,6 +48,9 @@ private:
 	bool biphasic_absorption;
 	size_t direct_absorption_ix;
 	size_t fraction_direct_ix;
+	bool use_metabolite;
+	size_t metabolite_conversion_ix;
+	size_t metabolite_elimination_ix;
 
 	Patient patient;
 };

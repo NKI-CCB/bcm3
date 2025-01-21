@@ -22,6 +22,9 @@ PharmacoLikelihoodSingle::PharmacoLikelihoodSingle(size_t sampling_threads, size
 	, mean_transit_time_ix(std::numeric_limits<size_t>::max())
 	, biphasic_absorption(false)
 	, direct_absorption_ix(std::numeric_limits<size_t>::max())
+	, use_metabolite(false)
+	, metabolite_conversion_ix(std::numeric_limits<size_t>::max())
+	, metabolite_elimination_ix(std::numeric_limits<size_t>::max())
 {
 	
 }
@@ -43,6 +46,7 @@ bool PharmacoLikelihoodSingle::Initialize(std::shared_ptr<const bcm3::VariableSe
 		use_peripheral_compartment = modelnode.get<bool>("<xmlattr>.peripheral_compartment", false);
 		num_transit_compartments = modelnode.get<size_t>("<xmlattr>.num_transit_compartments", 0);
 		biphasic_absorption = modelnode.get<bool>("<xmlattr>.biphasic_absorption", false);
+		use_metabolite = modelnode.get<bool>("<xmlattr>.metabolite", false);
 		if (num_transit_compartments > 0) {
 			use_transit_compartment = true;
 		}
@@ -132,6 +136,18 @@ bool PharmacoLikelihoodSingle::PostInitialize()
 		model.SetUseBiphasicAbsorption(false);
 	}
 
+	if (use_metabolite) {
+		metabolite_conversion_ix = varset->GetVariableIndex("metabolite_conversion_rate");
+		if (metabolite_conversion_ix == std::numeric_limits<size_t>::max()) {
+			LOGERROR("Use of metabolite was specified, but metabolite conversion rate has not been specified in prior.");
+			return false;
+		}
+		model.SetMetaboliteElimination(1.0); // Will not be identifiable without measurements of the metabolite.
+		model.SetUseMetabolite(true);
+	} else {
+		model.SetUseMetabolite(false);
+	}
+
 	return true;
 }
 
@@ -172,6 +188,10 @@ bool PharmacoLikelihoodSingle::EvaluateLogProbability(size_t threadix, const Vec
 		model.SetDirectAbsorptionRate(direct_absorption_rate);
 		Real fraction_direct = varset->TransformVariable(fraction_direct_ix, values(fraction_direct_ix));
 		model.SetFractionDirect(fraction_direct);
+	}
+	if (use_metabolite) {
+		Real metabolite_conversion_rate = varset->TransformVariable(metabolite_conversion_ix, values(metabolite_conversion_ix));
+		model.SetMetaboliteConversionRate(metabolite_conversion_rate);
 	}
 
 	concentration_conversion = (1e6 / GetDrugMolecularWeight(drug)) / volume_of_distribution;

@@ -48,7 +48,7 @@ bcm3.pharmacosingle.get.simulated.data <- function(bcm3, param.values) {
 bcm3.pharmacosingle.get.simulated.trajectory <- function(bcm3, param.values, timepoints) {
   retval <- list()
   nt <- as.integer(length(timepoints))
-  max_compartments <- 6
+  max_compartments <- 10
   traj_buffer <- rep(0.0, nt * max_compartments)
   conc_buffer <- rep(0.0, nt)
   

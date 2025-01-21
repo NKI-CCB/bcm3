@@ -43,7 +43,7 @@ bcm3.pharmacopop.get.num.patients <- function(bcm3) {
 bcm3.pharmacopop.get.simulated.trajectory <- function(bcm3, param.values, timepoints, patient_ix) {
   retval <- list()
   nt <- as.integer(length(timepoints))
-  max_compartments <- 6
+  max_compartments <- 10
   traj_buffer <- rep(0.0, nt * max_compartments)
   conc_buffer <- rep(0.0, nt)
   

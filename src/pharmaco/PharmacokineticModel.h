@@ -18,6 +18,9 @@ public:
 	bool SetUseBiphasicAbsorption(bool enable);
 	bool SetDirectAbsorptionRate(Real value);
 	bool SetFractionDirect(Real value);
+	bool SetUseMetabolite(bool enable);
+	bool SetMetaboliteConversionRate(Real value);
+	bool SetMetaboliteElimination(Real value);
 
 	bool Solve(const VectorReal& treatment_times, const VectorReal& treatment_doses, const VectorReal& observation_timepoints, VectorReal& central_compartment_values, MatrixReal* all_compartments);
 
@@ -41,6 +44,10 @@ private:
 	bool use_biphasic_abosprtion;
 	Real direct_absorption_rate;
 	Real fraction_direct;
+
+	bool use_metabolite;
+	Real metabolite_conversion_rate;
+	Real metabolite_elimination;
 
 	MatrixReal A;
 	MatrixReal tmp1;

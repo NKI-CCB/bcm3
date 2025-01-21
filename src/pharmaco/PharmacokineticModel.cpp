@@ -16,6 +16,9 @@ PharmacokineticModel::PharmacokineticModel()
 	, use_biphasic_abosprtion(false)
 	, direct_absorption_rate(std::numeric_limits<Real>::quiet_NaN())
 	, fraction_direct(std::numeric_limits<Real>::quiet_NaN())
+	, use_metabolite(false)
+	, metabolite_conversion_rate(std::numeric_limits<Real>::quiet_NaN())
+	, metabolite_elimination(std::numeric_limits<Real>::quiet_NaN())
 {
 }
 
@@ -93,6 +96,22 @@ bool PharmacokineticModel::SetDirectAbsorptionRate(Real value)
 bool PharmacokineticModel::SetFractionDirect(Real value)
 {
 	return UpdateVariable(this->fraction_direct, value);
+}
+
+bool PharmacokineticModel::SetUseMetabolite(bool enable)
+{
+	use_metabolite = enable;
+	return true;
+}
+
+bool PharmacokineticModel::SetMetaboliteConversionRate(Real value)
+{
+	return UpdateVariable(this->metabolite_conversion_rate, value);
+}
+
+bool PharmacokineticModel::SetMetaboliteElimination(Real value)
+{
+	return UpdateVariable(this->metabolite_elimination, value);
 }
 
 bool PharmacokineticModel::Solve(const VectorReal& treatment_times, const VectorReal& treatment_doses, const VectorReal& observation_timepoints, VectorReal& central_compartment_values, MatrixReal* all_compartments)
@@ -176,8 +195,13 @@ bool PharmacokineticModel::UpdateVariable(Real& target, Real value)
 void PharmacokineticModel::ConstructMatrix()
 {
 	size_t num_compartments = 2;
+	size_t metabolite_compartment_ix = std::numeric_limits<size_t>::max();
 	size_t first_transit_compartment_ix = 0;
 	if (use_peripheral_compartment) {
+		num_compartments++;
+	}
+	if (use_metabolite) {
+		metabolite_compartment_ix = num_compartments;
 		num_compartments++;
 	}
 	if (use_transit_compartments) {
@@ -221,6 +245,12 @@ void PharmacokineticModel::ConstructMatrix()
 	if (use_biphasic_abosprtion) {
 		A(0, 0) -= fraction_direct * direct_absorption_rate;
 		A(1, 0) += fraction_direct * direct_absorption_rate;
+	}
+
+	if (use_metabolite) {
+		A(1, 1) -= metabolite_conversion_rate;
+		A(metabolite_compartment_ix, 1) += metabolite_conversion_rate;
+		A(metabolite_compartment_ix, metabolite_compartment_ix) -= metabolite_elimination;
 	}
 
 	A(1, 1) -= elimination;
