@@ -45,6 +45,7 @@ bool PharmacoLikelihoodPopulation::Initialize(std::shared_ptr<const bcm3::Variab
 	this->varset = varset;
 
 	std::string trial;
+	size_t cache_size;
 	try {
 		boost::property_tree::ptree& modelnode = likelihood_node.get_child("pk_model");
 		drug = modelnode.get<std::string>("<xmlattr>.drug");
@@ -52,6 +53,7 @@ bool PharmacoLikelihoodPopulation::Initialize(std::shared_ptr<const bcm3::Variab
 		use_peripheral_compartment = modelnode.get<bool>("<xmlattr>.peripheral_compartment", false);
 		num_transit_compartments = modelnode.get<size_t>("<xmlattr>.num_transit_compartments", 0);
 		use_bioavailability = modelnode.get<bool>("<xmlattr>.bioavailability", false);
+		cache_size = modelnode.get<size_t>("<xmlattr>.likelihood_cache_size", 16);
 		if (num_transit_compartments > 0) {
 			use_transit_compartment = true;
 		}
@@ -85,8 +87,8 @@ bool PharmacoLikelihoodPopulation::Initialize(std::shared_ptr<const bcm3::Variab
 		}
 	}
 
-	prev_parameters.resize(parallel_data.size());
-	prev_logp.resize(parallel_data.size());
+	prev_parameters.resize(cache_size);
+	prev_logp.resize(cache_size);
 	for (size_t i = 0; i < prev_parameters.size(); i++) {
 		prev_parameters[i].resize(num_patients, VectorReal::Zero(10));
 		prev_logp[i].resize(num_patients, std::numeric_limits<Real>::quiet_NaN());
