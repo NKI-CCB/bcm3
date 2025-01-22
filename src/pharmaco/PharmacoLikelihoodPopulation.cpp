@@ -45,7 +45,7 @@ bool PharmacoLikelihoodPopulation::Initialize(std::shared_ptr<const bcm3::Variab
 	this->varset = varset;
 
 	std::string trial;
-	size_t cache_size;
+	size_t cache_size = 16;
 	try {
 		boost::property_tree::ptree& modelnode = likelihood_node.get_child("pk_model");
 		drug = modelnode.get<std::string>("<xmlattr>.drug");
@@ -184,11 +184,6 @@ bool PharmacoLikelihoodPopulation::PostInitialize()
 		}
 	}
 
-	for (size_t i = 0; i < parallel_data.size(); i++) {
-		parallel_data[i].model.SetUsePeripheralCompartment(use_peripheral_compartment);
-		parallel_data[i].model.SetNumTransitCompartments(num_transit_compartments);
-	}
-
 	return true;
 }
 
@@ -232,7 +227,6 @@ bool PharmacoLikelihoodPopulation::EvaluateLogProbability(size_t threadix, const
 				}
 			} else {
 				this_logp = -std::numeric_limits<Real>::infinity();
-				break;
 			}
 
 			SetCache(pd.cache_lookup_params, i, this_logp);
