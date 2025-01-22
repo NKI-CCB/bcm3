@@ -188,7 +188,7 @@ bool PharmacoLikelihoodSingle::EvaluateLogProbability(size_t threadix, const Vec
 	}
 	if (use_transit_compartment) {
 		Real mean_transit_time = varset->TransformVariable(mean_transit_time_ix, values(mean_transit_time_ix));
-		model.SetTransitRate(num_transit_compartments / mean_transit_time);
+		model.SetTransitRate((num_transit_compartments + 1.0) / mean_transit_time);
 	}
 	if (biphasic_absorption) {
 		Real direct_absorption_rate = varset->TransformVariable(direct_absorption_ix, values(direct_absorption_ix));

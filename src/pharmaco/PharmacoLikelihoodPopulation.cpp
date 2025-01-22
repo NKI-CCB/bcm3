@@ -317,7 +317,7 @@ void PharmacoLikelihoodPopulation::SetupSimulation(size_t threadix, const Vector
 		} else {
 			transit_time = bcm3::fastpow10(bcm3::QuantileNormal(values(patient_transit_time_ix[patient_ix]), values(mean_transit_time_ix), values(sigma_transit_time_ix)));
 		}
-		pd.model.SetTransitRate(num_transit_compartments / transit_time);
+		pd.model.SetTransitRate((num_transit_compartments + 1.0) / transit_time);
 		pd.cache_lookup_params(6) = transit_time;
 	}
 	if (use_bioavailability) {
