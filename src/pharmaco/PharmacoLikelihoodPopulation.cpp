@@ -220,7 +220,7 @@ bool PharmacoLikelihoodPopulation::EvaluateLogProbability(size_t threadix, const
 			if (result) {
 				for (ptrdiff_t ti = 0; ti < patient.observation_timepoints.size(); ti++) {
 					Real x = pd.concentration_conversion * pd.simulated_concentrations[i](ti);
-					if (std::isnan(x)) {
+					if (std::isnan(x) || std::isinf(x)) {
 						this_logp = -std::numeric_limits<Real>::infinity();
 						break;
 					}
