@@ -196,7 +196,7 @@ bool PharmacoLikelihoodPopulation::EvaluateLogProbability(size_t threadix, const
 
 	logp = 0.0;
 
-	Real additive_sd = 1e-12;
+	Real additive_sd = 0.0;
 	if (additive_sd_ix != std::numeric_limits<size_t>::max()) {
 		additive_sd = varset->TransformVariable(additive_sd_ix, values(additive_sd_ix));
 	}
