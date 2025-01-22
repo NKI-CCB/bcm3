@@ -85,16 +85,16 @@ bool PharmacoLikelihoodSingle::PostInitialize()
 	}
 
 	absorption_ix = varset->GetVariableIndex("absorption");
-	excretion_ix = varset->GetVariableIndex("excretion");
 	clearance_ix = varset->GetVariableIndex("clearance");
 	volume_of_distribution_ix = varset->GetVariableIndex("volume_of_distribution");
 
 	if (absorption_ix == std::numeric_limits<size_t>::max() ||
-		excretion_ix == std::numeric_limits<size_t>::max() ||
 		clearance_ix == std::numeric_limits<size_t>::max() ||
 		volume_of_distribution_ix == std::numeric_limits<size_t>::max()) {
 		return false;
 	}
+
+	excretion_ix = varset->GetVariableIndex("excretion", false);
 
 	if (use_peripheral_compartment) {
 		peripheral_forward_rate_ix = varset->GetVariableIndex("peripheral_forward_rate");
@@ -155,7 +155,7 @@ bool PharmacoLikelihoodSingle::EvaluateLogProbability(size_t threadix, const Vec
 {
 	logp = 0.0;
 
-	Real additive_sd = 1e-12;
+	Real additive_sd = 0.0;
 	if (additive_sd_ix != std::numeric_limits<size_t>::max()) {
 		additive_sd = varset->TransformVariable(additive_sd_ix, values(additive_sd_ix));
 	}
@@ -165,13 +165,20 @@ bool PharmacoLikelihoodSingle::EvaluateLogProbability(size_t threadix, const Vec
 	}
 
 	Real absorption = varset->TransformVariable(absorption_ix, values(absorption_ix));
-	Real excretion = varset->TransformVariable(excretion_ix, values(excretion_ix));
 	Real clearance = varset->TransformVariable(clearance_ix, values(clearance_ix));
 	Real volume_of_distribution = varset->TransformVariable(volume_of_distribution_ix, values(volume_of_distribution_ix));
 
 	model.SetAbsorption(absorption);
-	model.SetExcretion(excretion);
 	model.SetElimination(clearance / volume_of_distribution);
+
+	Real excretion;
+	if (excretion_ix == std::numeric_limits<size_t>::max()) {
+		excretion = 0.0;
+	} else {
+		excretion = varset->TransformVariable(excretion_ix, values(excretion_ix));
+	}
+
+	model.SetExcretion(excretion);
 
 	if (use_peripheral_compartment) {
 		Real peripheral_forward = varset->TransformVariable(peripheral_forward_rate_ix, values(peripheral_forward_rate_ix));
