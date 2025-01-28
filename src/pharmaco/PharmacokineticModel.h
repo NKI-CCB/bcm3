@@ -17,7 +17,6 @@ public:
 	bool SetTransitRate(Real value);
 	bool SetUseBiphasicAbsorption(bool enable);
 	bool SetDirectAbsorptionRate(Real value);
-	bool SetFractionDirect(Real value);
 	bool SetUseMetabolite(bool enable);
 	bool SetMetaboliteConversionRate(Real value);
 	bool SetMetaboliteElimination(Real value);
@@ -43,7 +42,6 @@ private:
 
 	bool use_biphasic_abosprtion;
 	Real direct_absorption_rate;
-	Real fraction_direct;
 
 	bool use_metabolite;
 	Real metabolite_conversion_rate;

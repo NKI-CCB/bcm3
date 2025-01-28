@@ -15,7 +15,6 @@ PharmacokineticModel::PharmacokineticModel()
 	, transit_rate(std::numeric_limits<Real>::quiet_NaN())
 	, use_biphasic_abosprtion(false)
 	, direct_absorption_rate(std::numeric_limits<Real>::quiet_NaN())
-	, fraction_direct(std::numeric_limits<Real>::quiet_NaN())
 	, use_metabolite(false)
 	, metabolite_conversion_rate(std::numeric_limits<Real>::quiet_NaN())
 	, metabolite_elimination(std::numeric_limits<Real>::quiet_NaN())
@@ -91,11 +90,6 @@ bool PharmacokineticModel::SetUseBiphasicAbsorption(bool enable)
 bool PharmacokineticModel::SetDirectAbsorptionRate(Real value)
 {
 	return UpdateVariable(this->direct_absorption_rate, value);
-}
-
-bool PharmacokineticModel::SetFractionDirect(Real value)
-{
-	return UpdateVariable(this->fraction_direct, value);
 }
 
 bool PharmacokineticModel::SetUseMetabolite(bool enable)
@@ -212,17 +206,10 @@ void PharmacokineticModel::ConstructMatrix()
 	A.setZero(num_compartments, num_compartments);
 
 	A(0, 0) -= excretion;
-
-	Real absorption_indirect;
-	if (use_biphasic_abosprtion) {
-		absorption_indirect = (1 - fraction_direct) * absorption;
-	} else {
-		absorption_indirect = absorption;
-	}
-	A(0, 0) -= absorption_indirect;
+	A(0, 0) -= absorption;
 	
 	if (use_transit_compartments) {
-		A(first_transit_compartment_ix, 0) += absorption_indirect;
+		A(first_transit_compartment_ix, 0) += absorption;
 		if (num_transit_compartments > 2) {
 			for (size_t i = 0; i < num_transit_compartments - 1; i++) {
 				A(first_transit_compartment_ix + i,     first_transit_compartment_ix + i) -= transit_rate;
@@ -232,7 +219,7 @@ void PharmacokineticModel::ConstructMatrix()
 		A(first_transit_compartment_ix + num_transit_compartments - 1, first_transit_compartment_ix + num_transit_compartments - 1) = -transit_rate;
 		A(1, first_transit_compartment_ix + num_transit_compartments - 1) += transit_rate;
 	} else {
-		A(1, 0) += absorption_indirect;
+		A(1, 0) += absorption;
 	}
 
 	if (use_peripheral_compartment) {
@@ -243,8 +230,8 @@ void PharmacokineticModel::ConstructMatrix()
 	}
 
 	if (use_biphasic_abosprtion) {
-		A(0, 0) -= fraction_direct * direct_absorption_rate;
-		A(1, 0) += fraction_direct * direct_absorption_rate;
+		A(0, 0) -= direct_absorption_rate;
+		A(1, 0) += direct_absorption_rate;
 	}
 
 	if (use_metabolite) {

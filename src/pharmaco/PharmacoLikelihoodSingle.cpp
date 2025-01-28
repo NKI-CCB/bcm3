@@ -126,11 +126,6 @@ bool PharmacoLikelihoodSingle::PostInitialize()
 			LOGERROR("Biphasic absorption was specified, but direct absorption rate has not been specified in prior.");
 			return false;
 		}
-		fraction_direct_ix = varset->GetVariableIndex("fraction_direct");
-		if (fraction_direct_ix == std::numeric_limits<size_t>::max()) {
-			LOGERROR("Biphasic absorption was specified, but fraction absorbed by direct route has not been specified in prior.");
-			return false;
-		}
 		model.SetUseBiphasicAbsorption(true);
 	} else {
 		model.SetUseBiphasicAbsorption(false);
@@ -193,8 +188,6 @@ bool PharmacoLikelihoodSingle::EvaluateLogProbability(size_t threadix, const Vec
 	if (biphasic_absorption) {
 		Real direct_absorption_rate = varset->TransformVariable(direct_absorption_ix, values(direct_absorption_ix));
 		model.SetDirectAbsorptionRate(direct_absorption_rate);
-		Real fraction_direct = varset->TransformVariable(fraction_direct_ix, values(fraction_direct_ix));
-		model.SetFractionDirect(fraction_direct);
 	}
 	if (use_metabolite) {
 		Real metabolite_conversion_rate = varset->TransformVariable(metabolite_conversion_ix, values(metabolite_conversion_ix));
@@ -206,6 +199,11 @@ bool PharmacoLikelihoodSingle::EvaluateLogProbability(size_t threadix, const Vec
 	if (model.Solve(patient.treatment_timepoints, patient.treatment_doses, patient.observation_timepoints, patient.simulated_concentrations, NULL)) {
 		for (ptrdiff_t i = 0; i < patient.observation_timepoints.size(); i++) {
 			Real x = concentration_conversion * patient.simulated_concentrations(i);
+			if (std::isnan(x) || std::isinf(x)) {
+				logp = -std::numeric_limits<Real>::infinity();
+				break;
+			}
+
 			Real y = patient.observed_concentrations(i);
 
 			if (!std::isnan(y)) {
