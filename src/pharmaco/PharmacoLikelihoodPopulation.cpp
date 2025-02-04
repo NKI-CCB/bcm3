@@ -187,6 +187,18 @@ bool PharmacoLikelihoodPopulation::PostInitialize()
 	return true;
 }
 
+void PharmacoLikelihoodPopulation::OutputEvaluationStatistics(const std::string& path) const
+{
+#if 0
+	std::string fn = path + std::string("/likelihood_evaluation_stats.txt");
+	FILE* f = fopen(fn.c_str(), "w");
+	for (size_t i = 0; i < cache_hits.size(); i++) {
+		fprintf(f, "Cache hits for patient %zd: %zd\n", i, cache_hits[i]);
+	}
+	fclose(f);
+#endif
+}
+
 bool PharmacoLikelihoodPopulation::EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp)
 {
 	ParallelData& pd = parallel_data[threadix];
