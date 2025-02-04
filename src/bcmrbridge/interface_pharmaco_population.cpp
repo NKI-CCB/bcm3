@@ -107,6 +107,7 @@ extern "C" {
 		if (*patient_ix > ll->GetNumPatients()) {
 			LOGERROR("Invalid patient index %d", *patient_ix);
 			*retval = -7;
+			return;
 		}
 
 		VectorReal time(*num_timepoints);
