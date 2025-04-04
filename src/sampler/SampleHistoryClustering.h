@@ -29,6 +29,7 @@ namespace bcm3 {
 		size_t density_aware_kernel_nn;
 		size_t density_aware_kernel_nn2;
 		size_t num_clusters;
+		bool output_sample_clustering;
 
 		// Runtime variables
 		std::vector<ptrdiff_t> used_sample_ix;

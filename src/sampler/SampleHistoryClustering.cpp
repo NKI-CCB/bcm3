@@ -16,6 +16,7 @@ namespace bcm3 {
 		, density_aware_kernel_nn(nn)
 		, density_aware_kernel_nn2(nn2)
 		, num_clusters(num_clusters)
+		, output_sample_clustering(false)
 		, clustering_iter(0)
 	{
 	}
@@ -36,23 +37,23 @@ namespace bcm3 {
 			LOG("Sample history clustering - samples in history: %d", n);
 		}
 
-#if 1
 		NetCDFBundler update_info_output;
 		bool output_update_info = false;
 		std::string output_update_info_group = std::string("iter") + std::to_string(clustering_iter);
-		if (log_info) {
-			std::string update_info_output_filename = output_path + "sample_history_clustering.nc";
-			if (clustering_iter == 0) {
-				if (boost::filesystem::exists(update_info_output_filename)) {
-					boost::filesystem::remove(update_info_output_filename);
+		if (output_sample_clustering) {
+			if (log_info) {
+				std::string update_info_output_filename = output_path + "sample_history_clustering.nc";
+				if (clustering_iter == 0) {
+					if (boost::filesystem::exists(update_info_output_filename)) {
+						boost::filesystem::remove(update_info_output_filename);
+					}
+				}
+				if (update_info_output.Open(update_info_output_filename)) {
+					update_info_output.AddGroup(output_update_info_group);
+					output_update_info = true;
 				}
 			}
-			if (update_info_output.Open(update_info_output_filename)) {
-				update_info_output.AddGroup(output_update_info_group);
-				output_update_info = true;
-			}
 		}
-#endif
 
 		// Calculate standard deviation over entire history
 		// TODO - can do this with the float matrix as input
@@ -114,12 +115,10 @@ namespace bcm3 {
 		}
 		n = scaled_samples.rows();
 
-#if 1
 		if (output_update_info) {
 			update_info_output.AddMatrix(output_update_info_group, "clustering_input_samples", scaled_samples);
 			update_info_output.AddVector(output_update_info_group, "clustering_input_sample_scaling", variable_scaling);
 		}
-#endif
 
 		// Calculate kernel matrix
 		MatrixReal K(n, n);
