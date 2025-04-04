@@ -27,8 +27,14 @@ namespace bcm3 {
 					std::string name = var.second.get<std::string>("<xmlattr>.name");
 
 					bool multivariate = var.second.get<bool>("<xmlattr>.multivariate", false);
+					size_t repeat = var.second.get<size_t>("<xmlattr>.repeat", 1);
 
 					if (multivariate) {
+						if (repeat > 1) {
+							LOGERROR("Multivariate prior with repeat not supported");
+							return false;
+						}
+
 						size_t id = var.second.get<size_t>("<xmlattr>.id");
 						if (id == 0) {
 							LOGERROR("Multivariate distribution IDs should start at 1.");
@@ -64,19 +70,27 @@ namespace bcm3 {
 
 						size_t ix = varset->GetVariableIndex(name);
 						Variables[ix].reset();
+						variable_ix++;
 					} else {
-						auto m = std::make_unique<UnivariateMarginal>();
-						if (!m->Initialize(var.second)) {
-							return false;
-						}
-						if (!SetMarginal(name, m)) {
-							return false;
-						}
+						for (size_t i = 0; i < repeat; i++) {
+							std::string varname = name;
+							if (repeat > 1) {
+								varname = name + "_" + std::to_string(i);
+							}
 
-						MultivariateMembership.push_back(std::numeric_limits<size_t>::max());
+							auto m = std::make_unique<UnivariateMarginal>();
+							if (!m->Initialize(var.second)) {
+								return false;
+							}
+							if (!SetMarginal(varname, m)) {
+								return false;
+							}
+
+							MultivariateMembership.push_back(std::numeric_limits<size_t>::max());
+
+							variable_ix++;
+						}
 					}
-
-					variable_ix++;
 				}
 			}
 

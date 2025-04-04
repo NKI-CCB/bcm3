@@ -67,12 +67,25 @@ bcm3.load <- function(base_folder, prior_file="prior.xml", likelihood_file="like
   # Prior
   model$prior <- list()
   model$prior$file_name <- prior_file
+  model$prior$variable_attrs <- list()
   varxml <- xmlTreeParse(paste(base_folder, "/", prior_file, sep=""))
   variables <- xmlRoot(varxml)["variable", all=T]
-  model$prior$variable_attrs <- lapply(variables, xmlAttrs)
-  model$variables <- rep("", length(variables))
+  variable_attrs <- lapply(variables, xmlAttrs)
+  model$variables <- c()
+  var_ix <- 1
   for (i in 1:length(variables)) {
-    model$variables[i] <- model$prior$variable_attrs[[i]]["name"]
+    if ("repeat" %in% names(variable_attrs[[i]])) {
+      repeats = as.numeric(variable_attrs[[i]]["repeat"])
+      for (k in 1:repeats) {
+        model$prior$variable_attrs[[var_ix]] <- variable_attrs[[i]]
+        model$variables[var_ix] <- paste(variable_attrs[[i]]["name"], k, sep="_")
+        var_ix <- var_ix + 1
+      }
+    } else {
+      model$prior$variable_attrs[[var_ix]] <- variable_attrs[[i]]
+      model$variables[var_ix] <- variable_attrs[[i]]["name"]
+      var_ix <- var_ix + 1
+    }
   }
   model$nvar <- length(model$variables)
   

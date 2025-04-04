@@ -40,17 +40,23 @@ bool VariableSet::LoadFromXML(const std::string& filename)
 		BOOST_FOREACH(const boost::property_tree::ptree::value_type& var, prior_node.get_child("")) {
 			if (var.first == "variable") {
 				std::string name = var.second.get<std::string>("<xmlattr>.name");
-				variables.push_back(name);
-
+				size_t repeat = var.second.get<size_t>("<xmlattr>.repeat", 1);
 				bool logspace = var.second.get<bool>("<xmlattr>.logspace", false);
 				bool logistic = var.second.get<bool>("<xmlattr>.logistic", false);
 
-				if (logspace) {
-					transforms.push_back(Transform_Log10);
-				} else if (logistic) {
-					transforms.push_back(Transform_Logit);
-				} else {
-					transforms.push_back(Transform_None);
+				for (size_t i = 0; i < repeat; i++) {
+					if (repeat > 1) {
+						variables.push_back(name + "_" + std::to_string(i));
+					} else {
+						variables.push_back(name);
+					}
+					if (logspace) {
+						transforms.push_back(Transform_Log10);
+					} else if (logistic) {
+						transforms.push_back(Transform_Logit);
+					} else {
+						transforms.push_back(Transform_None);
+					}
 				}
 			}
 		}
