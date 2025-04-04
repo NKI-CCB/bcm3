@@ -93,7 +93,15 @@ bool Patient::Load(const bcm3::NetCDFDataFile& data, const std::string& trial, c
 	VectorReal new_observed_timepoints = observation_timepoints;
 	VectorReal new_observed_concentrations = observed_concentrations;
 	ptrdiff_t out_i = 0;
+	Real prev_time = -std::numeric_limits<Real>::infinity();
 	for (ptrdiff_t i = 0; i < observation_timepoints.size(); i++) {
+		if (observation_timepoints(i) < prev_time) {
+			LOGERROR("Observation timepoints need to be sorted");
+			return false;
+		} else {
+			prev_time = observation_timepoints(i);
+		}
+
 		if (!std::isnan(observed_concentrations(i))) {
 			new_observed_timepoints(out_i) = observation_timepoints(i);
 			new_observed_concentrations(out_i) = observed_concentrations(i);
