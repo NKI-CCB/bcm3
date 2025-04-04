@@ -2,6 +2,8 @@ add_library(likelihoods)
 
 target_sources(likelihoods
   PRIVATE
+    LikelihoodDLL.h
+    LikelihoodDLL.cpp
     LikelihoodDummy.h
     LikelihoodDummy.cpp
     LikelihoodFactory.h

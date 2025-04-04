@@ -3,6 +3,7 @@
 
 #include "CellPopulationLikelihood.h"
 #include "fISALikelihood.h"
+#include "LikelihoodDLL.h"
 #include "LikelihoodDummy.h"
 #include "LikelihoodIncucytePopulation.h"
 #include "LikelihoodMitosisTimeEstimation.h"
@@ -41,6 +42,8 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 			ll = std::make_shared<fISALikelihood>(sampling_threads, evaluation_threads);
 		} else if (type == "cell_population") {
 			ll = std::make_shared<CellPopulationLikelihood>(sampling_threads, evaluation_threads, !running_inference);
+		} else if (type == "dll") {
+			ll = std::make_shared<LikelihoodDLL>(sampling_threads, evaluation_threads);
 		} else if (type == "dummy") {
 			ll = std::make_shared<LikelihoodDummy>(sampling_threads, evaluation_threads);
 		} else if (type == "incucyte_population") {

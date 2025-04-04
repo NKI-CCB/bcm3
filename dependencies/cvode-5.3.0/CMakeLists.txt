@@ -21,7 +21,8 @@
 
 # Require CMake 3.5 by default, but certain options will force us
 # to require CMake 3.10
-cmake_minimum_required(VERSION 3.5)
+# bthijssen bumped the minimum version to 3.10 to prevent cmake warning
+cmake_minimum_required(VERSION 3.10)
 
 # Project SUNDIALS (initially only C supported)
 # sets PROJECT_SOURCE_DIR and PROJECT_BINARY_DIR variables
