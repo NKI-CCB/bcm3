@@ -54,8 +54,26 @@ inline Real synthcap(Real x)
 		Real x2 = x * x;
 		Real x4 = x2 * x2;
 		Real x8 = x4 * x4;
-		return 1.0 - x8 * x2;
+		return 1.0 - x8;
 	}
+}
+
+inline Real tQSSA(Real k, Real km, Real e, Real s)
+{
+	Real ekms = e + km + s;
+	return 0.5 * k * (ekms - sqrt(ekms * ekms - 4 * e * s));
+}
+
+inline Real tQSSA_derivative_enzyme(Real k, Real km, Real e, Real s)
+{
+	Real ekms = e + km + s;
+	return k * (0.5 - 0.5 * (km - s + e) / (sqrt(ekms * ekms) - 4 * e * s));
+}
+
+inline Real tQSSA_derivative_substrate(Real k, Real km, Real e, Real s)
+{
+	Real ekms = e + km + s;
+	return k * (0.5 - 0.5 * (km + s - e) / (sqrt(ekms * ekms) - 4 * e * s));
 }
 
 bool SBMLRatelawElement::Generate(const ASTNode* node,
@@ -304,6 +322,25 @@ bool SBMLRatelawElement::Generate(const ASTNode* node,
 			*element = std::make_unique<SBMLRatelawElementFunctionSynthcap>();
 			(*element)->children.resize(1);
 			if (!Generate(node->getChild(0), model, species_index_map, parameter_index_map, constant_species_index_map, non_sampled_parameter_index_map, forced_parameter_values, &(*element)->children[0])) {
+				return false;
+			}
+		} else if (strcmp(node->getName(), "tQSSA") == 0) {
+			if (node->getNumChildren() != 4) {
+				LOGERROR("tQSSA function should have four parameters");
+				return false;
+			}
+			*element = std::make_unique<SBMLRatelawElementFunctiontQSSA>();
+			(*element)->children.resize(4);
+			if (!Generate(node->getChild(0), model, species_index_map, parameter_index_map, constant_species_index_map, non_sampled_parameter_index_map, forced_parameter_values, &(*element)->children[0])) {
+				return false;
+			}
+			if (!Generate(node->getChild(1), model, species_index_map, parameter_index_map, constant_species_index_map, non_sampled_parameter_index_map, forced_parameter_values, &(*element)->children[1])) {
+				return false;
+			}
+			if (!Generate(node->getChild(2), model, species_index_map, parameter_index_map, constant_species_index_map, non_sampled_parameter_index_map, forced_parameter_values, &(*element)->children[2])) {
+				return false;
+			}
+			if (!Generate(node->getChild(3), model, species_index_map, parameter_index_map, constant_species_index_map, non_sampled_parameter_index_map, forced_parameter_values, &(*element)->children[3])) {
 				return false;
 			}
 		} else {
@@ -1072,6 +1109,81 @@ std::string SBMLRatelawElementFunctionSynthcap::GenerateDerivative(size_t specie
 		result += ",";
 		result += child_deriv;
 		result += ")";
+	}
+
+	return result;
+}
+
+Real SBMLRatelawElementFunctiontQSSA::Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)
+{
+	ASSERT(children.size() == 4);
+	return michaelis_menten_function(
+		children[0]->Evaluate(species, constant_species, parameters, non_sampled_parameters),
+		children[1]->Evaluate(species, constant_species, parameters, non_sampled_parameters),
+		children[2]->Evaluate(species, constant_species, parameters, non_sampled_parameters),
+		children[3]->Evaluate(species, constant_species, parameters, non_sampled_parameters)
+	);
+}
+
+std::string SBMLRatelawElementFunctiontQSSA::GenerateEquation()
+{
+	std::string result;
+	result = "tQSSA(";
+	result += children[0]->GenerateEquation();
+	result += ",";
+	result += children[1]->GenerateEquation();
+	result += ",";
+	result += children[2]->GenerateEquation();
+	result += ",";
+	result += children[3]->GenerateEquation();
+	result += ")";
+	return result;
+}
+
+std::string SBMLRatelawElementFunctiontQSSA::GenerateDerivative(size_t species_ix)
+{
+	ASSERT(children.size() == 4);
+	std::string result;
+
+	for (size_t i = 0; i < 2; i++) {
+		std::string child_deriv = children[i]->GenerateDerivative(species_ix);
+		if (!child_deriv.empty()) {
+			LOGERROR("Not implemented");
+		}
+	}
+
+	std::string enzyme_deriv = children[2]->GenerateDerivative(species_ix);
+	if (!enzyme_deriv.empty()) {
+		result = "tQSSA_derivative_enzyme(";
+		result += children[0]->GenerateEquation();
+		result += ",";
+		result += children[1]->GenerateEquation();
+		result += ",";
+		result += children[2]->GenerateEquation();
+		result += ",";
+		result += children[3]->GenerateEquation();
+		result += ")*(";
+		result += enzyme_deriv;
+		result += ")";
+	}
+
+	std::string substrate_deriv = children[3]->GenerateDerivative(species_ix);
+	if (!substrate_deriv.empty()) {
+		result = "tQSSA_derivative_substrate(";
+		result += children[0]->GenerateEquation();
+		result += ",";
+		result += children[1]->GenerateEquation();
+		result += ",";
+		result += children[2]->GenerateEquation();
+		result += ",";
+		result += children[3]->GenerateEquation();
+		result += ")*(";
+		result += substrate_deriv;
+		result += ")";
+	}
+
+	if (!enzyme_deriv.empty() && !substrate_deriv.empty()) {
+		LOGERROR("Not implemented");
 	}
 
 	return result;

@@ -177,3 +177,12 @@ public:
 	virtual std::string GenerateEquation();
 	virtual std::string GenerateDerivative(size_t species_ix);
 };
+
+class SBMLRatelawElementFunctiontQSSA : public SBMLRatelawElement
+{
+public:
+	virtual ~SBMLRatelawElementFunctiontQSSA() {}
+	virtual Real Evaluate(const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters);
+	virtual std::string GenerateEquation();
+	virtual std::string GenerateDerivative(size_t species_ix);
+};
