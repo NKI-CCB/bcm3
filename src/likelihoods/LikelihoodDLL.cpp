@@ -1,6 +1,10 @@
 #include "Utils.h"
 #include "LikelihoodDLL.h"
 
+#if !PLATFORM_WINDOWS
+#include <dlfcn.h>
+#endif
+
 LikelihoodDLL::LikelihoodDLL(size_t sampling_threads, size_t evaluation_threads)
 	: likelihood_dll(nullptr)
 	, likelihood(nullptr)
