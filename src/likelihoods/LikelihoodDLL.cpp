@@ -65,8 +65,10 @@ bool LikelihoodDLL::Initialize(std::shared_ptr<const bcm3::VariableSet> varset, 
 		initialize = (initialize_fn)GetProcAddress(likelihood_dll, "initialize_likelihood");
 		likelihood = (likelihood_fn)GetProcAddress(likelihood_dll, "evaluate_log_probability");
 #else
-	dll_filename = "build/" + dll_filename + ".so";
-	if (add_build_type) {
+	dll_filename = dll_filename + ".so";
+	if (include_build_dir) {
+		dll_filename = "build/" + dll_filename;
+	}
 	likelihood_dll = dlopen(dll_filename.c_str(), RTLD_NOW);
 	if (likelihood_dll) {
 		initialize = (initialize_fn)dlsym(likelihood_dll, "initialize_likelihood");
