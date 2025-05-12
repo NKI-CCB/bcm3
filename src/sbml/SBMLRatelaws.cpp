@@ -67,13 +67,13 @@ inline Real tQSSA(Real k, Real km, Real e, Real s)
 inline Real tQSSA_derivative_enzyme(Real k, Real km, Real e, Real s)
 {
 	Real ekms = e + km + s;
-	return k * (0.5 - 0.5 * (km - s + e) / (sqrt(ekms * ekms) - 4 * e * s));
+	return k * (0.5 - 0.5 * (km - s + e) / (sqrt(ekms * ekms - 4 * e * s)));
 }
 
 inline Real tQSSA_derivative_substrate(Real k, Real km, Real e, Real s)
 {
 	Real ekms = e + km + s;
-	return k * (0.5 - 0.5 * (km + s - e) / (sqrt(ekms * ekms) - 4 * e * s));
+	return k * (0.5 - 0.5 * (km + s - e) / (sqrt(ekms * ekms - 4 * e * s)));
 }
 
 bool SBMLRatelawElement::Generate(const ASTNode* node,

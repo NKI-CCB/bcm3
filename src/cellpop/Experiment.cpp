@@ -862,12 +862,12 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "inline OdeReal tQSSA_derivative_enzyme(OdeReal k, OdeReal km, OdeReal e, OdeReal s)\n";
 		f << "{\n";
 		f << "\tOdeReal ekms = e + km + s;\n";
-		f << "\treturn k * (0.5 - 0.5 * (km - s + e) / (sqrt(ekms * ekms) - 4 * e * s));\n";
+		f << "\treturn k * (0.5 - 0.5 * (km - s + e) / (sqrt(ekms * ekms - 4 * e * s)));\n";
 		f << "}\n";
 		f << "inline OdeReal tQSSA_derivative_substrate(OdeReal k, OdeReal km, OdeReal e, OdeReal s)\n";
 		f << "{\n";
 		f << "\tOdeReal ekms = e + km + s;\n";
-		f << "\treturn k * (0.5 - 0.5 * (km + s - e) / (sqrt(ekms * ekms) - 4 * e * s));\n";
+		f << "\treturn k * (0.5 - 0.5 * (km + s - e) / (sqrt(ekms * ekms - 4 * e * s)));\n";
 		f << "}\n";
 		f << std::endl;
 
