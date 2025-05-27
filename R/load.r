@@ -100,6 +100,7 @@ bcm3.load <- function(base_folder, prior_file="prior.xml", likelihood_file="like
     for (i in 1:length(experiments)) {
       model$likelihood$experiments[[i]] <- list()
       model$likelihood$experiments[[i]]$name <- xmlAttrs(experiments[[i]])["name"]
+      model$likelihood$experiments[[i]]$model_filename <- xmlAttrs(experiments[[i]])["model_file"]
       data <- experiments[[i]]["data", all=T]
       if (length(data) > 0) {
         model$likelihood$experiments[[i]]$data <- list()
