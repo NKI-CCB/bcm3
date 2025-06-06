@@ -297,7 +297,7 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	return true;
 }
 
-bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
+bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time, bool& die, bool& divide, Real& achieved_time)
 {
 	die = false;
 	divide = false;
@@ -305,7 +305,7 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 
 	current_simulation_time = 0;
 	bool result = true;
-	OdeReal cell_end_time = end_time - creation_time;
+	OdeReal cell_end_time = (OdeReal)end_time - creation_time;
 	while (current_simulation_time < cell_end_time) {
 		if (cvode_steps >= max_cvode_steps) {
 			cvode_max_steps_reached++;
@@ -314,7 +314,7 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 			break;
 		}
 
-		Real prev_time = current_simulation_time;
+		OdeReal prev_time = current_simulation_time;
 		int cvode_result = CVode(cvode_mem, cell_end_time, cvode_y, &current_simulation_time, CV_ONE_STEP);
 		if (cvode_result < 0) {
 			// Try once more
@@ -361,25 +361,25 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 		min_step_size = (std::min)(min_step_size, current_simulation_time - prev_time);
 
 		if (DNA_replication_ix != std::numeric_limits<size_t>::max() && replication_start_time != replication_start_time) {
-			Real s = NV_Ith_S(cvode_y, DNA_replication_ix);
+			OdeReal s = NV_Ith_S(cvode_y, DNA_replication_ix);
 			if (s > 1e-4) {
 				replication_start_time = InterpolateEventTime(DNA_replication_ix, 1e-4, true, prev_time);
 			}
 		}
 		if (DNA_replicated_ix != std::numeric_limits<size_t>::max() && replication_finish_time != replication_finish_time) {
-			Real s = NV_Ith_S(cvode_y, DNA_replicated_ix);
+			OdeReal s = NV_Ith_S(cvode_y, DNA_replicated_ix);
 			if (s > 1.95) {
 				replication_finish_time = InterpolateEventTime(DNA_replicated_ix, 1.95, true, prev_time);
 			}
 		}
 		if (PCNA_gfp_ix != std::numeric_limits<size_t>::max() && PCNA_gfp_increase_time != PCNA_gfp_increase_time) {
-			Real s = NV_Ith_S(cvode_y, PCNA_gfp_ix);
+			OdeReal s = NV_Ith_S(cvode_y, PCNA_gfp_ix);
 			if (s > 0.5) {
 				PCNA_gfp_increase_time = InterpolateEventTime(PCNA_gfp_ix, 0.5, true, prev_time);
 			}
 		}
 		if (nuclear_envelope_ix != std::numeric_limits<size_t>::max() && nuclear_envelope_breakdown_time != nuclear_envelope_breakdown_time) {
-			Real s = NV_Ith_S(cvode_y, nuclear_envelope_ix);
+			OdeReal s = NV_Ith_S(cvode_y, nuclear_envelope_ix);
 			if (s < 0.5) {
 				nuclear_envelope_breakdown_time = InterpolateEventTime(nuclear_envelope_ix, 0.5, false, prev_time);
 			}
@@ -387,6 +387,7 @@ bool Cell::Simulate(Real end_time, bool& die, bool& divide, Real& achieved_time)
 		if (chromatid_separation_ix != std::numeric_limits<size_t>::max() && anaphase_onset_time != anaphase_onset_time) {
 			if (NV_Ith_S(cvode_y, chromatid_separation_ix) > 1e-3) {
 				anaphase_onset_time = InterpolateEventTime(chromatid_separation_ix, 1e-3, true, prev_time);
+				cell_end_time = std::max(cell_end_time, anaphase_onset_time + (OdeReal)simulate_past_chromatid_separation_time);
 			}
 		}
 		if (cytokinesis_ix != std::numeric_limits<size_t>::max()) {

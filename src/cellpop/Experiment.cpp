@@ -49,6 +49,7 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, divide_cells(true)
 	, fixed_entry_time(0.0)
 	, trailing_simulation_time(0.0)
+	, simulate_past_chromatid_separation_time(0.0)
 	, derivative_dll(NULL)
 	, simulated_num_cells(0)
 	, abs_tol(1e-8)
@@ -412,6 +413,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	max_number_of_cells = xml_node.get<size_t>("<xmlattr>.max_cells", 20);
 	divide_cells = xml_node.get<bool>("<xmlattr>.divide_cells", true);
 	trailing_simulation_time = xml_node.get<Real>("<xmlattr>.trailing_simulation_time", 0.0);
+	simulate_past_chromatid_separation_time = xml_node.get<Real>("<xmlattr>.simulate_past_chromatid_separation_time", 0.0);
 
 	// Load the species/parameter setting
 	try {
@@ -1102,7 +1104,7 @@ bool Experiment::SimulateCell(size_t i, Real target_time, size_t eval_thread)
 {
 	bool die = false, divide = false;
 	Real achieved_time = 0.0;
-	if (!cells[i]->Simulate(target_time, die, divide, achieved_time)) {
+	if (!cells[i]->Simulate(target_time, simulate_past_chromatid_separation_time, die, divide, achieved_time)) {
 		return false;
 	}
 

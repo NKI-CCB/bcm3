@@ -100,6 +100,7 @@ protected:
 	size_t entry_time_varix;
 	Real fixed_entry_time;
 	Real trailing_simulation_time;
+	Real simulate_past_chromatid_separation_time;
 	std::vector< std::unique_ptr<VariabilityDescription> > cell_variabilities;
 
 	std::vector< std::unique_ptr<TreatmentTrajectory> > treatment_trajectories;
