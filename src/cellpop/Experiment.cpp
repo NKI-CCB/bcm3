@@ -47,7 +47,10 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, initial_number_of_cells(0)
 	, max_number_of_cells(0)
 	, divide_cells(true)
+	, entry_time_varix(std::numeric_limits<size_t>::max())
 	, fixed_entry_time(0.0)
+	, synchronization_time_offset_varix(std::numeric_limits<size_t>::max())
+	, fixed_synchronization_time_offset(0.0)
 	, trailing_simulation_time(0.0)
 	, simulate_past_chromatid_separation_time(0.0)
 	, derivative_dll(NULL)
@@ -207,6 +210,12 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 		}
 
 		// Synchronize cells if necessary
+		Real time_offset = 0.0;
+		if (synchronization_time_offset_varix != std::numeric_limits<size_t>::max()) {
+			time_offset = transformed_variables[synchronization_time_offset_varix];
+		} else {
+			time_offset = fixed_synchronization_time_offset;
+		}
 
 		// Report data references
 		for (int synchronize_i = 0; synchronize_i <= (int)ESynchronizeCellTrajectory::None; synchronize_i++) {
@@ -217,10 +226,10 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 			for (size_t ti = 0; ti < simulation_timepoints.size(); ti++) {
 				const SimulationTimepoints& st = simulation_timepoints[ti];
 				if (st.species_ix != std::numeric_limits<size_t>::max() && (int)st.synchronize == synchronize_i) {
-					size_t population_size = CountCellsAtTime(st.time, st.synchronize, false);
-					size_t mitotic_population_size = CountCellsAtTime(st.time, st.synchronize, true);
+					size_t population_size = CountCellsAtTime(st.time + time_offset, st.synchronize, false);
+					size_t mitotic_population_size = CountCellsAtTime(st.time + time_offset, st.synchronize, true);
 					for (size_t i = 0; i < active_cells; i++) {
-						Real x = cells[i]->GetInterpolatedSpeciesValue(st.time, st.species_ix, st.synchronize);
+						Real x = cells[i]->GetInterpolatedSpeciesValue(st.time + time_offset, st.species_ix, st.synchronize);
 						if (x == x) {
 							data_likelihoods[st.data_likelihood_ix]->NotifySimulatedValue(st.time_ix, x, st.species_ix, i, population_size, mitotic_population_size, 0, cells[i]->EnteredMitosis(), i >= initial_number_of_cells);
 						}
@@ -581,6 +590,21 @@ bool Experiment::Initialize(const boost::property_tree::ptree& xml_node)
 			LOGERROR("Could not find variable for mitosis_entry_time \"%s\", and could also not cast it to a constant real value: %s", entry_time_varname.c_str(), e.what());
 			return false;
 		}
+	}
+	std::string synchronization_time_offset_varname = xml_node.get<std::string>("<xmlattr>.synchronization_time_offset", "");
+	if (!synchronization_time_offset_varname.empty()) {
+		synchronization_time_offset_varix = varset->GetVariableIndex(synchronization_time_offset_varname, false);
+		if (synchronization_time_offset_varix == std::numeric_limits<size_t>::max()) {
+			try {
+				fixed_entry_time = boost::lexical_cast<Real>(synchronization_time_offset_varname);
+			} catch (const boost::bad_lexical_cast& e) {
+				LOGERROR("Synchronization time offset was specified as \"%s\", but could not find variable and also could not cast it to a constant real value: %s", synchronization_time_offset_varname.c_str(), e.what());
+				return false;
+			}
+		}
+	} else {
+		synchronization_time_offset_varix = std::numeric_limits<size_t>::max();
+		fixed_synchronization_time_offset = 0.0;
 	}
 
 	transformed_variables.setConstant(varset->GetNumVariables(), std::numeric_limits<Real>::quiet_NaN());
