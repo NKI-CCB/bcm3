@@ -16,7 +16,7 @@ public:
 	bool SetInitialConditionsFromOtherCell(const Cell* other);
 	bool Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_point, Real abs_tol, Real rel_tol);
 
-	bool Simulate(Real end_time, bool &die, bool &divide, Real& achieved_time);
+	bool Simulate(Real end_time, Real simulate_past_chromatid_separation_time, bool &die, bool &divide, Real& achieved_time);
 
 	Real GetInterpolatedSpeciesValue(Real time, size_t i, ESynchronizeCellTrajectory synchronize);
 	void RestartInterpolationIteration();
@@ -56,19 +56,19 @@ private:
 	OdeVectorReal constant_species_y;
 	SUNMatrix J;
 	bool cvode_initialized;
-	Real creation_time;
+	OdeReal creation_time;
 	OdeReal current_simulation_time;
 	size_t cvode_steps;
-	Real min_step_size;
+	OdeReal min_step_size;
 	bool completed;
 
 	struct CVodeTimepoint {
 		CVodeTimepoint();
-		Real cvode_time;
-		Real cv_uround;
-		Real cv_tn;
-		Real cv_h;
-		Real cv_hu;
+		OdeReal cvode_time;
+		OdeReal cv_uround;
+		OdeReal cv_tn;
+		OdeReal cv_h;
+		OdeReal cv_hu;
 		int cv_q;
 	};
 	std::vector<CVodeTimepoint> cvode_timepoints;
@@ -84,11 +84,11 @@ private:
 	size_t cytokinesis_ix;
 	size_t apoptosis_ix;
 
-	Real replication_start_time;
-	Real replication_finish_time;
-	Real PCNA_gfp_increase_time;
-	Real nuclear_envelope_breakdown_time;
-	Real anaphase_onset_time;
+	OdeReal replication_start_time;
+	OdeReal replication_finish_time;
+	OdeReal PCNA_gfp_increase_time;
+	OdeReal nuclear_envelope_breakdown_time;
+	OdeReal anaphase_onset_time;
 
 	OdeVectorReal cvode_interpolate_y;
 	OdeReal interpolation_time;

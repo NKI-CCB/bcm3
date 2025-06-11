@@ -99,7 +99,10 @@ protected:
 	bool divide_cells;
 	size_t entry_time_varix;
 	Real fixed_entry_time;
+	size_t synchronization_time_offset_varix;
+	Real fixed_synchronization_time_offset;
 	Real trailing_simulation_time;
+	Real simulate_past_chromatid_separation_time;
 	std::vector< std::unique_ptr<VariabilityDescription> > cell_variabilities;
 
 	std::vector< std::unique_ptr<TreatmentTrajectory> > treatment_trajectories;
