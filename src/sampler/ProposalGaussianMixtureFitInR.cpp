@@ -13,6 +13,7 @@ namespace bcm3 {
 	std::mutex ProposalGaussianMixtureFitInR::netcdf_mutex;
 
 	ProposalGaussianMixtureFitInR::ProposalGaussianMixtureFitInR()
+		: ProposalGaussianMixture(false)
 	{
 	}
 

@@ -7,8 +7,9 @@
 
 namespace bcm3 {
 
-	ProposalGaussianMixture::ProposalGaussianMixture()
+	ProposalGaussianMixture::ProposalGaussianMixture(bool select_with_adjusted_AIC)
 		: selected_component(-1)
+		, select_with_adjusted_AIC(select_with_adjusted_AIC)
 	{
 	}
 
@@ -175,9 +176,16 @@ namespace bcm3 {
 						LOG("GMM num_components=%2zu - AIC=%.6g, adjusted AIC=%.6g", num_components[i], test_gmm_k->GetAIC(), adjusted_AIC);
 					}
 
-					if (test_gmm_k->GetAIC() < best_aic) {
-						gmm = test_gmm_k;
-						best_aic = test_gmm_k->GetAIC();
+					if (select_with_adjusted_AIC) {
+						if (adjusted_AIC < best_aic) {
+							gmm = test_gmm_k;
+							best_aic = test_gmm_k->GetAIC();
+						}
+					} else {
+						if (test_gmm_k->GetAIC() < best_aic) {
+							gmm = test_gmm_k;
+							best_aic = test_gmm_k->GetAIC();
+						}
 					}
 				} else {
 					if (log_info) {

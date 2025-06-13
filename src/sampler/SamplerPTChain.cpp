@@ -420,7 +420,9 @@ namespace bcm3 {
 		if (sampler->proposal_type == "global_covariance") {
 			proposal = std::make_unique<ProposalGlobalCovariance>();
 		} else if (sampler->proposal_type == "gaussian_mixture") {
-			proposal = std::make_unique<ProposalGaussianMixture>();
+			proposal = std::make_unique<ProposalGaussianMixture>(false);
+		} else if (sampler->proposal_type == "gaussian_mixture_adjustedAIC") {
+			proposal = std::make_unique<ProposalGaussianMixture>(true);
 		} else if (sampler->proposal_type == "gaussian_mixture_fit_in_r") {
 			proposal = std::make_unique<ProposalGaussianMixtureFitInR>();
 		} else if (sampler->proposal_type == "clustered_covariance") {

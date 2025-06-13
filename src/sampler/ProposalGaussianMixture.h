@@ -9,7 +9,7 @@ namespace bcm3 {
 	class ProposalGaussianMixture : public Proposal
 	{
 	public:
-		ProposalGaussianMixture();
+		ProposalGaussianMixture(bool select_with_adjusted_AIC);
 		virtual ~ProposalGaussianMixture();
 
 		virtual void GetNewSample(const VectorReal& current_position, ptrdiff_t history_cluster_assignment, VectorReal& new_position, RNG& rng);
@@ -28,6 +28,7 @@ namespace bcm3 {
 		VectorReal scales;
 		VectorReal acceptance_rate_emas;
 		ptrdiff_t selected_component;
+		bool select_with_adjusted_AIC;
 	};
 
 }
