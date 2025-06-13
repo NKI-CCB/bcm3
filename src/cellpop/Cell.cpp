@@ -528,7 +528,7 @@ bool Cell::CellAliveAtTime(Real time, ESynchronizeCellTrajectory synchronize) co
 	if (cvode_steps == 0) {
 		return false;
 	}
-	Real cell_time = time - creation_time;
+	Real cell_time = 0.0;
 	if (synchronize == ESynchronizeCellTrajectory::DNAReplicationStart) {
 		if (std::isnan(replication_start_time)) {
 			cell_time += cvode_timepoints[cvode_steps - 1].cvode_time;
@@ -553,6 +553,8 @@ bool Cell::CellAliveAtTime(Real time, ESynchronizeCellTrajectory synchronize) co
 		} else {
 			cell_time += anaphase_onset_time;
 		}
+	} else {
+		cell_time = time - creation_time;
 	}
 	if (cell_time < 0.0) {
 		return false;

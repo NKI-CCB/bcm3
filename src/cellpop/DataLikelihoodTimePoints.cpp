@@ -7,7 +7,8 @@
 #include <boost/algorithm/string.hpp>
 
 DataLikelihoodTimePoints::DataLikelihoodTimePoints(size_t parallel_evaluations)
-	: use_only_nondivided(false)
+	: synchronize(ESynchronizeCellTrajectory::None)
+	, use_only_nondivided(false)
 {
 }
 
@@ -24,6 +25,22 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 	bool result = true;
 
 	use_only_nondivided = xml_node.get<bool>("<xmlattr>.use_only_nondivided", false);
+
+	std::string synchronize_str = xml_node.get<std::string>("<xmlattr>.synchronize", "");
+	if (synchronize_str == "" || synchronize_str == "none") {
+		synchronize = ESynchronizeCellTrajectory::None;
+	} else if (synchronize_str == "DNA_replication_start") {
+		synchronize = ESynchronizeCellTrajectory::DNAReplicationStart;
+	} else if (synchronize_str == "PCNA_gfp_increase") {
+		synchronize = ESynchronizeCellTrajectory::PCNA_gfp_increase;
+	} else if (synchronize_str == "mitosis" || synchronize_str == "nuclear_envelope_breakdown") {
+		synchronize = ESynchronizeCellTrajectory::NuclearEnvelopeBreakdown;
+	} else if (synchronize_str == "anaphase" || synchronize_str == "anaphase_onset") {
+		synchronize = ESynchronizeCellTrajectory::AnaphaseOnset;
+	} else {
+		LOGERROR("Synchronization is specified as \"%s\" which is not a recognized synchronization point", synchronize_str.c_str());
+		return false;
+	}
 
 	std::string time_dimension_name;
 	size_t num_dimensions = 0;
@@ -106,7 +123,7 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 				}
 				if (species_map[species_ix].empty()) {
 					for (size_t i = 0; i < num_timepoints; i++) {
-						experiment->AddSimulationTimepoints(this, timepoints(i), i, species_ix, ESynchronizeCellTrajectory::None);
+						experiment->AddSimulationTimepoints(this, timepoints(i), i, species_ix, synchronize);
 					}
 				}
 				species_map[species_ix].push_back(j);
@@ -121,10 +138,20 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 			}
 			if (species_map[species_ix].empty()) {
 				for (size_t i = 0; i < num_timepoints; i++) {
-					experiment->AddSimulationTimepoints(this, timepoints(i), i, species_ix, ESynchronizeCellTrajectory::None);
+					experiment->AddSimulationTimepoints(this, timepoints(i), i, species_ix, synchronize);
 				}
 			}
 			species_map[species_ix].push_back(j);
+		}
+	}
+
+	if (synchronize != ESynchronizeCellTrajectory::None) {
+		// If we're going to synchronize, make sure we simulate the cells as long as the full duration of the time course
+		// (this is needed in case there are negative timepoints)
+		Real last_tp = timepoints(timepoints.size() - 1);
+		Real full_duration = last_tp - timepoints(0);
+		if (full_duration > last_tp) {
+			experiment->AddSimulationTimepoints(this, full_duration, num_timepoints + 1, std::numeric_limits<size_t>::max(), synchronize);
 		}
 	}
 

@@ -25,5 +25,6 @@ private:
 	std::vector<MatrixReal> matched_data;
 	std::vector<std::string> species_names;
 	std::map< size_t, std::vector<size_t> > species_map;
+	ESynchronizeCellTrajectory synchronize;
 	bool use_only_nondivided;
 };
