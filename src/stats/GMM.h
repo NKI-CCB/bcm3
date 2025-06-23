@@ -10,7 +10,7 @@ public:
 	GMM();
 
 	bool Set(const std::vector<VectorReal>& means, const std::vector<MatrixReal>& covariances, VectorReal weights);
-	bool Fit(const MatrixReal& samples, size_t num_samples, size_t num_components, RNG& rng, Real ess_factor = 1.0);
+	bool Fit(const MatrixReal& samples, size_t num_samples, size_t num_components, RNG& rng, Real ess_factor = 1.0, bool verbose = false);
 
 	Real LogPdf(const VectorReal& x);
 	VectorReal CalculateResponsibilities(const VectorReal& x);

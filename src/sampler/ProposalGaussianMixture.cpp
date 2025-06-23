@@ -169,7 +169,7 @@ namespace bcm3 {
 					if (log_info) {
 						LOG("GMM num_components=%2zu - not enough effective samples", num_components[i], test_gmm_k->GetAIC());
 					}
-				} else if (test_gmm_k->Fit(history, num_history_samples, num_components[i], rng, num_history_samples / min_ess)) {
+				} else if (test_gmm_k->Fit(history, num_history_samples, num_components[i], rng, num_history_samples / min_ess, log_info)) {
 					Real nparam = 0.5 * test_gmm_k->GetAIC() + test_gmm_k->GetLogLikelihood();
 					Real adjusted_AIC = 2.0 * nparam - 2.0 * AIC_adjust_factor * test_gmm_k->GetLogLikelihood();
 					if (log_info) {

@@ -45,7 +45,7 @@ namespace bcm3 {
 		return true;
 	}
 
-	bool GMM::Fit(const MatrixReal& samples, size_t num_samples, size_t num_components, RNG& rng, Real ess_factor)
+	bool GMM::Fit(const MatrixReal& samples, size_t num_samples, size_t num_components, RNG& rng, Real ess_factor, bool verbose)
 	{
 		const size_t maxsteps = 100;
 		const Real logl_epsilon = 1e-5;
@@ -104,11 +104,21 @@ namespace bcm3 {
 					break;
 				}
 
+				if (verbose) {
+					LOG("EM step %d; log-likelihood: %g", i, logl);
+				}
+
 				if (logl < prev_logl) {
 					// Some numerical issues or singularity?
+					if (verbose) {
+						LOG("Stopping due to decreasing log likelihood", i, logl);
+					}
 					converged = true;
 					break;
 				} else if (logl - prev_logl < logl * logl_epsilon) {
+					if (verbose) {
+						LOG("Converged", i, logl);
+					}
 					converged = true;
 					break;
 				} else {

@@ -149,7 +149,17 @@ namespace bcm3 {
 		if (sampler->output_proposal_adaptation && temperature == sampler->temperatures.tail(1)(0)) {
 			std::string proposal_output_fn = sampler->output_path + "sampler_adaptation.nc";
 			for (ptrdiff_t i = 0; i < variable_blocks.size(); i++) {
-				variable_blocks[i].proposal->WriteToFile(proposal_output_fn, std::string("adapt") + std::to_string(adaptation_iteration) + std::string("/block") + std::to_string(i + 1), variable_blocks[i].variable_indices);
+				std::string adaptation_group = std::string("adapt") + std::to_string(adaptation_iteration) + std::string("/block") + std::to_string(i + 1);
+				variable_blocks[i].proposal->WriteToFile(proposal_output_fn, adaptation_group, variable_blocks[i].variable_indices);
+
+#if 1
+				NetCDFBundler update_info_output;
+				if (update_info_output.Open(proposal_output_fn)) {
+					MatrixReal history = sample_history->GetHistory(variable_blocks[i].variable_indices);
+					update_info_output.AddMatrix(adaptation_group, "history", history);
+					update_info_output.Close();
+				}
+#endif
 			}
 		}
 		adaptation_iteration++;
