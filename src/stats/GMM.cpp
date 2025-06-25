@@ -48,6 +48,7 @@ namespace bcm3 {
 	bool GMM::Fit(const MatrixReal& samples, size_t num_samples, size_t num_components, RNG& rng, Real ess_factor, bool verbose)
 	{
 		const size_t maxsteps = 100;
+		const size_t retries = 4;
 		const Real logl_epsilon = 1e-5;
 		size_t D = samples.cols();
 
@@ -57,7 +58,7 @@ namespace bcm3 {
 		if (num_components == 1) {
 			VectorReal responsibilities = VectorReal::Ones(num_samples);
 			components.resize(1);
-			CalculateMeanCovariance(samples, num_samples, responsibilities, components[0].mean, components[0].covariance, ess_factor);
+			CalculateMeanCovariance(samples, num_samples, responsibilities, components[0].mean, components[0].covariance, ess_factor, verbose);
 
 			components[0].covariance_llt.compute(components[0].covariance);
 			if (components[0].covariance_llt.info() != Eigen::Success) {
@@ -85,47 +86,69 @@ namespace bcm3 {
 				return false;
 			}
 
-			// Initial allocation of samples to components by k-means++
-			MatrixReal responsibilities;
-			if (!KMeanspp(samples, num_samples, num_components, rng, responsibilities)) {
-				return false;
-			}
-			for (size_t i = 0; i < components.size(); i++) {
-				CalculateMeanCovariance(samples, num_samples, responsibilities.col(i), components[i].mean, components[i].covariance, ess_factor);
-			}
-			weights.setConstant(num_components, 1.0 / num_components);
+			for (int ri = 0; ri < retries; ri++) {
+				singular = false;
+				converged = false;
 
-			// EM
-			//EM_maximization(samples, num_samples, responsibilities);
-			Real prev_logl = -std::numeric_limits<Real>::infinity();
-			for (size_t i = 0; i < maxsteps; i++) {
-				if (!EM_expectation(samples, num_samples, responsibilities, logl)) {
-					singular = true;
-					break;
+				// Initial allocation of samples to components by k-means++
+				MatrixReal responsibilities;
+				if (!KMeanspp(samples, num_samples, num_components, rng, responsibilities)) {
+					return false;
 				}
-
-				if (verbose) {
-					LOG("EM step %d; log-likelihood: %g", i, logl);
+				for (size_t i = 0; i < components.size(); i++) {
+					CalculateMeanCovariance(samples, num_samples, responsibilities.col(i), components[i].mean, components[i].covariance, ess_factor, verbose);
 				}
+				weights.setConstant(num_components, 1.0 / num_components);
 
-				if (logl < prev_logl) {
-					// Some numerical issues or singularity?
-					if (verbose) {
-						LOG("Stopping due to decreasing log likelihood", i, logl);
+				// EM
+				//EM_maximization(samples, num_samples, responsibilities);
+				Real prev_logl = -std::numeric_limits<Real>::infinity();
+				for (size_t i = 0; i < maxsteps; i++) {
+					if (!EM_expectation(samples, num_samples, responsibilities, logl)) {
+						if (verbose) {
+							LOG("Expectation failed - singular - retry", i, logl);
+						}
+						singular = true;
+						break;
 					}
-					converged = true;
-					break;
-				} else if (logl - prev_logl < logl * logl_epsilon) {
+
 					if (verbose) {
-						LOG("Converged", i, logl);
+						LOG("EM step %d; log-likelihood: %g", i, logl);
 					}
-					converged = true;
-					break;
-				} else {
-					prev_logl = logl;
+
+					if (logl < prev_logl) {
+						// Some numerical issues or singularity?
+						if (prev_logl - logl  < logl * logl_epsilon * 10) {
+							// Small change - try another iteration
+							if (verbose) {
+								LOG("Small decrease in log likelihood - still considering it converged", i, logl);
+							}
+							converged = true;
+							break;
+						} else {
+							// Change too big
+							if (verbose) {
+								LOG("Retrying due to large decrease log likelihood", i, logl);
+							}
+							converged = false;
+							break;
+						}
+					} else if (logl - prev_logl < logl * logl_epsilon) {
+						if (verbose) {
+							LOG("Converged", i, logl);
+						}
+						converged = true;
+						break;
+					} else {
+						prev_logl = logl;
+					}
+
+					EM_maximization(samples, num_samples, responsibilities, ess_factor, verbose);
 				}
 
-				EM_maximization(samples, num_samples, responsibilities, ess_factor);
+				if (converged) {
+					break;
+				}
 			}
 		}
 
@@ -220,7 +243,7 @@ namespace bcm3 {
 		return true;
 	}
 
-	void GMM::CalculateMeanCovariance(const MatrixReal& samples, size_t num_samples, const VectorReal& responsibilities, VectorReal& mean, MatrixReal& covariance, Real ess_factor)
+	void GMM::CalculateMeanCovariance(const MatrixReal& samples, size_t num_samples, const VectorReal& responsibilities, VectorReal& mean, MatrixReal& covariance, Real ess_factor, bool verbose)
 	{
 		mean.setZero(samples.cols());
 		covariance.setZero(samples.cols(), samples.cols());
@@ -268,6 +291,8 @@ namespace bcm3 {
 			VectorReal tmp = covariance.diagonal();
 			covariance = tmp.asDiagonal();
 		} else {
+			n_eff = std::max(n_eff, (Real)samples.cols());
+
 			// We'll do regularization on the correlation matrix, so calculate the correlation matrix first
 			VectorReal sd(samples.cols());
 			for (ptrdiff_t i = 0; i < samples.cols(); i++) {
@@ -282,7 +307,7 @@ namespace bcm3 {
 					correlation(j, i) = correlation(i, j);
 				}
 			}
-
+#if 1
 			// Eigenvalue shrinkage based on Theorem 3.1 from 
 			// Dey, D. K., and Srinivasan, C. (1985) Estimation of a Covariance Matrix under Stein’s Loss. Ann. Statist.
 			// Also refered to by
@@ -305,16 +330,17 @@ namespace bcm3 {
 				}
 			}
 			correlation = eig.eigenvectors() * shrunk_eigval.asDiagonal() * eig.eigenvectors().transpose();
+#endif
 			covariance = sd.asDiagonal() * correlation * sd.asDiagonal();
 			covariance.diagonal().array() += 1e-8;
 		}
 	}
 
-	void GMM::EM_maximization(const MatrixReal& samples, size_t num_samples, const MatrixReal& responsibilities, Real ess_factor)
+	void GMM::EM_maximization(const MatrixReal& samples, size_t num_samples, const MatrixReal& responsibilities, Real ess_factor, bool verbose)
 	{
 		for (size_t i = 0; i < components.size(); i++) {
 			weights(i) = responsibilities.col(i).sum() / (Real)num_samples;
-			CalculateMeanCovariance(samples, num_samples, responsibilities.col(i), components[i].mean, components[i].covariance, ess_factor);
+			CalculateMeanCovariance(samples, num_samples, responsibilities.col(i), components[i].mean, components[i].covariance, ess_factor, verbose);
 		}
 	}
 

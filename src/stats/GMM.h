@@ -26,8 +26,8 @@ public:
 
 private:
 	bool KMeanspp(const MatrixReal& samples, size_t num_samples, size_t num_components, RNG& rng, MatrixReal& sample_weights);
-	void CalculateMeanCovariance(const MatrixReal& samples, size_t num_samples, const VectorReal& weights, VectorReal& mean, MatrixReal& covariance, Real ess_factor);
-	void EM_maximization(const MatrixReal& samples, size_t num_samples, const MatrixReal& sample_weights, Real ess_factor);
+	void CalculateMeanCovariance(const MatrixReal& samples, size_t num_samples, const VectorReal& weights, VectorReal& mean, MatrixReal& covariance, Real ess_factor, bool verbose);
+	void EM_maximization(const MatrixReal& samples, size_t num_samples, const MatrixReal& sample_weights, Real ess_factor, bool verbose);
 	bool EM_expectation(const MatrixReal& samples, size_t num_samples, MatrixReal& sample_weights, Real& logl);
 	Real LogPdfMVN(const VectorReal& x, const VectorReal& mu, const Eigen::LLT<MatrixReal>& cov_decomposition, Real logC);
 
