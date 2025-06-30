@@ -73,7 +73,7 @@ protected:
 	bool Initialize(const boost::property_tree::ptree& xml_node);
 	bool Simulate(const VectorReal& transformed_values);
 	bool ParallelSimulation(Real target_time);
-	bool SimulateCell(size_t i, Real target_time, size_t eval_thread);
+	bool SimulateCell(size_t i, Real target_time, Real& achieved_time, size_t eval_thread);
 	size_t AddNewCell(Real time, Cell* parent, const VectorReal& transformed_values, bool entry_time_variable, int child_ix);
 	size_t CountCellsAtTime(Real time, ESynchronizeCellTrajectory synchronize, bool count_only_mitotic);
 
@@ -175,6 +175,8 @@ protected:
 	};
 	std::vector<AuxEvaluation*> AuxEvaluationThreads;
 	Real aux_target_time;
+	Real min_start_time;
+	Real max_achieved_time;
 	std::queue<size_t> cells_to_process;
 	bcm3::spinlock cells_to_process_lock;
 	std::vector<size_t> add_new_cell_parents;

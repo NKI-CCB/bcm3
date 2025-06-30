@@ -62,6 +62,9 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, store_simulation(store_simulation)
 	, cell_submit_count(0)
 	, cell_done_count(0)
+	, aux_target_time(std::numeric_limits<Real>::quiet_NaN())
+	, min_start_time(std::numeric_limits<Real>::quiet_NaN())
+	, max_achieved_time(std::numeric_limits<Real>::quiet_NaN())
 {
 	if (evaluation_threads > 1) {
 		AuxEvaluationThreads.resize(evaluation_threads);
@@ -196,6 +199,7 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 	}
 
 	active_cells = 0;
+	max_achieved_time = -std::numeric_limits<Real>::infinity();
 	bool result = Simulate(transformed_values);
 
 	if (result) {
@@ -242,6 +246,14 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 			for (size_t i = 0; i < active_cells; i++) {
 				cells[i]->RestartInterpolationIteration();
 			}
+
+			Real simulation_begin_time = min_start_time;
+			Real simulation_end_time = max_achieved_time;
+
+			for (size_t i = 0; i < output_trajectories_timepoints.size(); i++) {
+				output_trajectories_timepoints(i) = simulation_begin_time + (simulation_end_time - simulation_begin_time) * i / (Real)(output_trajectory_num_timepoints - 1);
+			}
+
 			for (size_t ti = 0; ti < output_trajectories_timepoints.size(); ti++) {
 				Real output_t = output_trajectories_timepoints(ti);
 				for (size_t i = 0; i < active_cells; i++) {
@@ -552,24 +564,11 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		}
 	}
 
-	Real simulation_begin_time;
-	Real simulation_end_time;
-	if (!simulation_timepoints.empty()) {
-		simulation_begin_time = simulation_timepoints.begin()->time;
-		simulation_end_time = simulation_timepoints.rbegin()->time + trailing_simulation_time;
-	} else {
-		simulation_begin_time = 0;
-		simulation_end_time = trailing_simulation_time;
-	}
-
 	simulated_cell_parents.resize(max_number_of_cells, std::numeric_limits<size_t>::max());
 
 	if (store_simulation) {
 		// Allocate space to store the trajectories
 		output_trajectories_timepoints.resize(output_trajectory_num_timepoints);
-		for (size_t i = 0; i < output_trajectories_timepoints.size(); i++) {
-			output_trajectories_timepoints(i) = simulation_begin_time + (simulation_end_time - simulation_begin_time) * i / (Real)(output_trajectory_num_timepoints - 1);
-		}
 		simulated_trajectories.resize(max_number_of_cells);
 		for (size_t i = 0; i < simulated_trajectories.size(); i++) {
 			simulated_trajectories[i].resize(output_trajectory_num_timepoints, VectorReal::Constant(cell_model.GetNumSimulatedSpecies(), std::numeric_limits<Real>::quiet_NaN()));
@@ -1061,20 +1060,20 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 	} else {
 		simulation_end_time = trailing_simulation_time;
 	}
-	Real minimum_start_time = std::numeric_limits<Real>::infinity();
-
+	
+	min_start_time = std::numeric_limits<Real>::infinity();
 	if (initial_number_of_cells > 1) {
 		for (size_t i = 0; i < initial_number_of_cells; i++) {
 			Real cell_start_time = -entry_time;
 			AddNewCell(cell_start_time, NULL, transformed_values, true, -1);
-			minimum_start_time = std::min(cell_start_time, minimum_start_time);
+			min_start_time = std::min(cell_start_time, min_start_time);
 		}
 	} else {
 		AddNewCell(-entry_time, NULL, transformed_values, false, -1);
-		minimum_start_time = -entry_time;
+		min_start_time = -entry_time;
 	}
 
-	if (minimum_start_time < -7.0 * 24.0 * 60.0 * 60.0) {
+	if (min_start_time < -7.0 * 24.0 * 60.0 * 60.0) {
 		//printf("Minimum start time too long: %g", minimum_start_time);
 		return false;
 	}
@@ -1095,6 +1094,7 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 bool Experiment::ParallelSimulation(Real target_time)
 {
 	bool result = true;
+	Real achieved_time = 0.0;
 
 	if (!AuxEvaluationThreads.empty()) {
 		cells_to_process_lock.lock();
@@ -1114,9 +1114,11 @@ bool Experiment::ParallelSimulation(Real target_time)
 		result = WaitAuxThreads();
 	} else {
 		for (size_t i = 0; i < active_cells; i++) {
-			result &= SimulateCell(i, target_time, 0);
+			result &= SimulateCell(i, target_time, achieved_time, 0);
 			if (!result) {
 				break;
+			} else {
+				max_achieved_time = std::max(achieved_time, max_achieved_time);
 			}
 		}
 	}
@@ -1124,10 +1126,10 @@ bool Experiment::ParallelSimulation(Real target_time)
 	return result;
 }
 
-bool Experiment::SimulateCell(size_t i, Real target_time, size_t eval_thread)
+bool Experiment::SimulateCell(size_t i, Real target_time, Real& achieved_time, size_t eval_thread)
 {
 	bool die = false, divide = false;
-	Real achieved_time = 0.0;
+	achieved_time = 0.0;
 	if (!cells[i]->Simulate(target_time, simulate_past_chromatid_separation_time, die, divide, achieved_time)) {
 		return false;
 	}
@@ -1324,8 +1326,13 @@ void Experiment::AuxWorkerFunction(size_t threadIndex)
 				timer.Start();
 #endif
 
-				e.result &= SimulateCell(cell_ix, aux_target_time, threadIndex);
+				Real achieved_time;
+				e.result &= SimulateCell(cell_ix, aux_target_time, achieved_time, threadIndex);
 				cells_processed++;
+
+				cells_to_process_lock.lock();
+				max_achieved_time = std::max(achieved_time, max_achieved_time);
+				cells_to_process_lock.unlock();
 
 #if DUMP_CELL_TIMINGS
 				Real time = timer.GetElapsedSeconds();
@@ -1334,6 +1341,8 @@ void Experiment::AuxWorkerFunction(size_t threadIndex)
 				timings_lock.unlock();
 #endif
 			}
+
+
 		}
 
 		{
