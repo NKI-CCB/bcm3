@@ -118,8 +118,7 @@ namespace bcm3 {
 
 					if (logl < prev_logl) {
 						// Some numerical issues or singularity?
-						if (prev_logl - logl  < logl * logl_epsilon * 10) {
-							// Small change - try another iteration
+						if (prev_logl - logl < fabs(logl * logl_epsilon * 10)) {
 							if (verbose) {
 								LOG("Small decrease in log likelihood - still considering it converged", i, logl);
 							}
@@ -133,7 +132,7 @@ namespace bcm3 {
 							converged = false;
 							break;
 						}
-					} else if (logl - prev_logl < logl * logl_epsilon) {
+					} else if (logl - prev_logl < fabs(logl * logl_epsilon)) {
 						if (verbose) {
 							LOG("Converged", i, logl);
 						}
