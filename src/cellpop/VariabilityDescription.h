@@ -66,6 +66,7 @@ private:
 	Parameter range;
 	Parameter dof;
 	Parameter proportion;
+	bool negate;
 
 	bool only_initial_cells;
 };

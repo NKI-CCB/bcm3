@@ -12,6 +12,7 @@ VariabilityDescription::Parameter::Parameter()
 VariabilityDescription::VariabilityDescription()
 	: type(EType::Invalid)
 	, distribution(EDistribution::Invalid)
+	, negate(false)
 	, only_initial_cells(false)
 {
 
@@ -200,6 +201,8 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 		proportion.str = xml_node.get<std::string>("<xmlattr>.proportion");
 	}
 
+	negate = xml_node.get<bool>("<xmlattr>.negate", false);
+
 	return true;
 }
 
@@ -331,6 +334,10 @@ Real VariabilityDescription::DistributionQuantile(Real p, const VectorReal& tran
 	default:
 		ASSERT(false);
 		break;
+	}
+
+	if (negate) {
+		q = -q;
 	}
 
 	return q;
