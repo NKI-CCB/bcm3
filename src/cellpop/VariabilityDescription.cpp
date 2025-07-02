@@ -46,10 +46,10 @@ bool VariabilityDescription::PostInitialize(std::shared_ptr<const bcm3::Variable
 	if (distribution != EDistribution::Bernoulli) {
 		result &= InitializeParameter(range, varset, non_sampled_parameter_names, model);
 	}
-	if (distribution == EDistribution::StudentT) {
+	if (distribution == EDistribution::StudentT || distribution == EDistribution::ProportionHalfT) {
 		result &= InitializeParameter(dof, varset, non_sampled_parameter_names, model);
 	}
-	if (distribution == EDistribution::Bernoulli || distribution == EDistribution::MultipliedBernoulli || distribution == EDistribution::ProportionExponential) {
+	if (distribution == EDistribution::Bernoulli || distribution == EDistribution::MultipliedBernoulli || distribution == EDistribution::ProportionExponential || distribution == EDistribution::ProportionHalfT) {
 		result &= InitializeParameter(proportion, varset, non_sampled_parameter_names, model);
 	}
 
@@ -183,6 +183,8 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 		distribution = EDistribution::Exponential;
 	} else if (distribution_str == "propotion_exponential") {
 		distribution = EDistribution::ProportionExponential;
+	} else if (distribution_str == "propotion_half_t") {
+		distribution = EDistribution::ProportionHalfT;
 	} else {
 		LOGERROR("Unknown distribution \"%s\" in variability description", distribution_str.c_str());
 		return false;
@@ -191,10 +193,10 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 	if (distribution != EDistribution::Bernoulli) {
 		range.str = xml_node.get<std::string>("<xmlattr>.range");
 	}
-	if (distribution == EDistribution::StudentT) {
+	if (distribution == EDistribution::StudentT || distribution == EDistribution::ProportionHalfT) {
 		dof.str = xml_node.get<std::string>("<xmlattr>.degrees_of_freedom_minus_two");
 	}
-	if (distribution == EDistribution::Bernoulli || distribution == EDistribution::MultipliedBernoulli || distribution == EDistribution::ProportionExponential) {
+	if (distribution == EDistribution::Bernoulli || distribution == EDistribution::MultipliedBernoulli || distribution == EDistribution::ProportionExponential || distribution == EDistribution::ProportionHalfT) {
 		proportion.str = xml_node.get<std::string>("<xmlattr>.proportion");
 	}
 
@@ -306,7 +308,20 @@ Real VariabilityDescription::DistributionQuantile(Real p, const VectorReal& tran
 			Real range_value = GetParameterValue(range, transformed_values, non_sampled_parameters);
 			Real proportion_value = GetParameterValue(proportion, transformed_values, non_sampled_parameters);
 			if (p < proportion_value) {
-				q = bcm3::QuantileExponential((p - proportion_value) / (1.0 - proportion_value), 1.0 / range_value);
+				q = bcm3::QuantileExponential(p / proportion_value, 1.0 / range_value);
+			} else {
+				q = 0.0;
+			}
+		}
+		break;
+
+		case EDistribution::ProportionHalfT:
+		{
+			Real range_value = GetParameterValue(range, transformed_values, non_sampled_parameters);
+			Real dof_value = GetParameterValue(dof, transformed_values, non_sampled_parameters) + 2.0;
+			Real proportion_value = GetParameterValue(proportion, transformed_values, non_sampled_parameters);
+			if (p < proportion_value) {
+				q = bcm3::QuantileT(0.5 + 0.5 * (p / proportion_value), 0, range_value, dof_value);
 			} else {
 				q = 0.0;
 			}
@@ -326,6 +341,10 @@ void VariabilityDescription::ApplyType(Real& x, Real& value) const
 	switch (type) {
 	case EType::Additive:
 		x += value;
+		break;
+
+	case EType::Additive_Log2:
+		x += pow(2.0, value);
 		break;
 
 	case EType::Multiplicative:

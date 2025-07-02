@@ -35,6 +35,7 @@ private:
 
 	enum class EType {
 		Additive,
+		Additive_Log2,
 		Multiplicative,
 		Multiplicative_Log2,
 		Replace,
@@ -50,6 +51,7 @@ private:
 		Uniform,
 		Exponential,
 		ProportionExponential,
+		ProportionHalfT,
 
 		Invalid
 	};
