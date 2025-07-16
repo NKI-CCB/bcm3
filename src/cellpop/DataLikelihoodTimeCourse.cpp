@@ -12,6 +12,7 @@ DataLikelihoodTimeCourse::DataLikelihoodTimeCourse(size_t parallel_evaluations)
 	, include_only_cells_that_went_through_mitosis(false)
 	, population_relative_to_time_average(false)
 	, use_signal_saturation(false)
+	, per_cell_optimize_offset_scale(false)
 	, saturation_scale(1.0)
 	, saturation_scale_ix(std::numeric_limits<size_t>::max())
 	, synchronize(ESynchronizeCellTrajectory::None)
@@ -40,6 +41,7 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 	use_population_average = xml_node.get<bool>("<xmlattr>.use_population_average", false);
 	population_relative_to_time_average = xml_node.get<bool>("<xmlattr>.population_relative_to_time_average", false);
 	use_log_ratio = xml_node.get<bool>("<xmlattr>.use_log_ratio", false);
+	per_cell_optimize_offset_scale = xml_node.get<bool>("<xmlattr>.per_cell_optimize_offset_scale", false);
 	include_only_cells_that_went_through_mitosis = xml_node.get<bool>("<xmlattr>.include_only_cells_that_went_through_mitosis", false);
 	missing_simulation_time_stdev_str = xml_node.get<std::string>("<xmlattr>.missing_simulation_time_stdev", "");
 
@@ -558,7 +560,15 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 					logp += cell_likelihoods(i, j);
 
 					size_t oi = observed_cells_with_no_parents[i];
-					matched_trajectories[oi] = cell_trajectories[j];
+
+					if (per_cell_optimize_offset_scale) {
+						for (int l = 0; l < species_names.size(); l++) {
+							Real offset = 0.0, scale = 1.0;
+							OptimizeOffsetScale(observed_data[oi], cell_trajectories[j], l, offset, scale);
+							matched_trajectories[oi].col(l).array() = offset + scale * cell_trajectories[j].col(l).array();
+						}
+					}
+
 					trajectory_matching[oi] = j;
 
 					if (!observed_children.empty()) {
@@ -571,8 +581,6 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 				}
 			}
 		}
-
-		// Fill in the matched data for output storage
 	}
 
 	logp *= weight;
@@ -691,13 +699,19 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 		}
 	} else {
 		for (int l = 0; l < species_names.size(); l++) {
+			Real offset = 0.0;
+			Real scale = 1.0;
+			if (per_cell_optimize_offset_scale) {
+				OptimizeOffsetScale(observed_data[observed_cell_ix], cell_trajectories[simulated_cell_ix], l, offset, scale);
+			}
+
 			for (int k = 0; k < timepoints.size(); k++) {
 				Real y = observed_data[observed_cell_ix](k, l);
 				if (std::isnan(y)) {
 					continue;
 				}
 
-				Real x = cell_trajectories[simulated_cell_ix](k, l);
+				Real x = offset + scale * cell_trajectories[simulated_cell_ix](k, l);
 				if (std::isnan(x)) {
 					cell_logp += CalculateMissingValueLikelihood(simulated_cell_ix, k, l, missing_simulation_time_stdev);
 				} else {
@@ -819,5 +833,34 @@ Real DataLikelihoodTimeCourse::CalculateMissingValueLikelihood(size_t simulated_
 			assert(false);
 			return std::numeric_limits<Real>::quiet_NaN();
 		}
+	}
+}
+
+void DataLikelihoodTimeCourse::OptimizeOffsetScale(MatrixReal& observed, MatrixReal& simulated, int col_ix, Real& offset, Real& scale)
+{
+	MatrixReal A = MatrixReal::Constant(timepoints.size(), 2, std::numeric_limits<Real>::quiet_NaN());
+	A.col(1).setOnes();
+	VectorReal b = VectorReal::Constant(timepoints.size(), std::numeric_limits<Real>::quiet_NaN());
+
+	int ix = 0;
+	for (int k = 0; k < timepoints.size(); k++) {
+		Real y = observed(k, col_ix);
+		Real x = simulated(k, col_ix);
+		if (!std::isnan(x) && !std::isnan(y)) {
+			A(ix, 0) = x;
+			b(ix) = y;
+			ix++;
+		}
+	}
+
+	offset = 0.0;
+	scale = 1.0;
+	if (ix > 2) {
+		A.conservativeResize(ix, 2);
+		b.conservativeResize(ix);
+
+		VectorReal solution_normal = (A.transpose() * A).ldlt().solve(A.transpose() * b);
+		scale = std::min(std::max(solution_normal(0), 0.1), 10.0);
+		offset = std::min(std::max(solution_normal(1), -1.0), 1.0);
 	}
 }
