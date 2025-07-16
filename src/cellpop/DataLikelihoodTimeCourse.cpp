@@ -567,6 +567,8 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 							OptimizeOffsetScale(observed_data[oi], cell_trajectories[j], l, offset, scale);
 							matched_trajectories[oi].col(l).array() = offset + scale * cell_trajectories[j].col(l).array();
 						}
+					} else {
+						matched_trajectories[oi] = cell_trajectories[j];
 					}
 
 					trajectory_matching[oi] = j;
