@@ -75,7 +75,11 @@ void bcm3_rbridge_init(char** bcm3info_ptr, char** base_folder, char** prior_fn,
 		boost::filesystem::current_path(cwd);
 		return;
 	}
-	info->likelihood->PostInitialize();
+	if (!info->likelihood->PostInitialize()) {
+		*retval = -6;
+		boost::filesystem::current_path(cwd);
+		return;
+	}
 	
 	snprintf(*bcm3info_ptr, 128, "%p", (void*)info);
 	boost::filesystem::current_path(cwd);
