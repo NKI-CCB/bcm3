@@ -51,26 +51,26 @@ N_Vector N_VNewEmpty_Eigen(sunindextype length)
   v->ops->nvgetlength       = N_VGetLength_Eigen;
 
   /* standard vector operations */
-  v->ops->nvadd			 = N_VAdd_Eigen;
-  v->ops->nvlinearsum    = N_VLinearSum_Eigen;
-  v->ops->nvconst        = N_VConst_Eigen;
-  v->ops->nvprod         = N_VProd_Eigen;
-  v->ops->nvdiv          = N_VDiv_Eigen;
-  v->ops->nvscale        = N_VScale_Eigen;
-  v->ops->nvabs          = N_VAbs_Eigen;
-  v->ops->nvinv          = N_VInv_Eigen;
-  v->ops->nvaddconst     = N_VAddConst_Eigen;
-  v->ops->nvdotprod      = N_VDotProd_Eigen;
-  v->ops->nvmaxnorm      = N_VMaxNorm_Eigen;
-  v->ops->nvwrmsnormmask = N_VWrmsNormMask_Eigen;
-  v->ops->nvwrmsnorm     = N_VWrmsNorm_Eigen;
-  v->ops->nvmin          = N_VMin_Eigen;
-  v->ops->nvwl2norm      = N_VWL2Norm_Eigen;
-  v->ops->nvl1norm       = N_VL1Norm_Eigen;
-  v->ops->nvcompare      = N_VCompare_Eigen;
-  v->ops->nvinvtest      = N_VInvTest_Eigen;
-  v->ops->nvconstrmask   = N_VConstrMask_Eigen;
-  v->ops->nvminquotient  = N_VMinQuotient_Eigen;
+  v->ops->nvadd			  = N_VAdd_Eigen;
+  v->ops->nvlinearsum     = N_VLinearSum_Eigen;
+  v->ops->nvconst         = N_VConst_Eigen;
+  v->ops->nvprod          = N_VProd_Eigen;
+  v->ops->nvdiv           = N_VDiv_Eigen;
+  v->ops->nvscale         = N_VScale_Eigen;
+  v->ops->nvabs           = N_VAbs_Eigen;
+  v->ops->nvinv           = N_VInv_Eigen;
+  v->ops->nvaddconst      = N_VAddConst_Eigen;
+  v->ops->nvdotprod       = N_VDotProd_Eigen;
+  v->ops->nvmaxnorm       = N_VMaxNorm_Eigen;
+  v->ops->nvwrmsnormmask  = N_VWrmsNormMask_Eigen;
+  v->ops->nvwrmsnorm      = N_VWrmsNorm_Eigen;
+  v->ops->nvmin           = N_VMin_Eigen;
+  v->ops->nvwl2norm       = N_VWL2Norm_Eigen;
+  v->ops->nvl1norm        = N_VL1Norm_Eigen;
+  v->ops->nvcompare       = N_VCompare_Eigen;
+  v->ops->nvinvtest       = N_VInvTest_Eigen;
+  v->ops->nvconstrmask    = N_VConstrMask_Eigen;
+  v->ops->nvminquotient   = N_VMinQuotient_Eigen;
 
   /* fused and vector array operations are disabled (NULL) by default */
 
@@ -84,6 +84,18 @@ N_Vector N_VNewEmpty_Eigen(sunindextype length)
   v->ops->nvminquotientlocal = N_VMinQuotient_Eigen;
   v->ops->nvwsqrsumlocal     = N_VWSqrSumLocal_Eigen;
   v->ops->nvwsqrsummasklocal = N_VWSqrSumMaskLocal_Eigen;
+
+  v->ops->nvlinearcombination = N_VLinearCombination_Eigen;
+  v->ops->nvscaleaddmulti = N_VScaleAddMulti_Eigen;
+  v->ops->nvdotprodmulti = N_VDotProdMulti_Eigen;
+  v->ops->nvlinearsumvectorarray = N_VLinearSumVectorArray_Eigen;
+  v->ops->nvscalevectorarray = N_VScaleVectorArray_Eigen;
+  v->ops->nvconstvectorarray = N_VConstVectorArray_Eigen;
+  v->ops->nvwrmsnormvectorarray = N_VWrmsNormVectorArray_Eigen;
+  v->ops->nvwrmsnormmaskvectorarray = N_VWrmsNormMaskVectorArray_Eigen;
+  v->ops->nvscaleaddmultivectorarray = N_VScaleAddMultiVectorArray_Eigen;
+  v->ops->nvlinearcombinationvectorarray = N_VLinearCombinationVectorArray_Eigen;
+
 
   /* debugging functions */
   v->ops->nvprint     = N_VPrint_Eigen;
@@ -378,12 +390,9 @@ realtype N_VWrmsNorm_Eigen(N_Vector x, N_Vector w)
 
 realtype N_VWSqrSumLocal_Eigen(N_Vector x, N_Vector w)
 {
-	realtype sum = ZERO;
-	for (int i = 0; i < EIGV(x).size(); i++) {
-		realtype p = EIGV(x)[i] * EIGV(w)[i];
-		sum += p * p;
-	}
-	return(sum);
+	realtype sum = (EIGV(x).array() * EIGV(w).array()).square().sum();
+	return sum;
+
 }
 
 realtype N_VWrmsNormMask_Eigen(N_Vector x, N_Vector w, N_Vector id)
@@ -533,34 +542,18 @@ int N_VLinearCombination_Eigen(int nvec, realtype* c, N_Vector* X, N_Vector z)
 	return(0);
 }
 
-int N_VScaleAddMulti_Eigen(int nvec, realtype* a, N_Vector x, N_Vector* Y, N_Vector* Z)
+int N_VScaleAddMulti_Eigen(int nvec, realtype* c, N_Vector x, N_Vector* Y, N_Vector* Z)
 {
-	/* invalid number of vectors */
-	if (nvec < 1) return(-1);
-
-	/* should have called N_VLinearSum */
-	if (nvec == 1) {
-		N_VLinearSum_Eigen(a[0], x, ONE, Y[0], Z[0]);
-		return(0);
-	}
-
-	/*
-	* Y[i][j] += a[i] * x[j]
-	*/
 	if (Y == Z) {
 		for (int i = 0; i < nvec; i++) {
-			EIGV(Y[i]) += a[i] * EIGV(x);
+			EIGV(Z[i]) += c[i] * EIGV(x);
 		}
-		return(0);
+	} else {
+		for (int i = 0; i < nvec; i++) {
+			EIGV(Z[i]) = c[i] * EIGV(x) + EIGV(Y[i]);
+		}
 	}
-
-	/*
-	* Z[i][j] = Y[i][j] + a[i] * x[j]
-	*/
-	for (int i = 0; i < nvec; i++) {
-		EIGV(Z[i]) = a[i] * EIGV(x) + EIGV(Y[i]);
-	}
-	return(0);
+	return 0;
 }
 
 

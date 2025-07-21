@@ -346,15 +346,19 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 		//file << "cvode_y=" << EIGV(cvode_y).transpose() << std::endl;
 		file.close();
 
+#if CVODE_USE_EIGEN_SOLVER
 		{
 			std::ofstream file("trajectory.txt", std::ios::app);
 			file.precision(18);
 			file << "" << current_simulation_time;
-			file << " " << EIGV(cvode_y).transpose();
+			file << ";" << EIGV(cvode_y).transpose();
+			OdeVectorReal& acor = EIGV(((CVodeMem)cvode_mem)->cv_acor);
+			file << ";" << acor.transpose();
 			file << std::endl;
 			//file << "cvode_y=" << EIGV(cvode_y).transpose() << std::endl;
 			file.close();
 		}
+#endif
 #endif
 
 		// Store relevant information for interpolation at any timepoint later
