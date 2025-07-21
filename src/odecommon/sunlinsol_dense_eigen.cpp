@@ -16,7 +16,7 @@
 inline PartialPivLUExtended<OdeMatrixReal>& EIGSOL(SUNLinearSolver S) {
 	return reinterpret_cast<SUNLinearSolverContent_Dense_Eigen>(S->content)->lu;
 }
-inline Eigen::Matrix3f& INVERSE(SUNLinearSolver S) {
+inline Eigen::Matrix3<OdeReal>& INVERSE(SUNLinearSolver S) {
 	return reinterpret_cast<SUNLinearSolverContent_Dense_Eigen>(S->content)->inverse;
 }
 
@@ -119,7 +119,7 @@ int SUNLinSolSetup_Dense_Eigen2x2(SUNLinearSolver S, SUNMatrix A)
 		return(SUNLS_ILL_INPUT);
 	}
 
-	float invdet = 1.0 / (SM_ELEMENT_D(A, 0, 0) * SM_ELEMENT_D(A, 1, 1) - SM_ELEMENT_D(A, 0, 1) * SM_ELEMENT_D(A, 1, 0));
+	OdeReal invdet = (OdeReal)1.0 / (SM_ELEMENT_D(A, 0, 0) * SM_ELEMENT_D(A, 1, 1) - SM_ELEMENT_D(A, 0, 1) * SM_ELEMENT_D(A, 1, 0));
 	INVERSE(S)(0, 0) = SM_ELEMENT_D(A, 1, 1) * invdet;
 	INVERSE(S)(0, 1) = -SM_ELEMENT_D(A, 0, 1) * invdet;
 	INVERSE(S)(1, 0) = -SM_ELEMENT_D(A, 1, 0) * invdet;
@@ -139,7 +139,7 @@ int SUNLinSolSetup_Dense_Eigen3x3(SUNLinearSolver S, SUNMatrix A)
 		return(SUNLS_ILL_INPUT);
 	}
 
-	Eigen::internal::compute_inverse<OdeMatrixReal, Eigen::Matrix3f, 3>::run(EIGMAT(A), INVERSE(S));
+	Eigen::internal::compute_inverse<OdeMatrixReal, Eigen::Matrix3<OdeReal>, 3>::run(EIGMAT(A), INVERSE(S));
 
 	return(SUNLS_SUCCESS);
 }

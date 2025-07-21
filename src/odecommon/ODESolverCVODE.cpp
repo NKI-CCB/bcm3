@@ -24,7 +24,12 @@ int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data)
 int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3)
 {
 	ODESolverCVODE* solver = reinterpret_cast<ODESolverCVODE*>(user_data);
+#if CVODE_USE_EIGEN_SOLVER
 	return solver->cvode_jac_fn(t, NV_DATA_S(y), NV_DATA_S(fy), EIGMAT(Jac));
+#else
+	ASSERT(false);
+	return -1;
+#endif
 }
 
 ODESolverCVODE::ODESolverCVODE()

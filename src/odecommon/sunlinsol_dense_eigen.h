@@ -7,7 +7,7 @@
 
 struct _SUNLinearSolverContent_Dense_Eigen {
 	PartialPivLUExtended<OdeMatrixReal> lu;
-    Eigen::Matrix3f inverse;
+    Eigen::Matrix3<OdeReal> inverse;
 };
 
 typedef struct _SUNLinearSolverContent_Dense_Eigen* SUNLinearSolverContent_Dense_Eigen;
