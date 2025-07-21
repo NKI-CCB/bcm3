@@ -1,6 +1,6 @@
 #pragma once
 
-#define ODE_SINGLE_PRECISION 1 // If this is changed, make sure it's also changed in sundials_config.h
+#define ODE_SINGLE_PRECISION 0 // If this is changed, make sure it's also changed in sundials_config.h
 #define CVODE_USE_EIGEN_SOLVER 1
 #define CVODE_USE_SPARSE_SOLVER 0
 
