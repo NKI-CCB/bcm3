@@ -891,13 +891,7 @@ std::string SBMLRatelawElementFunctionHill::GenerateEquation()
 	std::string result;
 	std::string n = children[2]->GenerateEquation();
 #if USE_INTEGER_HILL_OPTIMIZATIONS
-	if (n == "1.000000" || n == "1.000000f") {
-		result = "hill_function_fixedn1(";
-		result += children[0]->GenerateEquation();
-		result += ",";
-		result += children[1]->GenerateEquation();
-		result += ")";
-	} else if (n == "2.000000" || n == "2.000000f") {
+	if (n == "2.000000" || n == "2.000000f") {
 		result = "hill_function_fixedn2(";
 		result += children[0]->GenerateEquation();
 		result += ",";
@@ -949,54 +943,28 @@ std::string SBMLRatelawElementFunctionHill::GenerateDerivative(size_t species_ix
 	SBMLRatelawElementLookupSpecies* lookup_species = dynamic_cast<SBMLRatelawElementLookupSpecies*>(children[0].get());
 	if (lookup_species && lookup_species->ix == species_ix) {
 		std::string n = children[2]->GenerateEquation();
-#if USE_INTEGER_HILL_OPTIMIZATIONS
-		if (n == "1.000000" || n == "1.000000f") {
-			result = "hill_function_derivative_fixedn1(";
-			result += children[0]->GenerateEquation();
-			result += ",";
-			result += children[1]->GenerateEquation();
-			result += ")";
-		} else {
-#endif
-			result = "hill_function_derivative(";
-			result += children[0]->GenerateEquation();
-			result += ",";
-			result += children[1]->GenerateEquation();
-			result += ",";
-			result += n;
-			result += ")";
-#if USE_INTEGER_HILL_OPTIMIZATIONS
-		}
-#endif
+		result = "hill_function_derivative(";
+		result += children[0]->GenerateEquation();
+		result += ",";
+		result += children[1]->GenerateEquation();
+		result += ",";
+		result += n;
+		result += ")";
 	} else {
 		for (size_t i = 0; i < children.size(); i++) {
 			std::string res = children[i]->GenerateDerivative(species_ix);
 			if (!res.empty()) {
 				if (i == 0) {
 					std::string n = children[2]->GenerateEquation();
-#if USE_INTEGER_HILL_OPTIMIZATIONS
-					if (n == "1.000000" || n == "1.000000f") {
-						result = "hill_function_derivative_fixedn1(";
-						result += children[0]->GenerateEquation();
-						result += ",";
-						result += children[1]->GenerateEquation();
-						result += ")*(";
-						result += res;
-						result += ")";
-					} else {
-#endif
-						result = "hill_function_derivative(";
-						result += children[0]->GenerateEquation();
-						result += ",";
-						result += children[1]->GenerateEquation();
-						result += ",";
-						result += n;
-						result += ")*(";
-						result += res;
-						result += ")";
-#if USE_INTEGER_HILL_OPTIMIZATIONS
-					}
-#endif
+					result = "hill_function_derivative(";
+					result += children[0]->GenerateEquation();
+					result += ",";
+					result += children[1]->GenerateEquation();
+					result += ",";
+					result += n;
+					result += ")*(";
+					result += res;
+					result += ")";
 				} else {
 					LOGERROR("Not implemented");
 				}
