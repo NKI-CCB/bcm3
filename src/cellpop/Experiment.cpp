@@ -813,7 +813,7 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "\tOdeReal denom = (square(xn + kn));\n";
 		f << "\tif (denom < std::numeric_limits<OdeReal>::min()) return 0.0;\n";
 		f << "\tif (denom > 3e38f) return 0.0;\n";
-		f << "\tOdeReal knm1 = pow(k, n - 1);\n";
+		f << "\tOdeReal xnm1 = pow(x, n - 1);\n";
 		f << "\treturn kn * n * xnm1 / denom;\n";
 		f << "}\n";
 		f << "inline OdeReal michaelis_menten_function(OdeReal kcat, OdeReal KM, OdeReal e, OdeReal s)\n";
