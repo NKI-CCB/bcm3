@@ -1,4 +1,5 @@
 #include "Utils.h"
+#include "Correlation.h"
 #include "DataLikelihoodTimeCourse.h"
 #include "Experiment.h"
 #include "ProbabilityDistributions.h"
@@ -13,6 +14,10 @@ DataLikelihoodTimeCourse::DataLikelihoodTimeCourse(size_t parallel_evaluations)
 	, population_relative_to_time_average(false)
 	, use_signal_saturation(false)
 	, per_cell_optimize_offset_scale(false)
+	, per_cell_optimize_offset_min(-1.0)
+	, per_cell_optimize_offset_max(1.0)
+	, per_cell_optimize_scale_min(0.1)
+	, per_cell_optimize_scale_max(10.0)
 	, saturation_scale(1.0)
 	, saturation_scale_ix(std::numeric_limits<size_t>::max())
 	, synchronize(ESynchronizeCellTrajectory::None)
@@ -61,6 +66,17 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 	} else {
 		LOGERROR("Synchronization is specified as \"%s\" which is not a recognized synchronization point", synchronize_str.c_str());
 		return false;
+	}
+
+	if (per_cell_optimize_offset_scale) {
+		if (error_model != ErrorModel::Normal) {
+			LOGWARNING("Using offset/scale optimization without a normal error model - this likely leads to strong convergence problems!");
+		}
+
+		per_cell_optimize_offset_min = xml_node.get<Real>("<xmlattr>.per_cell_optimize_offset_min", -1.0);
+		per_cell_optimize_offset_max = xml_node.get<Real>("<xmlattr>.per_cell_optimize_offset_max", 1.0);
+		per_cell_optimize_scale_min = xml_node.get<Real>("<xmlattr>.per_cell_optimize_scale_min", 0.1);
+		per_cell_optimize_scale_max = xml_node.get<Real>("<xmlattr>.per_cell_optimize_scale_max", 10.0);
 	}
 
 	std::string time_dimension_name;
@@ -838,31 +854,10 @@ Real DataLikelihoodTimeCourse::CalculateMissingValueLikelihood(size_t simulated_
 	}
 }
 
-void DataLikelihoodTimeCourse::OptimizeOffsetScale(MatrixReal& observed, MatrixReal& simulated, int col_ix, Real& offset, Real& scale)
+
+void DataLikelihoodTimeCourse::OptimizeOffsetScale(const MatrixReal& observed, const MatrixReal& simulated, int col_ix, Real& offset, Real& scale) const
 {
-	MatrixReal A = MatrixReal::Constant(timepoints.size(), 2, std::numeric_limits<Real>::quiet_NaN());
-	A.col(1).setOnes();
-	VectorReal b = VectorReal::Constant(timepoints.size(), std::numeric_limits<Real>::quiet_NaN());
-
-	int ix = 0;
-	for (int k = 0; k < timepoints.size(); k++) {
-		Real y = observed(k, col_ix);
-		Real x = simulated(k, col_ix);
-		if (!std::isnan(x) && !std::isnan(y)) {
-			A(ix, 0) = x;
-			b(ix) = y;
-			ix++;
-		}
-	}
-
-	offset = 0.0;
-	scale = 1.0;
-	if (ix > 2) {
-		A.conservativeResize(ix, 2);
-		b.conservativeResize(ix);
-
-		VectorReal solution_normal = (A.transpose() * A).ldlt().solve(A.transpose() * b);
-		scale = std::min(std::max(solution_normal(0), 0.1), 10.0);
-		offset = std::min(std::max(solution_normal(1), -1.0), 1.0);
-	}
+	bcm3::linear_regress_columns(simulated.col(col_ix), observed.col(col_ix), offset, scale);
+	scale = std::min(std::max(scale, per_cell_optimize_scale_min), per_cell_optimize_scale_max);
+	offset = std::min(std::max(offset, per_cell_optimize_offset_min), per_cell_optimize_offset_max);
 }

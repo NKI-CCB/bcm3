@@ -155,4 +155,48 @@ Real spearman_correlation_weighted(VectorReal& x1, VectorReal& x2, VectorReal& w
 	return pearson_correlation_weighted(x1, x2, weights);
 }
 
+void linear_regress_columns(const MatrixReal::ConstColXpr& x, const MatrixReal::ConstColXpr& y, Real& offset, Real& scale)
+{
+	ASSERT(x.size() == y.size());
+
+	Real mu_x = 0.0;
+	Real mu_y = 0.0;
+	Real xvar_calc = 0.0;
+	Real cov_calc = 0.0;
+
+	Real empirical_n = 0.0;
+	for (ptrdiff_t i = 0; i < x.size(); i++) {
+		if (std::isnan(x(i)) || std::isnan(y(i))) {
+			continue;
+		}
+
+		empirical_n += 1.0;
+
+		const Real invN = 1.0 / empirical_n;
+		Real mu_x_nm1 = mu_x;
+		Real mu_y_nm1 = mu_y;
+
+		mu_x += (x(i) - mu_x) * invN;
+		mu_y += (y(i) - mu_y) * invN;
+
+		if (empirical_n > 1) {
+			const Real ratio = (empirical_n - 1) / (Real)empirical_n;
+
+			const Real dx = x(i) - mu_x_nm1;
+			const Real dy = y(i) - mu_y_nm1;
+
+			xvar_calc += dx * dx * ratio;
+			cov_calc += dx * dy * ratio;
+		}
+	}
+
+	if (empirical_n >= 2) {
+		// No need to calculate the actual covariance; the scaled value suffices since we only need the ratio
+		scale = cov_calc / xvar_calc;
+		offset = mu_y - mu_x * scale;
+	} else {
+		// Don't set scale and offset
+	}
+}
+
 }

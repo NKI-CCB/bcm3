@@ -25,7 +25,7 @@ public:
 private:
 	Real CalculateCellLikelihood(size_t observed_cell_ix, size_t simulated_cell_ix, const std::vector<Real>& stdevs, Real missing_simulation_time_stdev, std::vector<int>& matched_hierarchy);
 	Real CalculateMissingValueLikelihood(size_t simulated_cell_ix, int timepoint_ix, int species_ix, Real missing_simulation_time_stdev);
-	void OptimizeOffsetScale(MatrixReal& observed, MatrixReal& simulated, int col_ix, Real& offset, Real& scale);
+	void OptimizeOffsetScale(const MatrixReal& observed, const MatrixReal& simulated, int col_ix, Real& offset, Real& scale) const;
 
 	bool use_population_average;
 	bool use_log_ratio;
@@ -39,6 +39,10 @@ private:
 
 	bool use_signal_saturation;
 	bool per_cell_optimize_offset_scale;
+	Real per_cell_optimize_offset_min;
+	Real per_cell_optimize_offset_max;
+	Real per_cell_optimize_scale_min;
+	Real per_cell_optimize_scale_max;
 	Real saturation_scale;
 	std::string saturation_scale_str;
 	size_t saturation_scale_ix;

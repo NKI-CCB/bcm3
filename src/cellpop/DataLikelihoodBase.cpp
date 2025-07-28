@@ -6,7 +6,7 @@
 
 DataLikelihoodBase::DataLikelihoodBase()
 	: weight(1.0)
-	, error_model(ErrorModel::StudentT4)
+	, error_model(ErrorModel::Normal)
 {
 }
 
@@ -39,6 +39,16 @@ bool DataLikelihoodBase::Load(const boost::property_tree::ptree& xml_node, Exper
 	stdev_str = xml_node.get<std::string>("<xmlattr>.stdev");
 	offset_str = xml_node.get<std::string>("<xmlattr>.offset", "");
 	scale_str = xml_node.get<std::string>("<xmlattr>.scale", "");
+	
+	std::string error_model_str = xml_node.get<std::string>("<xmlattr>.error_model", "normal");
+	if (error_model_str == "normal") {
+		error_model = ErrorModel::Normal;
+	} else if (error_model_str == "student_t4" || error_model_str == "t4") {
+		error_model = ErrorModel::StudentT4;
+	} else {
+		LOGERROR("Unknown error model \"%s\"", error_model_str.c_str());
+		return false;
+	}
 
 	return true;
 }

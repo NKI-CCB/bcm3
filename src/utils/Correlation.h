@@ -10,4 +10,6 @@ Real spearman_correlation_weighted(const VectorReal& x1, const VectorReal& x2, c
 Real spearman_correlation(VectorReal& x1, VectorReal& x2);
 Real spearman_correlation_weighted(VectorReal& x1, VectorReal& x2, VectorReal& weights);
 
+void linear_regress_columns(const MatrixReal::ConstColXpr& x, const MatrixReal::ConstColXpr& y, Real& offset, Real& scale);
+
 }
