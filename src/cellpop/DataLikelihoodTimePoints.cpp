@@ -42,6 +42,10 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 		return false;
 	}
 
+	std::string use_only_cell_ix_str = vm["cellpop.use_only_cell_ix"].as<std::string>();
+	std::vector<std::string> use_only_cell_ix_tokens;
+	bcm3::tokenize(use_only_cell_ix_str, use_only_cell_ix_tokens, ",");
+
 	std::string time_dimension_name;
 	size_t num_dimensions = 0;
 	result &= data_file.GetDimensionName(experiment->GetName(), data_name, 0, time_dimension_name);
@@ -66,11 +70,28 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 	observed_data.resize(num_timepoints);
 	matched_data.resize(num_timepoints);
 	if (num_dimensions == 2) {
-		for (size_t i = 0; i < num_timepoints; i++) {
-			VectorReal od;
-			result &= data_file.GetValuesDim2(experiment->GetName(), data_name, i, 0, num_cells, od);
-			observed_data[i] = od;
-			matched_data[i] = VectorReal::Constant(num_cells, std::numeric_limits<Real>::quiet_NaN());
+		if (use_only_cell_ix_tokens.empty()) {
+			for (size_t i = 0; i < num_timepoints; i++) {
+				VectorReal od;
+				result &= data_file.GetValuesDim2(experiment->GetName(), data_name, i, 0, num_cells, od);
+				observed_data[i] = od;
+				matched_data[i] = VectorReal::Constant(num_cells, std::numeric_limits<Real>::quiet_NaN());
+			}
+		} else {
+			for (size_t i = 0; i < num_timepoints; i++) {
+				observed_data[i].setConstant(use_only_cell_ix_tokens.size(), 1, std::numeric_limits<Real>::quiet_NaN());
+				matched_data[i].setConstant(use_only_cell_ix_tokens.size(), 1, std::numeric_limits<Real>::quiet_NaN());
+				for (size_t j = 0; j < use_only_cell_ix_tokens.size(); j++) {
+					int ix = boost::lexical_cast<int>(use_only_cell_ix_tokens[j]);
+					if (ix >= num_cells) {
+						LOGERROR("Requested to use cell %d, but data contains only %u cells", ix, num_cells);
+						return false;
+					} else {
+						result &= data_file.GetValue(experiment->GetName(), data_name, i, ix, &observed_data[i](j, 0));
+					}
+				}
+				num_cells = use_only_cell_ix_tokens.size();
+			}
 		}
 	} else if (num_dimensions == 3) {
 		size_t num_markers;
@@ -78,14 +99,19 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 		result &= data_file.GetDimensionName(experiment->GetName(), data_name, 2, marker_dim_name);
 		result &= data_file.GetDimensionSize(experiment->GetName(), marker_dim_name, &num_markers);
 
-		for (size_t i = 0; i < num_timepoints; i++) {
-			observed_data[i] = MatrixReal::Zero(num_cells, num_markers);
-			for (size_t j = 0; j < num_markers; j++) {
-				VectorReal od;
-				result &= data_file.GetValuesDim2(experiment->GetName(), data_name, i, 0, j, num_cells, od);
-				observed_data[i].col(j) = od;
+		if (use_only_cell_ix_tokens.empty()) {
+			for (size_t i = 0; i < num_timepoints; i++) {
+				observed_data[i] = MatrixReal::Zero(num_cells, num_markers);
+				for (size_t j = 0; j < num_markers; j++) {
+					VectorReal od;
+					result &= data_file.GetValuesDim2(experiment->GetName(), data_name, i, 0, j, num_cells, od);
+					observed_data[i].col(j) = od;
+				}
+				matched_data[i] = MatrixReal::Constant(num_cells, num_markers, std::numeric_limits<Real>::quiet_NaN());
 			}
-			matched_data[i] = MatrixReal::Constant(num_cells, num_markers, std::numeric_limits<Real>::quiet_NaN());
+		} else {
+			LOGERROR("Not implemented yet");
+			return false;
 		}
 	} else {
 		ASSERT(false);
