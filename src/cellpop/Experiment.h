@@ -74,7 +74,7 @@ protected:
 	bool Simulate(const VectorReal& transformed_values);
 	bool ParallelSimulation(Real target_time);
 	bool SimulateCell(size_t i, Real target_time, Real& achieved_time, size_t eval_thread);
-	size_t AddNewCell(Real time, Cell* parent, const VectorReal& transformed_values, bool entry_time_variable, int child_ix);
+	size_t AddNewCell(Real time, Cell* parent, bool entry_time_variable, int child_ix);
 	size_t CountCellsAtTime(Real time, ESynchronizeCellTrajectory synchronize, bool count_only_mitotic);
 
 	void StartAuxThreads();
@@ -125,7 +125,7 @@ protected:
 
 	// Runtime variables
 	std::vector<std::string> non_sampled_parameter_names;
-	VectorReal transformed_variables;
+	VectorReal transformed_sampled_parameters;
 	VectorReal non_sampled_parameters;
 	std::vector<Cell*> cells;
 	size_t active_cells;

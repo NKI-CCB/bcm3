@@ -216,7 +216,7 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 		// Synchronize cells if necessary
 		Real time_offset = 0.0;
 		if (synchronization_time_offset_varix != std::numeric_limits<size_t>::max()) {
-			time_offset = transformed_variables[synchronization_time_offset_varix];
+			time_offset = transformed_sampled_parameters[synchronization_time_offset_varix];
 		} else {
 			time_offset = fixed_synchronization_time_offset;
 		}
@@ -606,7 +606,7 @@ bool Experiment::Initialize(const boost::property_tree::ptree& xml_node)
 		fixed_synchronization_time_offset = 0.0;
 	}
 
-	transformed_variables.setConstant(varset->GetNumVariables(), std::numeric_limits<Real>::quiet_NaN());
+	transformed_sampled_parameters.setConstant(varset->GetNumVariables(), std::numeric_limits<Real>::quiet_NaN());
 
 	if (cell_variabilities.size() > 0) {
 		sobol_sequence = std::make_shared< boost::random::sobol >(cell_variabilities.size());
@@ -1028,10 +1028,10 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 bool Experiment::Simulate(const VectorReal& transformed_values)
 {
 	for (size_t i = 0; i < varset->GetNumVariables(); i++) {
-		transformed_variables[i] = transformed_values[i];
+		transformed_sampled_parameters[i] = transformed_values[i];
 	}
 	for (std::map<size_t, size_t>::iterator espi = experiment_specific_parameter_map.begin(); espi != experiment_specific_parameter_map.end(); ++espi) {
-		transformed_variables[espi->first] = transformed_variables[espi->second];
+		transformed_sampled_parameters[espi->first] = transformed_sampled_parameters[espi->second];
 	}
 
 	// TODO - incorporate in sobol? Or switch to ML?
@@ -1041,7 +1041,7 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 
 	Real entry_time;
 	if (entry_time_varix != std::numeric_limits<size_t>::max()) {
-		entry_time = transformed_variables[entry_time_varix];
+		entry_time = transformed_sampled_parameters[entry_time_varix];
 	} else {
 		entry_time = fixed_entry_time;
 	}
@@ -1058,11 +1058,11 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 	if (initial_number_of_cells > 1) {
 		for (size_t i = 0; i < initial_number_of_cells; i++) {
 			Real cell_start_time = -entry_time;
-			AddNewCell(cell_start_time, NULL, transformed_values, true, -1);
+			AddNewCell(cell_start_time, NULL, true, -1);
 			min_start_time = std::min(cell_start_time, min_start_time);
 		}
 	} else {
-		AddNewCell(-entry_time, NULL, transformed_values, false, -1);
+		AddNewCell(-entry_time, NULL, false, -1);
 		min_start_time = -entry_time;
 	}
 
@@ -1134,8 +1134,8 @@ bool Experiment::SimulateCell(size_t i, Real target_time, Real& achieved_time, s
 			std::lock_guard<std::mutex> lock(cell_vector_mutex);
 
 			// Create two new cells
-			cell1 = AddNewCell(achieved_time, cells[i], transformed_variables, false, 0);
-			cell2 = AddNewCell(achieved_time, cells[i], transformed_variables, false, 1);
+			cell1 = AddNewCell(achieved_time, cells[i], false, 0);
+			cell2 = AddNewCell(achieved_time, cells[i], false, 1);
 			if (cell1 == std::numeric_limits<size_t>::max() || cell2 == std::numeric_limits<size_t>::max()) {
 				return false;
 			}
@@ -1176,7 +1176,7 @@ bool Experiment::SimulateCell(size_t i, Real target_time, Real& achieved_time, s
 	return true;
 }
 
-size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transformed_values, bool entry_time_variable, int child_ix)
+size_t Experiment::AddNewCell(Real time, Cell* parent, bool entry_time_variable, int child_ix)
 {
 	if (active_cells == max_number_of_cells) {
 		// TODO - what to do? Fail the simulation or just continue?
@@ -1224,7 +1224,7 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 			}
 		}
 	} else {
-		result &= cell->SetInitialConditionsFromModel(set_species_map, set_init_map, ratio_active_map, ratio_inactive_map, ratio_total_active, ratio_total_inactive,transformed_values, time);
+		result &= cell->SetInitialConditionsFromModel(set_species_map, set_init_map, ratio_active_map, ratio_inactive_map, ratio_total_active, ratio_total_inactive, transformed_sampled_parameters, time);
 		if (!sobol_sequence_values.empty()) {
 			sobol_sequence_ix = new_cell_ix;
 		}
@@ -1232,7 +1232,7 @@ size_t Experiment::AddNewCell(Real time, Cell* parent, const VectorReal& transfo
 	if (!sobol_sequence_values.empty()) {
 		sobol_sequence_indices[new_cell_ix] = sobol_sequence_ix;
 	}
-	result &= cell->Initialize(time, transformed_values, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization, abs_tol, rel_tol);
+	result &= cell->Initialize(time, transformed_sampled_parameters, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization, abs_tol, rel_tol);
 
 	if (!result) {
 		return std::numeric_limits<size_t>::max();
