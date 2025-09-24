@@ -8,11 +8,10 @@ if(CMAKE_HOST_WIN32)
     set(Boost_USE_STATIC_LIBS ON)
     set(Boost_USE_STATIC_RUNTIME OFF)
 endif(CMAKE_HOST_WIN32)
-find_package(Boost REQUIRED COMPONENTS program_options filesystem system date_time chrono unit_test_framework)
+find_package(Boost REQUIRED COMPONENTS program_options date_time chrono filesystem OPTIONAL_COMPONENTS unit_test_framework)
 
 # NetCDF
 find_package(netCDF REQUIRED)
-find_package(libsbml OPTIONAL)
 
 # Some required global sections
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -49,12 +48,19 @@ add_subdirectory(src/sampler)
 add_subdirectory(src/stats)
 add_subdirectory(src/utils)
 
-if(libsbml_FOUND)
-	add_subdirectory(src/sbml)
-	add_subdirectory(src/cellpop)
-	add_subdirectory(src/fISA)
-endif(libsbml_FOUND)
+# Look for an installed libsbml; otherwise use the included version
+find_package(libsbml)
+if(NOT libsbml_FOUND)
+        add_subdirectory(dependencies/libsbml-5.20.2)
+endif()
 
-enable_testing()
+add_subdirectory(src/sbml)
+add_subdirectory(src/cellpop)
+add_subdirectory(src/fISA)
 
-add_subdirectory(tests/stats)
+if (Boost_unit_test_framework_FOUND)
+	enable_testing()
+	add_subdirectory(tests/stats)
+else()
+	message("Boost unit_test_framework is not available; disabling unit tests")
+endif()

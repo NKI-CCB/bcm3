@@ -36,8 +36,12 @@ For using the R interface and plotting functions, the following R packages are n
 #### Installation steps
 1) Create an environment variable BCM3_ROOT that points to the root folder of BCM3. (For Mac users, the environment variable might not be active inside R; in that case you might need to add a call to Sys.setenv() to set the BCM3_ROOT variable within R before calling BCM3's R scripts.)
 2) Create a folder "build"
-3) On Windows with vcpkg: Run `cmake .. -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkgroot/scripts/buildsystems/vcpkg.cmake` within the build folder.
-   On other systems: Run `cmake ..` within the build folder.
+3) On Windows with vcpkg, run  
+`cmake .. -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkgroot/scripts/buildsystems/vcpkg.cmake`  
+within the build folder.
+On other systems, run  
+`cmake ..`  
+within the build folder.
 4) Build the generated makefile/project file (with `make` on Linux/Mac, or by building the solution in Visual Studio. In Visual Studio, be sure to use the Release build for production runs.)
 
 ## Using BCM3
