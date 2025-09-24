@@ -1,9 +1,0 @@
-# NetCDF settings
-if(CMAKE_HOST_WIN32)
-    set(NETCDF_LIBRARIES "C:/Program Files/netCDF 4.9.0/lib/netcdf.lib")
-    set(NETCDF_INCLUDE_DIR "C:/Program Files/netCDF 4.9.0/include")
-endif(CMAKE_HOST_WIN32)
-if(CMAKE_HOST_UNIX)
-    set(NETCDF_LIBRARIES "libnetcdf.so")
-    set(NETCDF_INCLUDE_DIR "/usr/include")
-endif(CMAKE_HOST_UNIX)

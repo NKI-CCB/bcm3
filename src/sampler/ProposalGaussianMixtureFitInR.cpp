@@ -5,7 +5,7 @@
 #include "ProposalGaussianMixtureFitInR.h"
 #include "SummaryStats.h"
 
-#include <boost/process.hpp>
+#include <boost/filesystem.hpp>
 #include <iostream>
 
 namespace bcm3 {
@@ -92,7 +92,7 @@ namespace bcm3 {
 				cmd += std::string(" log_info");
 			}
 			LOG("Calling R fitting script using: \"%s\"", cmd.c_str());
-			int result = boost::process::system(cmd);
+			int result = std::system(cmd.c_str());
 
 			if (result != 0) {
 				LOGERROR("R script for fitting proposal distribution failed");

@@ -50,7 +50,7 @@ target_link_libraries(utils
     ${Boost_LIBRARIES}
     Threads::Threads
   PRIVATE
-    ${NETCDF_LIBRARIES}
+    netCDF::netcdf
     clusterc
 )
 

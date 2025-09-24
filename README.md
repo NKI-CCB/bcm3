@@ -27,18 +27,18 @@ The following dependencies are required:
 - ([Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) and [SUNDIALS](https://computing.llnl.gov/projects/sundials) are used, but versions of these libraries are included as part of BCM3 and do not need to be installed separately)
 
 On Linux, these dependencies can be installed through the package manager; you will need the -dev packages for the C++ library (libboost-dev, libsbml-dev, libnetcdf-dev, libhdf5-dev).
-On Windows, pre-compiled versions may work, or you may need to build the dependencies from source.
+On Windows, vcpkg is useful to install these dependencies. This can be done with a manifest if you wish to install the dependencies specifically for this project, but personally I use vcpkg in classic mode to have a reusable installation of these packages. This can be done by installing vcpkg separately (the one bundled with Visual Studio can only work in manifest mode), and then installing the packages with the stand-alone vcpkg ( "vcpkg.exe install [boost/netcdf-c/libsbml]").
 On Mac, it may be possible to install the dependencies with Homebrew.
 
 For using the R interface and plotting functions, the following R packages are needed:
 - XML, hdf5r, extraDistr, crch, pracma, sm
 
 #### Installation steps
-1) Copy "external_dependency_locations_template.txt" to "external_dependency_locations.txt", and modify the paths as necessary. (I find this easier to work with than using cmake variables or cmake's FindPackage functionality. If you used Homebrew to install the dependencies on Mac, you may also need to add the relevant locations to your LIBRARY_PATH.)
-2) Create an environment variable BCM3_ROOT that points to the root folder of BCM3. (For Mac users, the environment variable might not be active inside R; in that case you might need to add a call to Sys.setenv() to set the BCM3_ROOT variable within R before calling BCM3's R scripts.)
-3) Create a folder "build"
-4) Run `cmake ..` within the build folder (from command line or with the CMake GUI)
-5) Build the generated makefile/project file (with `make` on Linux/Mac, or by building the solution in Visual Studio. In Visual Studio, be sure to use the Release build for production runs.)
+1) Create an environment variable BCM3_ROOT that points to the root folder of BCM3. (For Mac users, the environment variable might not be active inside R; in that case you might need to add a call to Sys.setenv() to set the BCM3_ROOT variable within R before calling BCM3's R scripts.)
+2) Create a folder "build"
+3) On Windows with vcpkg: Run `cmake .. -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkgroot/scripts/buildsystems/vcpkg.cmake` within the build folder.
+   On other systems: Run `cmake ..` within the build folder.
+4) Build the generated makefile/project file (with `make` on Linux/Mac, or by building the solution in Visual Studio. In Visual Studio, be sure to use the Release build for production runs.)
 
 ## Using BCM3
 
