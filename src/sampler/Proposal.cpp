@@ -1,4 +1,5 @@
 #include "Utils.h"
+#include "NetCDFBundler.h"
 #include "Prior.h"
 #include "Proposal.h"
 #include "RNG.h"
@@ -226,6 +227,26 @@ namespace bcm3 {
 
 	void Proposal::WriteToFile(const std::string& fn, std::string adaptation_group, std::vector<ptrdiff_t>& variable_indices)
 	{
+		NetCDFBundler update_info_output;
+		if (update_info_output.Open(fn)) {
+			update_info_output.AddGroup(adaptation_group);
+
+			std::vector<int> indices(variable_indices.size());
+			for (int i = 0; i < variable_indices.size(); i++) {
+				ASSERT(variable_indices[i] < std::numeric_limits<int>::max());
+				indices[i] = (int)variable_indices[i];
+			}
+			update_info_output.AddVector(adaptation_group, "variable_indices", indices);
+
+			if (transform_to_unbounded) {
+				MatrixReal bounds(variable_bounds.size(), 2);
+				for (ptrdiff_t i = 0; i < variable_bounds.size(); i++) {
+					bounds(i, 0) = variable_bounds[i].lower;
+					bounds(i, 1) = variable_bounds[i].upper;
+				}
+				update_info_output.AddMatrix(adaptation_group, "transform_bounds", bounds);
+			}
+		}
 	}
 
 #if 0

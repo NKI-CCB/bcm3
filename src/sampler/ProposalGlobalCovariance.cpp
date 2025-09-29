@@ -1,4 +1,5 @@
 #include "Utils.h"
+#include "NetCDFBundler.h"
 #include "Prior.h"
 #include "ProposalGlobalCovariance.h"
 #include "RNG.h"
@@ -46,6 +47,17 @@ namespace bcm3 {
 	void ProposalGlobalCovariance::LogInfo() const
 	{
 		LOG("  Global covariance; scale=%8.5f, condition number=%6g", adaptive_scale, 1.0 / covariance_llt.rcond());
+	}
+
+	void ProposalGlobalCovariance::WriteToFile(const std::string& fn, std::string adaptation_group, std::vector<ptrdiff_t>& variable_indices)
+	{
+		Proposal::WriteToFile(fn, adaptation_group, variable_indices);
+
+		NetCDFBundler update_info_output;
+		if (update_info_output.Open(fn)) {
+			update_info_output.AddMatrix(adaptation_group, "covariance", covariance);
+			update_info_output.Close();
+		}
 	}
 
 	bool ProposalGlobalCovariance::InitializeImpl(const MatrixReal& history, std::shared_ptr<Prior> prior, std::vector<ptrdiff_t>& variable_indices, RNG& rng, bool log_info)

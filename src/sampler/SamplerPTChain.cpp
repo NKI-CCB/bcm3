@@ -85,15 +85,15 @@ namespace bcm3 {
 			current_cluster_assignment = -1;
 		}
 
-		if (!AdaptProposal(0)) {
-			return false;
-		}
-
 		if (sampler->output_proposal_adaptation && temperature == sampler->temperatures.tail(1)(0)) {
 			std::string proposal_output_fn = sampler->output_path + "sampler_adaptation.nc";
 			if (boost::filesystem::exists(proposal_output_fn)) {
 				boost::filesystem::remove(proposal_output_fn);
 			}
+		}
+
+		if (!AdaptProposal(0)) {
+			return false;
 		}
 
 		return true;
@@ -153,11 +153,13 @@ namespace bcm3 {
 				variable_blocks[i].proposal->WriteToFile(proposal_output_fn, adaptation_group, variable_blocks[i].variable_indices);
 
 #if 1
-				NetCDFBundler update_info_output;
-				if (update_info_output.Open(proposal_output_fn)) {
-					MatrixReal history = sample_history->GetHistory(variable_blocks[i].variable_indices);
-					update_info_output.AddMatrix(adaptation_group, "history", history);
-					update_info_output.Close();
+				if (adaptation_iteration >= 1) {
+					NetCDFBundler update_info_output;
+					if (update_info_output.Open(proposal_output_fn)) {
+						MatrixReal history = sample_history->GetHistory(variable_blocks[i].variable_indices);
+						update_info_output.AddMatrix(adaptation_group, "history", history);
+						update_info_output.Close();
+					}
 				}
 #endif
 			}
