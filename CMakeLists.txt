@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.18)
 project(bcm3)
 
 # Boost settings
@@ -51,7 +51,11 @@ add_subdirectory(src/utils)
 # Look for an installed libsbml; otherwise use the included version
 find_package(libsbml)
 if(NOT libsbml_FOUND)
-        add_subdirectory(dependencies/libsbml-5.20.2)
+    message("Using the included libsbml")
+    add_subdirectory(dependencies/libsbml-5.20.2)
+else()
+    message("Using system libsbml")
+    set(LIBSBML_LIBRARY libsbml)
 endif()
 
 add_subdirectory(src/sbml)
