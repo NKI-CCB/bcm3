@@ -278,7 +278,8 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
 	CVodeSStolerances(cvode_mem, abs_tol, rel_tol);
 	CVodeSetMinStep(cvode_mem, 1e-3);
-	CVodeSetMaxStep(cvode_mem, 30.0*60.0);
+	//CVodeSetMaxStep(cvode_mem, 30.0*60.0);
+	CVodeSetMaxStep(cvode_mem, 5.0);
 	CVodeSetInitStep(cvode_mem, 1.0);
 
 	CVodeSetLinearSolver(cvode_mem, LS, J);
@@ -591,8 +592,43 @@ void Cell::SetMutations()
 	//constant_species_y(2) = 1.0;
 }
 
+inline Real pulse(Real t, Real t_in)
+{
+	Real t_in_pulse = t - t_in - 2.0;
+
+	//return ((0.5 * tanh(100.0 * t_in - 100.0 * t + 300.0) + 0.5) * (t_in - 1.0 * t + 2.0) + (0.5 * tanh(100.0 * t_in - 100.0 * t + 300.0) - 0.5) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1000.0) - 1.0 * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1400.0) + 0.5) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1000.0) - 0.5) * (0.25 * t_in - 0.25 * t + 3.5) + 0.5)) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 200.0) - 0.5);
+	if (t_in_pulse < 0.0) {
+		return 0.0;
+	} else if (t_in_pulse < 2.0) {
+		return t_in_pulse * 0.5;
+	} else if (t_in_pulse < 10.0) {
+		return 1.0;
+	} else if (t_in_pulse < 14.0) {
+		return 1 - (t_in_pulse - 10.0) * 0.25;
+	} else {
+		return 0.0;
+	}
+}
+
 void Cell::SetTreatmentConcentration(Real t)
 {
+	Real t_in = 30.0;
+	//Real test = ((0.5 * tanh(100.0 * t_in - 100.0 * t + 300.0) + 0.5) * (t_in - 1.0 * t + 2.0) + (0.5 * tanh(100.0 * t_in - 100.0 * t + 300.0) - 0.5) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1000.0) - 1.0 * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1400.0) + 0.5) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1000.0) - 0.5) * (0.25 * t_in - 0.25 * t + 3.5) + 0.5)) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 200.0) - 0.5);
+	constant_species_y(0) = 0.0;
+	if (t < 60) constant_species_y(0) += pulse(t, 30);
+	else if (t < 90) constant_species_y(0) += pulse(t, 60);
+	else if (t < 120) constant_species_y(0) += pulse(t, 90);
+	else if (t < 150) constant_species_y(0) += pulse(t, 120);
+	else if (t < 180) constant_species_y(0) += pulse(t, 150);
+	else if (t < 210) constant_species_y(0) += pulse(t, 180);
+	else if (t < 241.9064) constant_species_y(0) += pulse(t, 210);
+	else if (t < 290.4352) constant_species_y(0) += pulse(t, 241.9064);
+	else if (t < 372.1597) constant_species_y(0) += pulse(t, 290.4352);
+	else if (t < 455.319) constant_species_y(0) += pulse(t, 372.1597);
+	else if (t < 510.8225) constant_species_y(0) += pulse(t, 455.319);
+	else if (t < 546.0478) constant_species_y(0) += pulse(t, 510.8225);
+	else constant_species_y(0) += pulse(t, 546.0478);
+
 	for (size_t i = 0; i < experiment->treatment_trajectories.size(); i++) {
 		size_t ix = experiment->treatment_trajectories_species_ix[i];
 		constant_species_y(ix) = experiment->treatment_trajectories[i]->GetConcentration(t + creation_time, experiment->selected_treatment_trajectory_sample[i]);
