@@ -39,3 +39,4 @@ target_link_libraries(likelihoods
 )
 
 set_target_properties(likelihoods PROPERTIES DEBUG_POSTFIX d)
+target_precompile_headers(likelihoods PRIVATE ../utils/Utils.h)

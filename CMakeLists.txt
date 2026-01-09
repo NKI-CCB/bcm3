@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.18)
+
 project(bcm3)
 
 # Boost settings
-#include("C:/git/vcpkg/scripts/buildsystems/vcpkg.cmake")
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
 set(Boost_USE_MULTITHREADED ON)
 if(CMAKE_HOST_WIN32)
     set(Boost_USE_STATIC_LIBS ON)
@@ -63,8 +66,8 @@ add_subdirectory(src/cellpop)
 add_subdirectory(src/fISA)
 
 if (Boost_unit_test_framework_FOUND)
-	enable_testing()
-	add_subdirectory(tests/stats)
+    enable_testing()
+    add_subdirectory(tests/stats)
 else()
-	message("Boost unit_test_framework is not available; disabling unit tests")
+    message("Boost unit_test_framework is not available; disabling unit tests")
 endif()
