@@ -2,7 +2,7 @@
 #include "LikelihoodMitosisTimeEstimation.h"
 #include "NetCDFDataFile.h"
 #include "ProbabilityDistributions.h"
-#include "../../dependencies/HungarianAlgorithm-master/matching.h"
+//#include "../../dependencies/HungarianAlgorithm-master/matching.h"
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/sobol.hpp>
 
@@ -94,6 +94,7 @@ bool LikelihoodMitosisTimeEstimation::EvaluateLogProbability(size_t threadix, co
 		}
 	}
 
+#if TODO
 	MatrixReal matching;
 	if (!HungarianMatching(likelihoods, matching, HUNGARIAN_MATCH_MAX)) {
 		LOGERROR("Could not find matching");
@@ -109,6 +110,7 @@ bool LikelihoodMitosisTimeEstimation::EvaluateLogProbability(size_t threadix, co
 			}
 		}
 	}
+#endif
 
 	return true;
 }

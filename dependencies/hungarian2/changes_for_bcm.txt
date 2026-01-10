@@ -1,0 +1,1 @@
+Refactored for use in BCM, e.g. using MatrixReal type.

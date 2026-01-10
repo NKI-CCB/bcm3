@@ -42,6 +42,8 @@ private:
 	void CalculateEndY(Real end_time);
 	static int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data);
 	static int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3);
+	bool solver_rhs_fn(OdeReal t, const OdeReal* y, OdeReal* ydot, void* user_data);
+	Real discontinuity_cb(OdeReal t);
 
 	const SBMLModel* model;
 	const Experiment* experiment;
@@ -95,4 +97,7 @@ private:
 
 	derivative_fn derivative;
 	jacobian_fn jacobian;
+
+	std::shared_ptr<ODESolver> solver;
+	OdeMatrixReal solver_output;
 };

@@ -1,7 +1,7 @@
 #include "DataLikelihoodDuration.h"
 #include "Experiment.h"
 #include "ProbabilityDistributions.h"
-#include "../../dependencies/HungarianAlgorithm-master/matching.h"
+//#include "../../dependencies/HungarianAlgorithm-master/matching.h"
 
 DataLikelihoodDuration::DataLikelihoodDuration(size_t parallel_evaluations)
 {
@@ -111,6 +111,7 @@ bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal
 		}
 	}
 
+#if TODO
 	MatrixReal matching;
 	if (!HungarianMatching(likelihoods, matching, HUNGARIAN_MATCH_MAX)) {
 		LOGERROR("Could not find matching");
@@ -126,6 +127,7 @@ bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal
 			}
 		}
 	}
+#endif
 
 	return true;
 }

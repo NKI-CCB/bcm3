@@ -3,7 +3,7 @@
 #include "DataLikelihoodTimeCourse.h"
 #include "Experiment.h"
 #include "ProbabilityDistributions.h"
-#include "../../dependencies/HungarianAlgorithm-master/matching.h"
+//#include "../../dependencies/HungarianAlgorithm-master/matching.h"
 #include <boost/math/special_functions/gamma.hpp>
 #include <boost/algorithm/string.hpp>
 
@@ -319,6 +319,16 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 
 	trajectory_matching.resize(cell_trajectories.size());
 
+	int n = std::max(observed_cells_with_no_parents.size(), simulated_cell_parents.size());
+	hungarian_matching_edges.resize(n* n);
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < n; j++) {
+			hungarian_matching_edges[i * n + j].left = i;
+			hungarian_matching_edges[i * n + j].right = j;
+			hungarian_matching_edges[i * n + j].cost = std::numeric_limits<Real>::quiet_NaN();
+		}
+	}
+
 	if (synchronize != ESynchronizeCellTrajectory::None) {
 		// If we're going to synchronize, make sure we simulate the cells as long as the full duration of the time course
 		// (this is needed in case there are negative timepoints)
@@ -519,44 +529,57 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 		int n = std::max(observed_cells_with_no_parents.size(), simulated_cell_parents.size());
 		MatrixReal cell_likelihoods(n, n);
 		cell_likelihoods.setZero();
-		//std::vector< std::vector<double> > cell_likelihoods(observed_cells_with_no_parents.size(), std::vector<double>(simulated_cell_parents.size()));
-		std::vector< std::vector< std::vector<int> > > matched_hierarchy;
-		matched_hierarchy.resize(observed_cells_with_no_parents.size());
 
-		std::string out = "cell_likelihoods:\n";
+		std::vector< std::vector< std::vector<int> > > matched_hierarchies;
+		if (!observed_children.empty()) {
+			matched_hierarchies.resize(observed_cells_with_no_parents.size());
+			for (size_t i = 0; i < observed_cells_with_no_parents.size(); i++) {
+				matched_hierarchies[i].resize(simulated_cell_parents.size());
+				for (size_t j = 0; j < simulated_cell_parents.size(); j++) {
+					matched_hierarchies[i][j].resize(cell_trajectories.size());
+				}
+			}
+		}
+
+		//std::string out = "cell_likelihoods:\n";
 		Real maxdiff = 0.0;
 		for (size_t i = 0; i < observed_cells_with_no_parents.size(); i++) {
-			matched_hierarchy[i].resize(simulated_cell_parents.size());
 
 			size_t finite_count = 0;
 			size_t observed_cell_ix = observed_cells_with_no_parents[i];
 			for (size_t j = 0; j < simulated_cell_parents.size(); j++) {
-				matched_hierarchy[i][j].resize(cell_trajectories.size());
 
 				if (simulated_cell_parents[j] == std::numeric_limits<size_t>::max()) {
-					cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, missing_simulation_time_stdev, matched_hierarchy[i][j]);
+					if (!observed_children.empty()) {
+						cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, missing_simulation_time_stdev, &matched_hierarchies[i][j]);
+					} else {
+						cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, missing_simulation_time_stdev, nullptr);
+					}
 					if (cell_likelihoods(i, j) != cell_likelihoods(i, j)) {
 						logp = -std::numeric_limits<Real>::infinity();
 						return false;
 					}
 
-					out += std::to_string(cell_likelihoods(i,j)) + ",\t";
+					//out += std::to_string(cell_likelihoods(i,j)) + ",\t";
 					if (cell_likelihoods(i,j) > -std::numeric_limits<Real>::infinity()) {
 						finite_count++;
 					}
 				} else {
 					cell_likelihoods(i, j) = -std::numeric_limits<Real>::infinity();
 				}
+
+				hungarian_matching_edges[i * simulated_cell_parents.size() + j].cost = cell_likelihoods(i, j);
 			}
 			if (finite_count < observed_cells_with_no_parents.size()) {
 				// Too many infinite likelihoods for this observed cell; won't be able to match all cells so no need to go further and HA doesn't like it
 				logp = -std::numeric_limits<Real>::infinity();
 				return true;
 			}
-			out += "\n";
+			//out += "\n";
 		}
 		//LOG(out.c_str());
 
+#if 0
 		MatrixReal matching;
 		if (!HungarianMatching(cell_likelihoods, matching, HUNGARIAN_MATCH_MAX)) {
 			LOGERROR("Could not find matching");
@@ -569,10 +592,23 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 		//std::cout << cell_likelihoods << std::endl;
 		//std::cout << "Matching:" << std::endl;
 		//std::cout << matching << std::endl;
+#else
+		std::vector<int> matching = hungarianMinimumWeightPerfectMatching(n, hungarian_matching_edges);
+#endif
 
 		for (int i = 0; i < observed_cells_with_no_parents.size(); i++) {
+#if 0
 			for (int j = 0; j < simulated_cell_parents.size(); j++) {
 				if (matching(i, j) == 1) {
+#else
+			int j = matching[i];
+			if (j == -1) {
+				LOGERROR("Could not find matching");
+				logp = -std::numeric_limits<Real>::infinity();
+				return true;
+			} else {
+				{
+#endif
 					logp += cell_likelihoods(i, j);
 
 					size_t oi = observed_cells_with_no_parents[i];
@@ -591,7 +627,7 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 
 					if (!observed_children.empty()) {
 						for (auto ci = observed_children[oi].begin(); ci != observed_children[oi].end(); ci++) {
-							size_t child = matched_hierarchy[i][j][*ci];
+							size_t child = matched_hierarchies[i][j][*ci];
 							matched_trajectories[*ci] = cell_trajectories[child];
 							trajectory_matching[*ci] = child;
 						}
@@ -695,7 +731,7 @@ void DataLikelihoodTimeCourse::NotifyParents(size_t parent, size_t child)
 	}
 }
 
-Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, size_t simulated_cell_ix, const std::vector<Real>& stdevs, Real missing_simulation_time_stdev, std::vector<int>& matched_hierarchy)
+Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, size_t simulated_cell_ix, const std::vector<Real>& stdevs, Real missing_simulation_time_stdev, std::vector<int>* matched_hierarchy)
 {
 	Real cell_logp = 0.0;
 
@@ -723,6 +759,9 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 				OptimizeOffsetScale(observed_data[observed_cell_ix], cell_trajectories[simulated_cell_ix], l, offset, scale);
 			}
 
+			Real minus_log_sigma = -log(stdevs[l]);
+			Real inv_two_sigma_sq = 1.0 / (2.0 * stdevs[l] * stdevs[l]);
+
 			for (int k = 0; k < timepoints.size(); k++) {
 				Real y = observed_data[observed_cell_ix](k, l);
 				if (std::isnan(y)) {
@@ -734,19 +773,20 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 					cell_logp += CalculateMissingValueLikelihood(simulated_cell_ix, k, l, missing_simulation_time_stdev);
 				} else {
 					if (error_model == ErrorModel::Normal) {
-						cell_logp += bcm3::LogPdfNormal(y, x, stdevs[l]);
+						Real d = y - x;
+						cell_logp += minus_log_sigma - 0.91893853320467274178032973640562 - d * d * inv_two_sigma_sq;
 					} else if (error_model == ErrorModel::StudentT4) {
 						cell_logp += bcm3::LogPdfTnu4(y, x, stdevs[l]);
 					} else {
 						assert(false);
 						cell_logp = std::numeric_limits<Real>::quiet_NaN();
 					}
-
-					if (cell_logp == -std::numeric_limits<Real>::infinity()) {
-						// Infinity - no need to go further, and the HA doesn't like it
-						return cell_logp;
-					}
 				}
+			}
+
+			if (cell_logp == -std::numeric_limits<Real>::infinity()) {
+				// Negative infinity - no need to go further
+				return cell_logp;
 			}
 		}
 
@@ -777,12 +817,13 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 				if (observed_children[observed_cell_ix].size() == 1) {
 					if (children_matching(0, 0) > children_matching(1, 0)) {
 						cell_logp += children_matching(0, 0);
-						matched_hierarchy[*observed_children[observed_cell_ix].begin()] = simulated_children.first;
+						matched_hierarchy->at(*observed_children[observed_cell_ix].begin()) = simulated_children.first;
 					} else {
 						cell_logp += children_matching(1, 0);
-						matched_hierarchy[*observed_children[observed_cell_ix].begin()] = simulated_children.second;
+						matched_hierarchy->at(*observed_children[observed_cell_ix].begin()) = simulated_children.second;
 					}
 				} else {
+#if TODO
 					MatrixReal matching;
 					if (!HungarianMatching(children_matching, matching, HUNGARIAN_MATCH_MAX)) {
 						//LOGERROR("Could not find matching");
@@ -803,6 +844,7 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 							}
 						}
 					}
+#endif
 				}
 			} else {
 				for (std::set<size_t>::const_iterator ci = observed_children[observed_cell_ix].begin(); ci != observed_children[observed_cell_ix].end(); ++ci) {

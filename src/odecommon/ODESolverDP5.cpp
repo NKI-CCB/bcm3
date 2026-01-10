@@ -5,7 +5,7 @@ static const OdeReal MIN_DT = 1e-3;
 static const int ATTEMPTS = 5;
 static const OdeReal MIN_SCALE_FACTOR = 0.2;
 static const OdeReal MAX_SCALE_FACTOR = 5.0;
-static const unsigned int MAX_STEPS = 2000;
+static const unsigned int MAX_STEPS = 5000;
 
 ODESolverDP5::ODESolverDP5()
 	: ytmp(nullptr)
@@ -95,7 +95,9 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 		OdeReal cur_dt;
 		OdeReal next_dt = dt;
 		bool approaching_discontinuity = false;
-		if (discontinuity_time == discontinuity_time) {
+		if (std::isnan(discontinuity_time)) {
+			cur_dt = dt;
+		} else {
 			if (discontinuity_time < t + dt) {
 				cur_dt = discontinuity_time - t;
 				approaching_discontinuity = true;

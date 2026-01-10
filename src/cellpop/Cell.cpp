@@ -7,6 +7,7 @@
 #include <sunnonlinsol/sunnonlinsol_newton.h>
 #include <fstream>
 #include "../../dependencies/cvode-5.3.0/src/cvode/cvode_impl.h"
+#include "ODESolverDP5.h"
 
 size_t Cell::total_num_simulations = 0;
 size_t Cell::cvode_max_steps_reached = 0;
@@ -91,6 +92,39 @@ int Cell::static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac,
 #endif
 
 	return 0;
+}
+
+bool Cell::solver_rhs_fn(OdeReal t, const OdeReal* y, OdeReal* ydot, void* user_data)
+{
+	SetTreatmentConcentration(t);
+	if (Cell::use_generated_code) {
+		derivative(ydot, y, constant_species_y.data(), cell_specific_transformed_variables.data(), cell_specific_non_sampled_transformed_variables.data());
+	} else {
+		ASSERT(false);
+	}
+	return true;
+}
+
+Real Cell::discontinuity_cb(OdeReal t)
+{
+	Real times[12] = { 30, 60, 90, 120, 150, 180, 210, 241.9064, 290.4352, 372.1597, 455.319, 510.8225 };
+
+	for (int i = 0; i < 12; i++) {
+		if (t == times[i] + 2.0) {
+			return times[i] + 4.0;
+		} else if (t == times[i] + 4.0) {
+			return times[i] + 10.0;
+		} else if (t == times[i] + 10.0) {
+			return times[i] + 14.0;
+		} else if (t == times[i] + 14.0) {
+			if (i < 11) {
+				return times[i + 1] + 2.0;
+			} else {
+				return std::numeric_limits<OdeReal>::quiet_NaN();
+			}
+		}
+	}
+	return std::numeric_limits<OdeReal>::quiet_NaN();
 }
 
 Cell::Cell(const SBMLModel* model, const Experiment* experiment)
@@ -296,6 +330,12 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 
 	total_num_simulations++;
 
+	solver = std::make_shared<ODESolverDP5>();
+	ODESolver::TDeriviativeFunction derivative = boost::bind(&Cell::solver_rhs_fn, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4);
+	solver->SetDerivativeFunction(derivative);
+	solver->Initialize(model->GetNumCVodeSpecies(), (void*)this);
+	solver->SetTolerance(rel_tol, abs_tol);
+
 	return true;
 }
 
@@ -308,6 +348,8 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 	current_simulation_time = 0;
 	bool result = true;
 	OdeReal cell_end_time = (OdeReal)end_time - creation_time;
+
+#if 0
 	while (current_simulation_time < cell_end_time) {
 		if (cvode_steps >= max_cvode_steps) {
 			cvode_max_steps_reached++;
@@ -418,6 +460,16 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 
 		cvode_steps++;
 	}
+#else
+	OdeVectorReal tp(95);
+	for (int i = 0; i < 95; i++) {
+		tp(i) = 6 * i;
+	}
+	
+	ODESolver::TDiscontinuityCallback cb = boost::bind(&Cell::discontinuity_cb, this, boost::placeholders::_1);
+	solver->SetDiscontinuity(32, cb, nullptr);
+	result = solver->Simulate(NV_DATA_S(cvode_y), tp, solver_output);
+#endif
 
 	//printf("Simulation steps: %zu\n", cvode_steps);
 	achieved_time = current_simulation_time + creation_time;
@@ -426,6 +478,13 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 
 Real Cell::GetInterpolatedSpeciesValue(Real time, size_t species_ix, ESynchronizeCellTrajectory synchronize)
 {
+	if (time < 30.0) {
+		return std::numeric_limits<Real>::quiet_NaN();
+	} else {
+		int index = (int)std::floor((time - 30.0) / 6.0 + 0.5);
+		return solver_output(species_ix, index);
+	}
+
 	if (species_ix >= model->GetNumCVodeSpecies()) {
 		LOGERROR("Out of bounds species index");
 		ASSERT(false);
