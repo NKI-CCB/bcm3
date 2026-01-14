@@ -275,6 +275,7 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	}
 	this->creation_time = creation_time;
 
+#if 0
 	for (size_t i = 0; i < cell_specific_transformed_variables.size(); i++) {
 		cell_specific_transformed_variables(i) = transformed_variables(i);
 		for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
@@ -288,6 +289,56 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 			(*it)->ApplyVariabilityParameter(experiment->non_sampled_parameter_names[i], cell_specific_non_sampled_transformed_variables(i), *sobol_sequence_values, sobol_sequence_ix, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
 		}
 	}
+#else
+
+#if 0
+	MatrixReal covariance(3, 3);
+	covariance(0, 0) = transformed_variables[3];
+	covariance(1, 1) = transformed_variables[4];
+	covariance(2, 2) = transformed_variables[5];
+	covariance(0, 1) = covariance(1, 0) = transformed_variables[6];
+	covariance(0, 2) = covariance(2, 0) = transformed_variables[7];
+	covariance(1, 2) = covariance(2, 1) = transformed_variables[8];
+	//covariance(0, 1) = covariance(1, 0) = 0.0;
+	//covariance(0, 2) = covariance(2, 0) = 0.0;
+	//covariance(1, 2) = covariance(2, 1) = 0.0;
+	MatrixReal covariance_decomp = covariance.llt().matrixL();
+#else
+	MatrixReal covariance_decomp(3, 3);
+	covariance_decomp(0, 0) = exp(transformed_variables[3]);
+	covariance_decomp(1, 1) = exp(transformed_variables[4]);
+	covariance_decomp(2, 2) = exp(transformed_variables[5]);
+	covariance_decomp(1, 0) = (transformed_variables[6]);
+	covariance_decomp(2, 0) = (transformed_variables[7]);
+	covariance_decomp(2, 1) = (transformed_variables[8]);
+	covariance_decomp(0, 1) = 0.0;
+	covariance_decomp(0, 2) = 0.0;
+	covariance_decomp(1, 2) = 0.0;
+#endif
+
+	VectorReal varying_params(3);
+	//varying_params(0) = sqrt(transformed_variables[3]) * bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
+	//varying_params(1) = sqrt(transformed_variables[4]) * bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
+	//varying_params(2) = sqrt(transformed_variables[5]) * bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
+	varying_params(0) = bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
+	varying_params(1) = bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
+	varying_params(2) = bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
+
+	varying_params = covariance_decomp * varying_params;
+
+	for (size_t i = 0; i < cell_specific_transformed_variables.size(); i++) {
+		cell_specific_transformed_variables(i) = transformed_variables(i);
+	}
+	cell_specific_transformed_variables(0) = transformed_variables[0] * exp(varying_params(0));
+	cell_specific_transformed_variables(1) = transformed_variables[1] * exp(varying_params(1));
+	cell_specific_transformed_variables(2) = transformed_variables[2] * exp(varying_params(2));
+
+	if (cell_specific_transformed_variables(2) > 2000) {
+		int a;
+		a = 6;
+	}
+#endif
+
 
 	for (size_t i = 0; i < model->GetNumCVodeSpecies(); i++) {
 		for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
@@ -469,6 +520,12 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 	ODESolver::TDiscontinuityCallback cb = boost::bind(&Cell::discontinuity_cb, this, boost::placeholders::_1);
 	solver->SetDiscontinuity(32, cb, nullptr);
 	result = solver->Simulate(NV_DATA_S(cvode_y), tp, solver_output);
+	if (!result) {
+		//LOG("%g,%g,%g", cell_specific_transformed_variables(0), cell_specific_transformed_variables(1), cell_specific_transformed_variables(2));
+		//NV_CONTENT_S(cvode_y)->setZero();
+		//solver->SetDiscontinuity(32, cb, nullptr);
+		//result = solver->Simulate(NV_DATA_S(cvode_y), tp, solver_output, true);
+	}
 #endif
 
 	//printf("Simulation steps: %zu\n", cvode_steps);
@@ -688,10 +745,12 @@ void Cell::SetTreatmentConcentration(Real t)
 	else if (t < 546.0478) constant_species_y(0) += pulse(t, 510.8225);
 	else constant_species_y(0) += pulse(t, 546.0478);
 
+#if 0
 	for (size_t i = 0; i < experiment->treatment_trajectories.size(); i++) {
 		size_t ix = experiment->treatment_trajectories_species_ix[i];
 		constant_species_y(ix) = experiment->treatment_trajectories[i]->GetConcentration(t + creation_time, experiment->selected_treatment_trajectory_sample[i]);
 	}
+#endif
 }
 
 void Cell::RetrieveCVodeInterpolationInfo()

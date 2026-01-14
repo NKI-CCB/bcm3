@@ -26,17 +26,21 @@ public:
 
 protected:
 	Real GetCurrentSTDev(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, size_t i = 0);
+	Real GetCurrentProportionalSTDev(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, size_t i = 0);
 	Real GetCurrentDataOffset(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, size_t i = 0);
 	Real GetCurrentDataScale(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, size_t i = 0);
 
 	enum class ErrorModel {
 		Normal,
+		ProportionalNormal,
+		AdditiveProportionalNormal,
 		StudentT4,
 	};
 	std::string data_name;
 	Real weight;
 
 	std::string stdev_str;
+	std::string proportional_stdev_str;
 	std::string offset_str;
 	std::string scale_str;
 
@@ -44,12 +48,15 @@ protected:
 	std::vector<size_t> offset_ix;
 	std::vector<size_t> scale_ix;
 	std::vector<size_t> stdev_ix;
+	std::vector<size_t> proportional_stdev_ix;
 	std::vector<size_t> non_sampled_offset_ix;
 	std::vector<size_t> non_sampled_scale_ix;
 	std::vector<size_t> non_sampled_stdev_ix;
+	std::vector<size_t> non_sampled_proportional_stdev_ix;
 	std::vector<Real> fixed_offset_value;
 	std::vector<Real> fixed_scale_value;
 	std::vector<Real> fixed_stdev_value;
+	std::vector<Real> fixed_proportional_stdev_value;
 
 private:
 	bool ParseString(std::string str, size_t& var_ix, size_t& non_sampled_var_ix, Real& fixed_value, const bcm3::VariableSet& varset, const std::vector<std::string>& non_sampled_parameter_names);

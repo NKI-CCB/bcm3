@@ -2,10 +2,10 @@
 #include "ODESolverDP5.h"
 
 static const OdeReal MIN_DT = 1e-3;
-static const int ATTEMPTS = 5;
+static const int ATTEMPTS = 10;
 static const OdeReal MIN_SCALE_FACTOR = 0.2;
 static const OdeReal MAX_SCALE_FACTOR = 5.0;
-static const unsigned int MAX_STEPS = 5000;
+static const unsigned int MAX_STEPS = 2000;
 
 ODESolverDP5::ODESolverDP5()
 	: ytmp(nullptr)
@@ -80,7 +80,7 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 	}
 
 	OdeReal t = 0.0;
-	OdeReal dt = 0.1;
+	OdeReal dt = 1.0;
 
 	for (size_t i = 0; i < N; i++) {
 		yn[i] = initial_conditions[i];
@@ -115,7 +115,7 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 			}
 
 			if (verbose) {
-				LOG("t=%g - dt=%g maxdiff=%g dctime=%g%s", t, cur_dt, maxdiff, discontinuity_time, approaching_discontinuity ? " approaching dc" : "");
+				LOG("t=%g - dt=%g maxdiff=%g dctime=%g%s - %g,%g,%g", t, cur_dt, maxdiff, discontinuity_time, approaching_discontinuity ? " approaching dc" : "", yn[0], yn[1], yn[2]);
 			}
 
 			// From Hairer I; section II.4, p167
@@ -153,7 +153,8 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 		}
 
 		if (!succeeded) {
-			//LOGERROR(ODESolverDP5, IntegrateImpl, "Time step adaptation did not converge in %d steps", ATTEMPTS);
+			//LOGERROR("Time step adaptation did not converge in %d steps", ATTEMPTS);
+			//LOGERROR("%g,%g,%g - %g,%g,%g", yn[0], yn[1], yn[2], k[0][0], k[0][1], k[0][2]);
 			return false;
 		}
 
@@ -203,7 +204,7 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 			// Call the callback and reset the system if necessary
 			discontinuity_time = discontinuity_cb(t, discontinuity_user);
 			derivative(t, yn, k[0], user_data);
-			next_dt = 0.1;
+			next_dt = 1.0;
 
 			steps = 0;
 		} else {
@@ -214,6 +215,7 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 		steps++;
 		if (steps == MAX_STEPS) {
 			//LOGERROR("MAXSTEPS reached, bailing out");
+			//LOGERROR("%g,%g,%g - %g,%g,%g", yn[0], yn[1], yn[2], k[0][0], k[0][1], k[0][2]);
 			return false;
 		}
 	}
