@@ -8,8 +8,8 @@ target_sources(testing
 target_link_libraries(testing
   PRIVATE
     utils
-    hungarian
-    hungarian2
+    hungarian_matching
+    hungarian_matching2
 )
 
 set_target_properties(testing PROPERTIES DEBUG_POSTFIX d)

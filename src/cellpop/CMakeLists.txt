@@ -33,6 +33,7 @@ target_link_libraries(cellpop
     sbml
     ${CMAKE_DL_LIBS}
     hungarian_matching
+    hungarian_matching2
   PRIVATE
     odecommon
     sampler

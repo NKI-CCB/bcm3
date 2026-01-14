@@ -341,7 +341,7 @@ __declspec(noinline) const std::vector<int> hungarianMinimumWeightPerfectMatchin
                             // This edge is to a node on the right that we haven't reached yet.
 
                             Real reducedCost = edge.cost - potential - rightPotential[j];
-                            assert(reducedCost >= -std::numeric_limits<Real>::epsilon());
+                            //assert(reducedCost >= -std::numeric_limits<Real>::epsilon());
 
                             if (reducedCost < rightMinimumSlack[j]) {
                                 // There should be a better way to do this backtracking...

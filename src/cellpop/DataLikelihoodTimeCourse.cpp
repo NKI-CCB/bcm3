@@ -408,10 +408,12 @@ void DataLikelihoodTimeCourse::Reset()
 bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, Real& logp)
 {
 	std::vector<Real> stdevs(species_names.size());
+	std::vector<Real> proportional_stdevs(species_names.size());
 	std::vector<Real> data_offsets(species_names.size());
 	std::vector<Real> data_scales(species_names.size());
 	for (size_t i = 0; i < species_names.size(); i++) {
 		stdevs[i] = GetCurrentSTDev(transformed_values, non_sampled_parameters, i);
+		proportional_stdevs[i] = GetCurrentProportionalSTDev(transformed_values, non_sampled_parameters, i);
 		data_offsets[i] = GetCurrentDataOffset(transformed_values, non_sampled_parameters, i);
 		data_scales[i] = GetCurrentDataScale(transformed_values, non_sampled_parameters, i);
 	}
@@ -551,9 +553,9 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 
 				if (simulated_cell_parents[j] == std::numeric_limits<size_t>::max()) {
 					if (!observed_children.empty()) {
-						cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, missing_simulation_time_stdev, &matched_hierarchies[i][j]);
+						cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, proportional_stdevs, missing_simulation_time_stdev, &matched_hierarchies[i][j]);
 					} else {
-						cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, missing_simulation_time_stdev, nullptr);
+						cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, proportional_stdevs, missing_simulation_time_stdev, nullptr);
 					}
 					if (cell_likelihoods(i, j) != cell_likelihoods(i, j)) {
 						logp = -std::numeric_limits<Real>::infinity();
@@ -568,7 +570,7 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 					cell_likelihoods(i, j) = -std::numeric_limits<Real>::infinity();
 				}
 
-				hungarian_matching_edges[i * simulated_cell_parents.size() + j].cost = cell_likelihoods(i, j);
+				hungarian_matching_edges[i * simulated_cell_parents.size() + j].cost = -cell_likelihoods(i, j);
 			}
 			if (finite_count < observed_cells_with_no_parents.size()) {
 				// Too many infinite likelihoods for this observed cell; won't be able to match all cells so no need to go further and HA doesn't like it
@@ -731,7 +733,7 @@ void DataLikelihoodTimeCourse::NotifyParents(size_t parent, size_t child)
 	}
 }
 
-Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, size_t simulated_cell_ix, const std::vector<Real>& stdevs, Real missing_simulation_time_stdev, std::vector<int>* matched_hierarchy)
+Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, size_t simulated_cell_ix, const std::vector<Real>& stdevs, const std::vector<Real>& proportional_stdevs, Real missing_simulation_time_stdev, std::vector<int>* matched_hierarchy)
 {
 	Real cell_logp = 0.0;
 
@@ -748,7 +750,7 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 		}
 		if (!observed_children.empty()) {
 			for (std::set<size_t>::const_iterator ci = observed_children[observed_cell_ix].begin(); ci != observed_children[observed_cell_ix].end(); ++ci) {
-				cell_logp += CalculateCellLikelihood(*ci, std::numeric_limits<size_t>::max(), stdevs, missing_simulation_time_stdev, matched_hierarchy);
+				cell_logp += CalculateCellLikelihood(*ci, std::numeric_limits<size_t>::max(), stdevs, proportional_stdevs, missing_simulation_time_stdev, matched_hierarchy);
 			}
 		}
 	} else {
@@ -775,6 +777,10 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 					if (error_model == ErrorModel::Normal) {
 						Real d = y - x;
 						cell_logp += minus_log_sigma - 0.91893853320467274178032973640562 - d * d * inv_two_sigma_sq;
+					} else if (error_model == ErrorModel::ProportionalNormal) {
+						cell_logp += bcm3::LogPdfNormal(x, y, proportional_stdevs[l] * std::max(x, 0.0));
+					} else if (error_model == ErrorModel::AdditiveProportionalNormal) {
+						cell_logp += bcm3::LogPdfNormal(x, y, stdevs[l] + proportional_stdevs[l] * std::max(x, 0.0));
 					} else if (error_model == ErrorModel::StudentT4) {
 						cell_logp += bcm3::LogPdfTnu4(y, x, stdevs[l]);
 					} else {
@@ -799,8 +805,8 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 				size_t cii = 0;
 				size_t finite_count1 = 0, finite_count2 = 0;
 				for (std::set<size_t>::const_iterator ci = observed_children[observed_cell_ix].begin(); ci != observed_children[observed_cell_ix].end(); ++ci, ++cii) {
-					children_matching(0, cii) = CalculateCellLikelihood(*ci, simulated_children.first, stdevs, missing_simulation_time_stdev, matched_hierarchy);
-					children_matching(1, cii) = CalculateCellLikelihood(*ci, simulated_children.second, stdevs, missing_simulation_time_stdev, matched_hierarchy);
+					children_matching(0, cii) = CalculateCellLikelihood(*ci, simulated_children.first, stdevs, proportional_stdevs, missing_simulation_time_stdev, matched_hierarchy);
+					children_matching(1, cii) = CalculateCellLikelihood(*ci, simulated_children.second, stdevs, proportional_stdevs, missing_simulation_time_stdev, matched_hierarchy);
 
 					if (children_matching(0, cii) > -std::numeric_limits<Real>::infinity()) {
 						finite_count1++;
@@ -848,7 +854,7 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 				}
 			} else {
 				for (std::set<size_t>::const_iterator ci = observed_children[observed_cell_ix].begin(); ci != observed_children[observed_cell_ix].end(); ++ci) {
-					cell_logp = CalculateCellLikelihood(*ci, std::numeric_limits<size_t>::max(), stdevs, missing_simulation_time_stdev, matched_hierarchy);
+					cell_logp = CalculateCellLikelihood(*ci, std::numeric_limits<size_t>::max(), stdevs, proportional_stdevs, missing_simulation_time_stdev, matched_hierarchy);
 				}
 			}
 		}
@@ -885,7 +891,7 @@ Real DataLikelihoodTimeCourse::CalculateMissingValueLikelihood(size_t simulated_
 		}
 		Real time_offset = std::min(std::abs(timepoints(timepoint_ix) - cell_trajectories_firstnonan),
 			std::abs(timepoints(timepoint_ix) - cell_trajectories_lastnonan));
-		if (error_model == ErrorModel::Normal) {
+		if (error_model == ErrorModel::Normal || error_model == ErrorModel::ProportionalNormal || error_model == ErrorModel::AdditiveProportionalNormal) {
 			return bcm3::LogPdfNormal(time_offset, 0, missing_simulation_time_stdev);
 		} else if (error_model == ErrorModel::StudentT4) {
 			return bcm3::LogPdfTnu4(time_offset, 0, missing_simulation_time_stdev);

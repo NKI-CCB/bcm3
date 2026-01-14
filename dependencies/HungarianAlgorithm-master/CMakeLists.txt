@@ -7,6 +7,8 @@ target_sources(hungarian_matching
 )
 
 target_include_directories(hungarian_matching
+  PUBLIC
+    .
   PRIVATE
     ../../src/utils
 )

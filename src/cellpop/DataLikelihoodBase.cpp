@@ -37,17 +37,29 @@ bool DataLikelihoodBase::Load(const boost::property_tree::ptree& xml_node, Exper
 	weight = xml_node.get<Real>("<xmlattr>.weight", 1.0);
 
 	stdev_str = xml_node.get<std::string>("<xmlattr>.stdev");
+	proportional_stdev_str = xml_node.get<std::string>("<xmlattr>.proportional_stdev", "");
 	offset_str = xml_node.get<std::string>("<xmlattr>.offset", "");
 	scale_str = xml_node.get<std::string>("<xmlattr>.scale", "");
 	
 	std::string error_model_str = xml_node.get<std::string>("<xmlattr>.error_model", "normal");
-	if (error_model_str == "normal") {
+	if (error_model_str == "normal" || error_model_str == "additive_normal") {
 		error_model = ErrorModel::Normal;
+	} else if (error_model_str == "proportional_normal") {
+		error_model = ErrorModel::ProportionalNormal;
+	} else if (error_model_str == "additive_proportional_normal") {
+		error_model = ErrorModel::AdditiveProportionalNormal;
 	} else if (error_model_str == "student_t4" || error_model_str == "t4") {
 		error_model = ErrorModel::StudentT4;
 	} else {
 		LOGERROR("Unknown error model \"%s\"", error_model_str.c_str());
 		return false;
+	}
+
+	if (error_model == ErrorModel::ProportionalNormal || error_model == ErrorModel::AdditiveProportionalNormal) {
+		if (proportional_stdev_str == "") {
+			LOGERROR("Proportional error model is selected, but proportional stdev has not been specified.");
+			return false;
+		}
 	}
 
 	return true;
@@ -64,6 +76,17 @@ bool DataLikelihoodBase::PostInitialize(const bcm3::VariableSet& varset, const s
 	fixed_stdev_value.resize(stdev_tokens.size(), std::numeric_limits<size_t>::max());
 	for (size_t i = 0; i < stdev_tokens.size(); i++) {
 		result &= ParseString(stdev_tokens[i], stdev_ix[i], non_sampled_stdev_ix[i], fixed_stdev_value[i], varset, non_sampled_parameter_names);
+	}
+
+	if (!proportional_stdev_str.empty()) {
+		std::vector<std::string> proportional_stdev_tokens;
+		bcm3::tokenize(proportional_stdev_str, proportional_stdev_tokens, ";");
+		proportional_stdev_ix.resize(proportional_stdev_tokens.size(), std::numeric_limits<size_t>::max());
+		non_sampled_proportional_stdev_ix.resize(proportional_stdev_tokens.size(), std::numeric_limits<size_t>::max());
+		fixed_proportional_stdev_value.resize(proportional_stdev_tokens.size(), std::numeric_limits<size_t>::max());
+		for (size_t i = 0; i < proportional_stdev_tokens.size(); i++) {
+			result &= ParseString(proportional_stdev_tokens[i], proportional_stdev_ix[i], non_sampled_proportional_stdev_ix[i], fixed_proportional_stdev_value[i], varset, non_sampled_parameter_names);
+		}
 	}
 
 	if (!offset_str.empty()) {
@@ -112,6 +135,31 @@ Real DataLikelihoodBase::GetCurrentSTDev(const VectorReal& transformed_values, c
 		stdev = fixed_stdev_value[ix];
 	}
 	return stdev;
+}
+
+Real DataLikelihoodBase::GetCurrentProportionalSTDev(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, size_t i)
+{
+	size_t ix;
+	if (proportional_stdev_ix.size() == 0) {
+		return 0.0;
+	} else if (proportional_stdev_ix.size() == 1) {
+		ix = 0;
+	} else if (i < proportional_stdev_ix.size()) {
+		ix = i;
+	} else {
+		LOGERROR("Out of bounds");
+		return std::numeric_limits<Real>::quiet_NaN();
+	}
+
+	Real proportional_stdev;
+	if (proportional_stdev_ix[ix] != std::numeric_limits<size_t>::max()) {
+		proportional_stdev = transformed_values[proportional_stdev_ix[ix]];
+	} else if (non_sampled_stdev_ix[ix] != std::numeric_limits<size_t>::max()) {
+		proportional_stdev = non_sampled_parameters[non_sampled_proportional_stdev_ix[ix]];
+	} else {
+		proportional_stdev = fixed_proportional_stdev_value[ix];
+	}
+	return proportional_stdev;
 }
 
 Real DataLikelihoodBase::GetCurrentDataOffset(const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, size_t i)

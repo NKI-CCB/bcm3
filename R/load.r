@@ -113,6 +113,7 @@ bcm3.load <- function(base_folder, prior_file="prior.xml", likelihood_file="like
           model$likelihood$experiments[[i]]$data[[j]]$species_name <- xmlAttrs(data[[j]])["species_name"]
           model$likelihood$experiments[[i]]$data[[j]]$data_name <- xmlAttrs(data[[j]])["data_name"]
           model$likelihood$experiments[[i]]$data[[j]]$stdev <- xmlAttrs(data[[j]])["stdev"]
+          model$likelihood$experiments[[i]]$data[[j]]$proportional_stdev <- xmlAttrs(data[[j]])["proportional_stdev"]
           model$likelihood$experiments[[i]]$data[[j]]$stdev_multiplication_factor <- as.numeric(xmlAttrs(data[[j]])["stdev_multiplication_factor"])
           model$likelihood$experiments[[i]]$data[[j]]$base_scale_sd_suffix <- xmlAttrs(data[[j]])["base_scale_sd_suffix"]
           if (is.na(model$likelihood$experiments[[i]]$data[[j]]$stdev_multiplication_factor)) {

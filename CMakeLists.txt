@@ -71,6 +71,7 @@ endif()
 add_subdirectory(src/sbml)
 add_subdirectory(src/cellpop)
 add_subdirectory(src/fISA)
+add_subdirectory(src/testing)
 
 if (Boost_unit_test_framework_FOUND)
     enable_testing()

@@ -24,7 +24,7 @@ public:
 	inline const MatrixReal& GetSimulatedData(size_t ix) const { return use_population_average ? population_average : matched_trajectories[ix]; }
 
 private:
-	Real CalculateCellLikelihood(size_t observed_cell_ix, size_t simulated_cell_ix, const std::vector<Real>& stdevs, Real missing_simulation_time_stdev, std::vector<int>* matched_hierarchy);
+	Real CalculateCellLikelihood(size_t observed_cell_ix, size_t simulated_cell_ix, const std::vector<Real>& stdevs, const std::vector<Real>& proportional_stdevs, Real missing_simulation_time_stdev, std::vector<int>* matched_hierarchy);
 	Real CalculateMissingValueLikelihood(size_t simulated_cell_ix, int timepoint_ix, int species_ix, Real missing_simulation_time_stdev);
 	void OptimizeOffsetScale(const MatrixReal& observed, const MatrixReal& simulated, int col_ix, Real& offset, Real& scale) const;
 
