@@ -304,27 +304,28 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	//covariance(1, 2) = covariance(2, 1) = 0.0;
 	MatrixReal covariance_decomp = covariance.llt().matrixL();
 #else
-	MatrixReal covariance_decomp(3, 3);
-	covariance_decomp(0, 0) = exp(transformed_variables[3]);
-	covariance_decomp(1, 1) = exp(transformed_variables[4]);
-	covariance_decomp(2, 2) = exp(transformed_variables[5]);
-	covariance_decomp(1, 0) = (transformed_variables[6]);
-	covariance_decomp(2, 0) = (transformed_variables[7]);
-	covariance_decomp(2, 1) = (transformed_variables[8]);
-	covariance_decomp(0, 1) = 0.0;
-	covariance_decomp(0, 2) = 0.0;
-	covariance_decomp(1, 2) = 0.0;
+	// Log-cholesky parametrization as described by Pinheiro & Bates, Unconstrained parametrizations for variance-covariance matrices, Statistics and Computing 1996
+	// The diagonal terms are on log scale, the off-diagonal not
+	MatrixReal cholesky_L(3, 3);
+	cholesky_L(0, 0) = exp(transformed_variables[3]);
+	cholesky_L(1, 1) = exp(transformed_variables[4]);
+	cholesky_L(2, 2) = exp(transformed_variables[5]);
+	cholesky_L(1, 0) = (transformed_variables[6]);
+	cholesky_L(2, 0) = (transformed_variables[7]);
+	cholesky_L(2, 1) = (transformed_variables[8]);
+	cholesky_L(0, 1) = 0.0;
+	cholesky_L(0, 2) = 0.0;
+	cholesky_L(1, 2) = 0.0;
 #endif
 
+	// Normally distributed pseudorandom values
 	VectorReal varying_params(3);
-	//varying_params(0) = sqrt(transformed_variables[3]) * bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
-	//varying_params(1) = sqrt(transformed_variables[4]) * bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
-	//varying_params(2) = sqrt(transformed_variables[5]) * bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
 	varying_params(0) = bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
 	varying_params(1) = bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
 	varying_params(2) = bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
 
-	varying_params = covariance_decomp * varying_params;
+	// Transform by covariance matrix
+	varying_params = cholesky_L * varying_params;
 
 	for (size_t i = 0; i < cell_specific_transformed_variables.size(); i++) {
 		cell_specific_transformed_variables(i) = transformed_variables(i);
