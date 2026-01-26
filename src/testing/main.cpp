@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	std::vector<int> matching2 = hungarianMinimumWeightPerfectMatching(3, edges);
+	std::vector<int> matching2 = hungarianMinimumWeightPerfectMatching(3, edges, 9);
 
 	return 0;
 }

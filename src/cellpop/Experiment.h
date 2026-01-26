@@ -107,7 +107,6 @@ protected:
 
 	std::vector< std::unique_ptr<TreatmentTrajectory> > treatment_trajectories;
 	std::vector< size_t > treatment_trajectories_species_ix;
-	std::vector< size_t > selected_treatment_trajectory_sample;
 
 	struct SetSpecies {
 		Real begin_time;
@@ -138,6 +137,7 @@ protected:
 		ESynchronizeCellTrajectory synchronize;
 	};
 	std::vector<SimulationTimepoints> simulation_timepoints;
+	VectorReal simulation_timepoints_vector;
 	EPhaseDuration requested_duration;
 	bool any_requested_synchronization;
 	bool store_simulation;

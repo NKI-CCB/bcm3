@@ -72,11 +72,14 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 	output.setConstant(N, timepoints.size(), std::numeric_limits<OdeReal>::quiet_NaN());
 
 	size_t ti = 0;
-	if (timepoints(0) < std::numeric_limits<OdeReal>::epsilon()) {
+	while (timepoints(ti) < std::numeric_limits<OdeReal>::epsilon()) {
 		for (size_t i = 0; i < N; i++) {
-			output(i, 0) = initial_conditions[i];
+			output(i, ti) = initial_conditions[i];
 		}
 		ti++;
+		if (ti == timepoints.size()) {
+			return true;
+		}
 	}
 
 	OdeReal t = 0.0;

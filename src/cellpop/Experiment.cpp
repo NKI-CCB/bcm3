@@ -163,6 +163,11 @@ bool Experiment::PostInitialize()
 		cell_variabilities[i]->PostInitialize(varset, non_sampled_parameter_names, cell_model);
 	}
 
+	simulation_timepoints_vector = VectorReal(simulation_timepoints.size());
+	for (size_t i = 0; i < simulation_timepoints.size(); i++) {
+		simulation_timepoints_vector[i] = simulation_timepoints[i].time;
+	}
+
 	if (Cell::use_generated_code) {
 		// Generate code for the model/variable combination
 		std::string codegen_name = model_filename;
@@ -267,7 +272,7 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 					}
 					for (size_t j = 0; j < treatment_trajectories.size(); j++) {
 						size_t simix = cell_model.GetSimulatedSpeciesByName(cell_model.GetConstantSpeciesName(treatment_trajectories_species_ix[j]));
-						simulated_trajectories[i][ti](simix) = treatment_trajectories[j]->GetConcentration(output_t, selected_treatment_trajectory_sample[j]);
+						simulated_trajectories[i][ti](simix) = treatment_trajectories[j]->GetConcentration(output_t, cells[i]->GetCreationTime());
 					}
 				}
 			}
@@ -515,6 +520,22 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 						return false;
 					}
 				}
+				if (var.first == "treatment_trajectory") {
+					std::string species_name = var.second.get<std::string>("<xmlattr>.species_name");
+					size_t constant_species_ix = cell_model.GetConstantSpeciesByName(species_name);
+					if (constant_species_ix == std::numeric_limits<size_t>::max()) {
+						LOGERROR("Cannot find \"%s\" as a constant species for treatment trajectory (the species needs to be constant).", species_name.c_str());
+						return false;
+					}
+					treatment_trajectories_species_ix.push_back(constant_species_ix);
+
+					std::unique_ptr<TreatmentTrajectory> traj = TreatmentTrajectory::Create(var.second);
+					if (traj->Load(var.second, this, file)) {
+						treatment_trajectories.push_back(std::move(traj));
+					} else {
+						return false;
+					}
+				}
 			}
 		} catch (boost::property_tree::ptree_error &e) {
 			LOGERROR("Error parsing likelihood file: %s", e.what());
@@ -529,29 +550,6 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 				}
 			}
 		}
-
-
-
-#if 0
-		// Load treatment trajectories
-		auto lapatinib = std::make_unique<TreatmentTrajectory>();
-		if (lapatinib->Load(this, &file, "treatment_lapatinib")) {
-			treatment_trajectories.push_back(std::move(lapatinib));
-			treatment_trajectories_species_ix.push_back(cell_model.GetConstantSpeciesByName("lapatinib"));
-			selected_treatment_trajectory_sample.push_back(0);
-		} else {
-			return false;
-		}
-
-		auto trametinib = std::make_unique<TreatmentTrajectory>();
-		if (trametinib->Load(this, &file, "treatment_trametinib")) {
-			treatment_trajectories.push_back(std::move(trametinib));
-			treatment_trajectories_species_ix.push_back(cell_model.GetConstantSpeciesByName("trametinib"));
-			selected_treatment_trajectory_sample.push_back(0);
-		} else {
-			return false;
-		}
-#endif
 	} else {
 		LOG("No data file specified - adding fixed timepoints to simulate model");
 		for (int i = 0; i < 2; i++) {
@@ -1034,11 +1032,6 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 		transformed_sampled_parameters[espi->first] = transformed_sampled_parameters[espi->second];
 	}
 
-	// TODO - incorporate in sobol? Or switch to ML?
-	for (size_t i = 0; i < treatment_trajectories.size(); i++) {
-		selected_treatment_trajectory_sample[i] = rng.GetUnsignedInt(treatment_trajectories[i]->GetNumSamples()-1);
-	}
-
 	Real entry_time;
 	if (entry_time_varix != std::numeric_limits<size_t>::max()) {
 		entry_time = transformed_sampled_parameters[entry_time_varix];
@@ -1057,13 +1050,13 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 	min_start_time = std::numeric_limits<Real>::infinity();
 	if (initial_number_of_cells > 1) {
 		for (size_t i = 0; i < initial_number_of_cells; i++) {
-			Real cell_start_time = -entry_time;
+			Real cell_start_time = entry_time;
 			AddNewCell(cell_start_time, NULL, true, -1);
 			min_start_time = std::min(cell_start_time, min_start_time);
 		}
 	} else {
-		AddNewCell(-entry_time, NULL, false, -1);
-		min_start_time = -entry_time;
+		AddNewCell(entry_time, NULL, false, -1);
+		min_start_time = entry_time;
 	}
 
 	if (min_start_time < -7.0 * 24.0 * 60.0 * 60.0) {
@@ -1123,7 +1116,7 @@ bool Experiment::SimulateCell(size_t i, Real target_time, Real& achieved_time, s
 {
 	bool die = false, divide = false;
 	achieved_time = 0.0;
-	if (!cells[i]->Simulate(target_time, simulate_past_chromatid_separation_time, die, divide, achieved_time)) {
+	if (!cells[i]->Simulate(target_time, simulate_past_chromatid_separation_time, simulation_timepoints_vector, die, divide, achieved_time)) {
 		return false;
 	}
 

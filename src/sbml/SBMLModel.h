@@ -57,7 +57,8 @@ public:
 	void GetSimulatedSpeciesFullNames(std::vector<std::string>& species_names) const;
 	const SBMLSpecies* GetSpecies(const std::string& id) const;
 	const SBMLSpecies* GetSpeciesFromFullName(const std::string& id) const;
-	SBMLModelParameters* GetParameterSet();
+	inline size_t GetNumAssignmentRules() const { return AssignmentRules.size(); }
+	inline const SBMLAssignmentRule& GetAssignmentRule(size_t i) const { return *AssignmentRules[i]; }
 
 private:
 #if BCM3_SBML_INCLUDE_SOLVERS

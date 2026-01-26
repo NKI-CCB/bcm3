@@ -18,6 +18,10 @@ target_sources(cellpop
     Experiment.cpp
     TreatmentTrajectory.h
     TreatmentTrajectory.cpp
+    TreatmentTrajectoryFromData.h
+    TreatmentTrajectoryFromData.cpp
+    TreatmentTrajectoryPulses.h
+    TreatmentTrajectoryPulses.cpp
     VariabilityDescription.h
     VariabilityDescription.cpp
 )

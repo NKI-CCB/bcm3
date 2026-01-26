@@ -16,7 +16,7 @@ struct WeightedBipartiteEdge {
 // If a matching is found, returns a length-n vector, giving the nodes on the right that the left nodes are matched to.
 // If no matching exists, returns an empty vector.
 // (Note: Edges with endpoints out of the range [0, n) are ignored.)
-const std::vector<int> hungarianMinimumWeightPerfectMatching(int n, const std::vector<WeightedBipartiteEdge> allEdges);
+const std::vector<int> hungarianMinimumWeightPerfectMatching(int n, const std::vector<WeightedBipartiteEdge>& allEdges, int edge_count);
 
 
 #endif // HUNGARIAN_H

@@ -37,7 +37,9 @@ struct LeftEdge {
     }
 };
 
-const std::vector<int> hungarianMinimumWeightPerfectMatching(const int n, const std::vector<WeightedBipartiteEdge> allEdges) {
+const std::vector<int> hungarianMinimumWeightPerfectMatching(const int n, const std::vector<WeightedBipartiteEdge>& allEdges, int edge_count)
+{
+    ASSERT(edge_count <= allEdges.size());
 
     // Edge lists for each left node.
     const std::unique_ptr<std::vector<LeftEdge>[]> leftEdges(new std::vector<LeftEdge>[n]);
@@ -51,7 +53,7 @@ const std::vector<int> hungarianMinimumWeightPerfectMatching(const int n, const 
         std::vector<int> leftEdgeCounts(n, 0);
         std::vector<int> rightEdgeCounts(n, 0);
 
-        fo(edgeIndex, allEdges.size()) {
+        for (int edgeIndex = 0; edgeIndex < edge_count; edgeIndex++) {
             const WeightedBipartiteEdge& edge = allEdges[edgeIndex];
             if (edge.left >= 0 && edge.left < n) {
                 ++leftEdgeCounts[edge.left];
@@ -74,7 +76,7 @@ const std::vector<int> hungarianMinimumWeightPerfectMatching(const int n, const 
         }
     }
     // Actually add to the edge lists now.
-    fo(edgeIndex, allEdges.size()) {
+    for (int edgeIndex = 0; edgeIndex < edge_count; edgeIndex++) {
         const WeightedBipartiteEdge& edge = allEdges[edgeIndex];
         if (edge.left >= 0 && edge.left < n && edge.right >= 0 && edge.right < n) {
             leftEdges[edge.left].push_back(LeftEdge(edge.right, edge.cost));
@@ -137,7 +139,7 @@ const std::vector<int> hungarianMinimumWeightPerfectMatching(const int n, const 
     // This guarantees that each node on the right has at least one "tight" edge.
 
     std::vector<Real> rightPotential(n, oo);
-    fo(edgeIndex, allEdges.size()) {
+    for (int edgeIndex = 0; edgeIndex < edge_count; edgeIndex++) {
         const WeightedBipartiteEdge& edge = allEdges[edgeIndex];
         Real reducedCost = edge.cost - leftPotential[edge.left];
         if (rightPotential[edge.right] > reducedCost) {

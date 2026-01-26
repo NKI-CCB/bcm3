@@ -1,6 +1,7 @@
 #include "Utils.h"
 #include "Cell.h"
 #include "ProbabilityDistributions.h"
+#include "SBMLAssignmentRule.h"
 #include "SBMLModel.h"
 #include "SBMLSpecies.h"
 #include "VariabilityDescription.h"
@@ -107,24 +108,18 @@ bool Cell::solver_rhs_fn(OdeReal t, const OdeReal* y, OdeReal* ydot, void* user_
 
 Real Cell::discontinuity_cb(OdeReal t)
 {
-	Real times[12] = { 30, 60, 90, 120, 150, 180, 210, 241.9064, 290.4352, 372.1597, 455.319, 510.8225 };
-
-	for (int i = 0; i < 12; i++) {
-		if (t == times[i] + 2.0) {
-			return times[i] + 4.0;
-		} else if (t == times[i] + 4.0) {
-			return times[i] + 10.0;
-		} else if (t == times[i] + 10.0) {
-			return times[i] + 14.0;
-		} else if (t == times[i] + 14.0) {
-			if (i < 11) {
-				return times[i + 1] + 2.0;
-			} else {
-				return std::numeric_limits<OdeReal>::quiet_NaN();
-			}
+	Real disc = std::numeric_limits<Real>::infinity();
+	for (size_t i = 0; i < experiment->treatment_trajectories.size(); i++) {
+		Real d = experiment->treatment_trajectories[i]->NextDiscontinuity(t, creation_time);
+		if (d < disc) {
+			disc = d;
 		}
 	}
-	return std::numeric_limits<OdeReal>::quiet_NaN();
+	if (disc == std::numeric_limits<Real>::infinity()) {
+		return std::numeric_limits<Real>::quiet_NaN();
+	} else {
+		return disc - creation_time;
+	}
 }
 
 Cell::Cell(const SBMLModel* model, const Experiment* experiment)
@@ -391,7 +386,7 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	return true;
 }
 
-bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time, bool& die, bool& divide, Real& achieved_time)
+bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time, VectorReal& output_times, bool& die, bool& divide, Real& achieved_time)
 {
 	die = false;
 	divide = false;
@@ -513,19 +508,53 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 		cvode_steps++;
 	}
 #else
+#if 0
 	OdeVectorReal tp(95);
 	for (int i = 0; i < 95; i++) {
 		tp(i) = 6 * i;
 	}
+#else
+	if (output_times.size() > 0) {
+		solver_stored_timepoints = OdeVectorReal(output_times.size());
+		for (int i = 0; i < output_times.size(); i++) {
+			solver_stored_timepoints(i) = output_times(i) - creation_time;
+		}
+	}
+#endif
 	
-	ODESolver::TDiscontinuityCallback cb = boost::bind(&Cell::discontinuity_cb, this, boost::placeholders::_1);
-	solver->SetDiscontinuity(32, cb, nullptr);
-	result = solver->Simulate(NV_DATA_S(cvode_y), tp, solver_output);
+	Real first_discontinuity = std::numeric_limits<Real>::quiet_NaN();
+	for (int i = 0; i < experiment->treatment_trajectories.size(); i++) {
+		Real discontinuity = experiment->treatment_trajectories[i]->FirstDiscontinuity(creation_time);
+		if (!(first_discontinuity < discontinuity)) { // Slightly odd comparison to handle nan's
+			first_discontinuity = discontinuity;
+		}
+	}
+	if (!std::isnan(first_discontinuity)) {
+		ODESolver::TDiscontinuityCallback cb = boost::bind(&Cell::discontinuity_cb, this, boost::placeholders::_1);
+		solver->SetDiscontinuity(first_discontinuity, cb, nullptr);
+	}
+
+	result = solver->Simulate(NV_DATA_S(cvode_y), solver_stored_timepoints, solver_output);
 	if (!result) {
 		//LOG("%g,%g,%g", cell_specific_transformed_variables(0), cell_specific_transformed_variables(1), cell_specific_transformed_variables(2));
 		//NV_CONTENT_S(cvode_y)->setZero();
 		//solver->SetDiscontinuity(32, cb, nullptr);
 		//result = solver->Simulate(NV_DATA_S(cvode_y), tp, solver_output, true);
+	} else {
+#if 0
+		for (int ti = 0; ti < solver_stored_timepoints.size(); ti++) {
+			static_assert(!solver_output.IsRowMajor);
+			OdeReal* y = solver_output.col(ti).data();
+			for (size_t i = 0; i < model->GetNumAssignmentRules(); i++) {
+				OdeReal value;
+				model->GetAssignmentRule(i).Calculate(y, nullptr, cell_specific_transformed_variables.data(), cell_specific_non_sampled_transformed_variables.data(), &value);
+
+				constant_solver_output
+			}
+		}
+#endif
+
+		current_simulation_time = solver_stored_timepoints[solver_stored_timepoints.size()-1];
 	}
 #endif
 
@@ -536,12 +565,27 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 
 Real Cell::GetInterpolatedSpeciesValue(Real time, size_t species_ix, ESynchronizeCellTrajectory synchronize)
 {
-	if (time < 30.0) {
-		return std::numeric_limits<Real>::quiet_NaN();
-	} else {
-		int index = (int)std::floor((time - 30.0) / 6.0 + 0.5);
-		return solver_output(species_ix, index);
+	Real cell_time = time - creation_time;
+	for (int i = 0; i < solver_stored_timepoints.size(); i++) {
+		if (solver_stored_timepoints(i) == cell_time) {
+			return solver_output(species_ix, i) * exp(-cell_specific_transformed_variables(2) * creation_time);
+		}
 	}
+	return std::numeric_limits<Real>::quiet_NaN();
+#if 0
+	if (cell_time < 0.0) {
+		//return std::numeric_limits<Real>::quiet_NaN();
+		return 0.0;
+	} else {
+		//int index = (int)std::floor(cell_time / 6.0 + 0.5);
+		int index = (int)std::floor(cell_time / 5.0 + 0.5);
+		if (index < solver_output.cols()) {
+			return solver_output(species_ix, index);
+		} else {
+			return std::numeric_limits<Real>::quiet_NaN();
+		}
+	}
+#endif
 
 	if (species_ix >= model->GetNumCVodeSpecies()) {
 		LOGERROR("Out of bounds species index");
@@ -552,7 +596,7 @@ Real Cell::GetInterpolatedSpeciesValue(Real time, size_t species_ix, ESynchroniz
 		return std::numeric_limits<Real>::quiet_NaN();
 	}
 
-	Real cell_time = 0.0;
+	cell_time = 0.0;
 	if (synchronize == ESynchronizeCellTrajectory::DNAReplicationStart) {
 		if (std::isnan(replication_start_time)) {
 			cell_time = time + cvode_timepoints[cvode_steps - 1].cvode_time;
@@ -703,55 +747,12 @@ Real Cell::GetDuration(EPhaseDuration duration) const
 	}
 }
 
-void Cell::SetMutations()
-{
-	// hack
-	//constant_species_y(2) = 1.0;
-}
-
-inline Real pulse(Real t, Real t_in)
-{
-	Real t_in_pulse = t - t_in - 2.0;
-
-	//return ((0.5 * tanh(100.0 * t_in - 100.0 * t + 300.0) + 0.5) * (t_in - 1.0 * t + 2.0) + (0.5 * tanh(100.0 * t_in - 100.0 * t + 300.0) - 0.5) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1000.0) - 1.0 * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1400.0) + 0.5) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1000.0) - 0.5) * (0.25 * t_in - 0.25 * t + 3.5) + 0.5)) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 200.0) - 0.5);
-	if (t_in_pulse < 0.0) {
-		return 0.0;
-	} else if (t_in_pulse < 2.0) {
-		return t_in_pulse * 0.5;
-	} else if (t_in_pulse < 10.0) {
-		return 1.0;
-	} else if (t_in_pulse < 14.0) {
-		return 1 - (t_in_pulse - 10.0) * 0.25;
-	} else {
-		return 0.0;
-	}
-}
-
 void Cell::SetTreatmentConcentration(Real t)
 {
-	Real t_in = 30.0;
-	//Real test = ((0.5 * tanh(100.0 * t_in - 100.0 * t + 300.0) + 0.5) * (t_in - 1.0 * t + 2.0) + (0.5 * tanh(100.0 * t_in - 100.0 * t + 300.0) - 0.5) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1000.0) - 1.0 * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1400.0) + 0.5) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1000.0) - 0.5) * (0.25 * t_in - 0.25 * t + 3.5) + 0.5)) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 200.0) - 0.5);
-	constant_species_y(0) = 0.0;
-	if (t < 60) constant_species_y(0) += pulse(t, 30);
-	else if (t < 90) constant_species_y(0) += pulse(t, 60);
-	else if (t < 120) constant_species_y(0) += pulse(t, 90);
-	else if (t < 150) constant_species_y(0) += pulse(t, 120);
-	else if (t < 180) constant_species_y(0) += pulse(t, 150);
-	else if (t < 210) constant_species_y(0) += pulse(t, 180);
-	else if (t < 241.9064) constant_species_y(0) += pulse(t, 210);
-	else if (t < 290.4352) constant_species_y(0) += pulse(t, 241.9064);
-	else if (t < 372.1597) constant_species_y(0) += pulse(t, 290.4352);
-	else if (t < 455.319) constant_species_y(0) += pulse(t, 372.1597);
-	else if (t < 510.8225) constant_species_y(0) += pulse(t, 455.319);
-	else if (t < 546.0478) constant_species_y(0) += pulse(t, 510.8225);
-	else constant_species_y(0) += pulse(t, 546.0478);
-
-#if 0
 	for (size_t i = 0; i < experiment->treatment_trajectories.size(); i++) {
 		size_t ix = experiment->treatment_trajectories_species_ix[i];
-		constant_species_y(ix) = experiment->treatment_trajectories[i]->GetConcentration(t + creation_time, experiment->selected_treatment_trajectory_sample[i]);
+		constant_species_y(ix) = experiment->treatment_trajectories[i]->GetConcentration(t, creation_time);
 	}
-#endif
 }
 
 void Cell::RetrieveCVodeInterpolationInfo()

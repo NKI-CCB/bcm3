@@ -151,7 +151,6 @@ bool SBMLModel::LoadSBML(const std::string& fn)
 				return false;
 			}
 			newrule->SetSpeciesVector(CVodeSpecies);
-			AssignmentRules.push_back(std::move(newrule));
 
 			const std::string& target = newrule->GetVariable();
 			bool found = false;
@@ -168,6 +167,8 @@ bool SBMLModel::LoadSBML(const std::string& fn)
 				LOGERROR("Target variable \"%s\" for assignment rule %d not found!", target.c_str(), i);
 				return false;
 			}
+
+			AssignmentRules.push_back(std::move(newrule));
 		}
 	}
 

@@ -16,11 +16,12 @@ public:
 	bool SetInitialConditionsFromOtherCell(const Cell* other);
 	bool Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_point, Real abs_tol, Real rel_tol);
 
-	bool Simulate(Real end_time, Real simulate_past_chromatid_separation_time, bool &die, bool &divide, Real& achieved_time);
+	bool Simulate(Real end_time, Real simulate_past_chromatid_separation_time, VectorReal& output_times, bool &die, bool &divide, Real& achieved_time);
 
 	Real GetInterpolatedSpeciesValue(Real time, size_t i, ESynchronizeCellTrajectory synchronize);
 	void RestartInterpolationIteration();
 	bool CellAliveAtTime(Real time, ESynchronizeCellTrajectory synchronize) const;
+	inline Real GetCreationTime() const { return creation_time; }
 	inline bool CellCompleted() const { return completed; }
 	inline bool EnteredMitosis() const { return !std::isnan(nuclear_envelope_breakdown_time); }
 	inline Real GetCVodeSteps() const { return cvode_steps; }
@@ -35,7 +36,6 @@ public:
 	static const bool use_generated_code;
 
 private:
-	void SetMutations();
 	void SetTreatmentConcentration(Real t);
 	void RetrieveCVodeInterpolationInfo();
 	Real InterpolateEventTime(size_t species_ix, Real threshold, bool above, Real prev_time);
@@ -58,7 +58,7 @@ private:
 	OdeVectorReal constant_species_y;
 	SUNMatrix J;
 	bool cvode_initialized;
-	OdeReal creation_time;
+	OdeReal creation_time;				// The time in "experiment time" at which the cell is created. So in "cell time", t=0 will be creation_time
 	OdeReal current_simulation_time;
 	size_t cvode_steps;
 	OdeReal min_step_size;
@@ -99,5 +99,7 @@ private:
 	jacobian_fn jacobian;
 
 	std::shared_ptr<ODESolver> solver;
+	OdeVectorReal solver_stored_timepoints;
 	OdeMatrixReal solver_output;
+	OdeMatrixReal constant_solver_output;
 };
