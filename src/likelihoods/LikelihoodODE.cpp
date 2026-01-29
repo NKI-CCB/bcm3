@@ -59,7 +59,7 @@ bool LikelihoodODE::EvaluateLogProbability(size_t threadix, const VectorReal& va
 
     // Integrate the ODE system and calculate the likelihood based on the solution
     // In this example we compare the first dynamic variable to a cosine
-    if (solver->Simulate(initial_conditions.data(), timepoints, simulated_trajectories)) {
+    if (solver->SolveReturnSolution(initial_conditions, &timepoints, &simulated_trajectories)) {
         logp = 0.0;
         for (size_t i = 0; i < timepoints.size(); i++) {
             Real cosvalue = 100.0 * cos(timepoints(i) / 2300.0) + 300.0;

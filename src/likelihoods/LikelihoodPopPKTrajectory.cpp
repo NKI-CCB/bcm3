@@ -363,7 +363,7 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 			solvers[threadix]->SetDiscontinuity(pd.dosing_interval, boost::bind(&LikelihoodPopPKTrajectory::TreatmentCallback, this, _1, _2), (void*)threadix);
 		}
 
-		OdeReal initial_conditions[3];
+		OdeVectorReal initial_conditions(3);
 		if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
 			initial_conditions[0] = 0.0;
 		} else {
@@ -397,7 +397,7 @@ bool LikelihoodPopPKTrajectory::EvaluateLogProbability(size_t threadix, const Ve
 
 		Real patient_logllh = 0.0;
 		if (simulate_time.size() > 0) {
-			if (!solvers[threadix]->Simulate(initial_conditions, simulate_time, pd.simulated_trajectories)) {
+			if (!solvers[threadix]->SolveReturnSolution(initial_conditions, &simulate_time, &pd.simulated_trajectories)) {
 #if 0
 				LOG("Patient %u failed", j);
 				LOG(" k_absorption: %g", pd.k_absorption);
@@ -683,7 +683,7 @@ Real LikelihoodPopPKTrajectory::TreatmentCallback(OdeReal t, void* user)
 		if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
 			pd.last_treatment = t;
 		} else {
-			solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
+			solvers[threadix]->set_current_y(0, solvers[threadix]->get_current_y(0) + dose);
 		}
 	}
 	return pd.current_dose_time;
@@ -706,7 +706,7 @@ Real LikelihoodPopPKTrajectory::TreatmentCallbackBiphasic(OdeReal t, void* user)
 			if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
 				pd.last_treatment = t;
 			} else {
-				solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
+				solvers[threadix]->set_current_y(0, solvers[threadix]->get_current_y(0) + dose);
 			}
 			pd.biphasic_switch = true;
 			return pd.current_dose_time + pd.k_biphasic_switch_time;

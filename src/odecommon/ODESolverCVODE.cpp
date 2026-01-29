@@ -10,9 +10,7 @@ static const size_t MAX_CVODE_STEPS = 10000;
 
 void static_cvode_err_fn(int error_code, const char *module, const char *function, char *msg, void *user_data)
 {
-#if 0
 	LOGERROR("CVODE error %d in module %s, function %s: %s", error_code, module, function, msg);
-#endif
 }
 
 int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data)
@@ -33,7 +31,8 @@ int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void*
 }
 
 ODESolverCVODE::ODESolverCVODE()
-	: cvode_mem(NULL)
+	: max_steps(2000)
+	, cvode_mem(NULL)
 	, LS(NULL)
 	, NLS(NULL)
 	, y(NULL)
@@ -92,63 +91,98 @@ bool ODESolverCVODE::Initialize(size_t N, void* user)
 
 	CVodeInit(cvode_mem, &static_cvode_rhs_fn, 0.0, y);
 	CVodeSetUserData(cvode_mem, this);
-	CVodeSetMaxNumSteps(cvode_mem, 500); // Note that this is not actually used, since we take one step at a time.
-	CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
-	CVodeSetMinStep(cvode_mem, (OdeReal)1e-6);
-	CVodeSetMaxStep(cvode_mem, 1.0);
 	CVodeSetLinearSolver(cvode_mem, LS, J);
 	CVodeSetNonlinearSolver(cvode_mem, NLS);
 	CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
 
-	step_counts.resize(MAX_CVODE_STEPS + 1, 0);
-	failed_step_counts.resize(MAX_CVODE_STEPS + 1, 0);
-
 	return true;
 }
 
-bool ODESolverCVODE::Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, OdeMatrixReal& output, bool verbose)
+bool ODESolverCVODE::SetSolverParameter(const std::string& parameter, int int_value, OdeReal real_value)
 {
-	if (timepoints.size() == 0) {
-		LOGERROR("No time points requested");
+	if (cvode_mem == nullptr) {
+		LOGERROR("Solver should be initialized before specifying parameters.");
 		return false;
 	}
 
-	for (size_t i = 0; i < N; i++) {
-		NV_Ith_S(y,i) = (OdeReal)initial_conditions[i];
-		NV_Ith_S(tmpvector, i) = abstol(i);
-	}
-
-	CVodeSVtolerances(cvode_mem, reltol, tmpvector);
-	CVodeReInit(cvode_mem, 0.0, (N_Vector)y);
-	output.setZero(N, timepoints.size());
-
-	// If the first time point is at t=0, copy the initial conditions to the output
-	unsigned int tpi = 0;
-	if (timepoints(tpi) == 0.0) {
-		for (size_t i = 0; i < N; i++) {
-			output(i, tpi) = NV_Ith_S(y, i);
+	if (parameter == "min_dt") {
+		if (real_value <= 0.0) {
+			LOGERROR("min_dt should be strictly positive, but %g was provided", real_value);
+			return false;
 		}
-		tpi++;
+		CVodeSetMinStep(cvode_mem, (OdeReal)real_value);
+		return true;
+	} if (parameter == "max_dt") {
+		if (real_value < 0.0) {
+			LOGERROR("max_dt should be non-negative, but %g was provided", real_value);
+			return false;
+		}
+		CVodeSetMaxStep(cvode_mem, (OdeReal)real_value);
+		return true;
+	} else if (parameter == "max_steps") {
+		if (int_value <= 0) {
+			LOGERROR("max_steps should be strictly positive, but %d was provided", int_value);
+			return false;
+		}
+		max_steps = int_value;
+		return true;
+	} else {
+		LOGERROR("Unknown solver parameter \"%s\"", parameter.c_str());
+		return false;
+	}
+}
+
+OdeReal ODESolverCVODE::GetInterpolatedY(OdeReal t, size_t i)
+{
+	// Not yet implemented
+	return std::numeric_limits<Real>::quiet_NaN();
+}
+
+OdeReal ODESolverCVODE::get_current_y(size_t i)
+{
+	return NV_Ith_S(this->y, i);
+}
+
+void ODESolverCVODE::set_current_y(size_t i, OdeReal y)
+{
+	NV_Ith_S(this->y, i) = y;
+}
+
+bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_time, bool do_interpolation, bool store_integration_points, bool verbose)
+{
+	for (size_t i = 0; i < N; i++) {
+		NV_Ith_S(y, i) = initial_conditions[i];
+		NV_Ith_S(tmpvector, i) = absolute_tolerance(i);
 	}
 
-	if (discontinuity_time == discontinuity_time) {
-		CVodeSetStopTime(cvode_mem, (OdeReal)discontinuity_time);
+	if (verbose) {
+		CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
+	}
+
+	CVodeSVtolerances(cvode_mem, relative_tolerance, tmpvector);
+	CVodeReInit(cvode_mem, 0.0, (N_Vector)y);
+
+	if (!std::isnan(next_discontinuity_time)) {
+		CVodeSetStopTime(cvode_mem, (OdeReal)next_discontinuity_time);
 	}
 
 	// Simulate the system one step at a time
 	size_t step_count = 0;
-	while (tpi < timepoints.size()) {
+	OdeReal t = 0.0;
+	size_t tpi = interpolation_timepoints_start;
+	while (1) {
 		// Make sure we don't take too many steps
 		if (step_count >= MAX_CVODE_STEPS) {
-			//LOGERROR("Maximum number of steps reached, stopping - %s.");
-			failed_step_counts[MAX_CVODE_STEPS]++;
+			if (verbose) {
+				LOGERROR("Maximum number of steps reached, stopping.");
+			}
 			return false;
 		}
 		step_count++;
 
 		// Take one CVode step
 		OdeReal tret;
-		int result = CVode(cvode_mem, (OdeReal)timepoints(tpi), (N_Vector)y, &tret, CV_ONE_STEP);
+		int result = CVode(cvode_mem, end_time, (N_Vector)y, &tret, CV_ONE_STEP);
 		if (result < 0) {
 			if (verbose) {
 				LOGERROR("CVode failed at step %u, last y values:", tpi);
@@ -156,37 +190,40 @@ bool ODESolverCVODE::Simulate(const OdeReal* initial_conditions, const OdeVector
 					LOGERROR("%u - %g", i, NV_Ith_S(y, i));
 				}
 			}
-			for (size_t j = tpi; j < timepoints.size(); j++) {
-				for (size_t i = 0; i < N; i++) {
-					output(i, tpi) = std::numeric_limits<Real>::quiet_NaN();
+			if (do_interpolation) {
+				for (size_t j = tpi; j < interpolation_timepoints->size(); j++) {
+					for (size_t i = 0; i < N; i++) {
+						(*interpolated_output)(i, tpi) = std::numeric_limits<Real>::quiet_NaN();
+					}
 				}
 			}
-			failed_step_counts[step_count]++;
 			return false;
 		} else {
-			// If we pass a timepoint, interpolate back to that timepoint
-			while (tret >= timepoints(tpi)) {
-				result = CVodeGetDky(cvode_mem, (OdeReal)timepoints(tpi), 0, (N_Vector)tmpvector);
-				if (result != CV_SUCCESS) {
-					return false;
-				}
+			if (do_interpolation) {
+				// If we pass a timepoint, interpolate back to that timepoint
+				while (tret >= (*interpolation_timepoints)(tpi)) {
+					result = CVodeGetDky(cvode_mem, (*interpolation_timepoints)(tpi), 0, (N_Vector)tmpvector);
+					if (result != CV_SUCCESS) {
+						return false;
+					}
 
-				for (size_t i = 0; i < N; i++) {
-					output(i, tpi) = NV_Ith_S(tmpvector, i);
-				}
+					for (size_t i = 0; i < N; i++) {
+						(*interpolated_output)(i, tpi) = NV_Ith_S(tmpvector, i);
+					}
 
-				tpi++;
-				if (tpi >= timepoints.size()) {
-					break;
+					tpi++;
+					if (tpi >= interpolation_timepoints->size()) {
+						break;
+					}
 				}
 			}
 
-			if (discontinuity_time == discontinuity_time && (result == CV_TSTOP_RETURN || discontinuity_time == tret)) {
-				discontinuity_time = discontinuity_cb(tret, discontinuity_user);
-				if (discontinuity_time == discontinuity_time) {
+			if (!std::isnan(next_discontinuity_time) && (result == CV_TSTOP_RETURN || next_discontinuity_time == tret)) {
+				next_discontinuity_time = discontinuity_cb(tret, discontinuity_user);
+				if (!std::isnan(next_discontinuity_time) && next_discontinuity_time < std::numeric_limits<Real>::infinity()) {
 					CVodeReInit(cvode_mem, tret, (N_Vector)y);
-					CVodeSetStopTime(cvode_mem, (OdeReal)discontinuity_time);
-				} else if (discontinuity_time == std::numeric_limits<Real>::infinity()) {
+					CVodeSetStopTime(cvode_mem, next_discontinuity_time);
+				} else {
 					// Continue simulation but no new discontinuity
 					CVodeReInit(cvode_mem, tret, (N_Vector)y);
 				}
@@ -194,24 +231,7 @@ bool ODESolverCVODE::Simulate(const OdeReal* initial_conditions, const OdeVector
 		}
 	}
 
-	step_counts[step_count]++;
-
 	return true;
-}
-
-void ODESolverCVODE::DumpStatistics(const char* filename)
-{
-	FILE* file = fopen(filename, "w");
-	if (file) {
-		for (size_t i = 0; i <= MAX_CVODE_STEPS; i++) {
-			fprintf(file, "%zu\t%zu\n", i, step_counts[i]);
-		}
-		for (size_t i = 0; i <= MAX_CVODE_STEPS; i++) {
-			fprintf(file, "%zu\t%zu\n", i, failed_step_counts[i]);
-		}
-
-		fclose(file);
-	}
 }
 
 int ODESolverCVODE::cvode_rhs_fn(OdeReal t, OdeReal* y, OdeReal* ydot)
@@ -240,14 +260,4 @@ int ODESolverCVODE::cvode_jac_fn(OdeReal t, OdeReal* y, OdeReal* ydot, OdeMatrix
 	} else {
 		return -1;
 	}
-}
-
-OdeReal ODESolverCVODE::get_y(size_t i)
-{
-	return NV_Ith_S(this->y, i);
-}
-
-void ODESolverCVODE::set_y(size_t i, OdeReal y)
-{
-	NV_Ith_S(this->y, i) = y;
 }

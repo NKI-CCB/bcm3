@@ -263,6 +263,7 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 {
 	cvode_steps = 0;
 	cvode_timepoint_iter = 0;
+	store_integration = calculate_synchronization_point;
 
 	int sobol_sequence_ix = 0;
 	for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
@@ -534,7 +535,7 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 		solver->SetDiscontinuity(first_discontinuity, cb, nullptr);
 	}
 
-	result = solver->Simulate(NV_DATA_S(cvode_y), solver_stored_timepoints, solver_output);
+	result = solver->SolveReturnSolution(EIGV(cvode_y), &solver_stored_timepoints, &solver_output);
 	if (!result) {
 		//LOG("%g,%g,%g", cell_specific_transformed_variables(0), cell_specific_transformed_variables(1), cell_specific_transformed_variables(2));
 		//NV_CONTENT_S(cvode_y)->setZero();

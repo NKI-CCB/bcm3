@@ -289,7 +289,7 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 	pd.last_treatment = 0.0;
 	solvers[threadix]->SetUserData((void*)threadix);
 
-	OdeReal initial_conditions[3];
+	OdeVectorReal initial_conditions(3);
 	if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
 		initial_conditions[0] = 0.0;
 	} else {
@@ -319,7 +319,7 @@ bool LikelihoodPharmacokineticTrajectory::EvaluateLogProbability(size_t threadix
 	}
 	Real conversion = (1e6 / MW) / pd.k_vod;
 
-	if (!solvers[threadix]->Simulate(initial_conditions, time, pd.simulated_trajectories)) {
+	if (!solvers[threadix]->SolveReturnSolution(initial_conditions, &time, &pd.simulated_trajectories)) {
 		logp = -std::numeric_limits<Real>::infinity();
 		return true;
 	} else {
@@ -577,7 +577,7 @@ Real LikelihoodPharmacokineticTrajectory::TreatmentCallback(OdeReal t, void* use
 		if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
 			pd.last_treatment = t;
 		} else {
-			solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
+			solvers[threadix]->set_current_y(0, solvers[threadix]->get_current_y(0) + dose);
 		}
 	}
 	return pd.current_dose_time;
@@ -600,7 +600,7 @@ Real LikelihoodPharmacokineticTrajectory::TreatmentCallbackBiphasic(OdeReal t, v
 			if (pk_type == PKMT_OneCompartmentTransit || pk_type == PKMT_TwoCompartmentTransit) {
 				pd.last_treatment = t;
 			} else {
-				solvers[threadix]->set_y(0, solvers[threadix]->get_y(0) + dose);
+				solvers[threadix]->set_current_y(0, solvers[threadix]->get_current_y(0) + dose);
 			}
 			pd.biphasic_switch = true;
 			return pd.current_dose_time + pd.k_biphasic_switch_time;

@@ -8,26 +8,8 @@
 #include <boost/algorithm/string.hpp>
 
 DataLikelihoodTimeCourse::DataLikelihoodTimeCourse(size_t parallel_evaluations)
-	: use_population_average(true)
-	, use_log_ratio(false)
-	, include_only_cells_that_went_through_mitosis(false)
-	, population_relative_to_time_average(false)
-	, use_signal_saturation(false)
-	, per_cell_optimize_offset_scale(false)
-	, per_cell_optimize_offset_min(-1.0)
-	, per_cell_optimize_offset_max(1.0)
-	, per_cell_optimize_scale_min(0.1)
-	, per_cell_optimize_scale_max(10.0)
-	, saturation_scale(1.0)
-	, saturation_scale_ix(std::numeric_limits<size_t>::max())
-	, synchronize(ESynchronizeCellTrajectory::None)
-	, fixed_missing_simulation_time_stdev_ix(std::numeric_limits<size_t>::max())
-	, fixed_missing_simulation_time_stdev_non_sampled_ix(std::numeric_limits<size_t>::max())
-	, fixed_missing_simulation_time_stdev(300.0)
+	: synchronize(ESynchronizeCellTrajectory::None)
 {
-	if (parallel_evaluations > 1) {
-		parallel_population_averages.resize(parallel_evaluations);
-	}
 }
 
 DataLikelihoodTimeCourse::~DataLikelihoodTimeCourse()
@@ -36,21 +18,11 @@ DataLikelihoodTimeCourse::~DataLikelihoodTimeCourse()
 
 bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node, Experiment* experiment, const bcm3::VariableSet& varset, const bcm3::NetCDFDataFile& data_file, const boost::program_options::variables_map& vm)
 {
-	if (!DataLikelihoodBase::Load(xml_node, experiment, varset, data_file, vm)) {
+	if (!DataLikelihoodTimeCourseBase::Load(xml_node, experiment, varset, data_file, vm)) {
 		return false;
 	}
 
 	bool result = true;
-
-	std::string species_name = xml_node.get<std::string>("<xmlattr>.species_name");
-	use_population_average = xml_node.get<bool>("<xmlattr>.use_population_average", false);
-	population_relative_to_time_average = xml_node.get<bool>("<xmlattr>.population_relative_to_time_average", false);
-	use_log_ratio = xml_node.get<bool>("<xmlattr>.use_log_ratio", false);
-	per_cell_optimize_offset_scale = xml_node.get<bool>("<xmlattr>.per_cell_optimize_offset_scale", false);
-	include_only_cells_that_went_through_mitosis = xml_node.get<bool>("<xmlattr>.include_only_cells_that_went_through_mitosis", false);
-	missing_simulation_time_stdev_str = xml_node.get<std::string>("<xmlattr>.missing_simulation_time_stdev", "");
-
-	saturation_scale_str = xml_node.get<std::string>("<xmlattr>.saturation_scale", "");
 
 	std::string synchronize_str = xml_node.get<std::string>("<xmlattr>.synchronize", "");
 	if (synchronize_str == "" || synchronize_str == "none") {
@@ -68,55 +40,38 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 		return false;
 	}
 
-	if (per_cell_optimize_offset_scale) {
-		if (error_model != ErrorModel::Normal) {
-			LOGWARNING("Using offset/scale optimization without a normal error model - this likely leads to strong convergence problems!");
-		}
-
-		per_cell_optimize_offset_min = xml_node.get<Real>("<xmlattr>.per_cell_optimize_offset_min", -1.0);
-		per_cell_optimize_offset_max = xml_node.get<Real>("<xmlattr>.per_cell_optimize_offset_max", 1.0);
-		per_cell_optimize_scale_min = xml_node.get<Real>("<xmlattr>.per_cell_optimize_scale_min", 0.1);
-		per_cell_optimize_scale_max = xml_node.get<Real>("<xmlattr>.per_cell_optimize_scale_max", 10.0);
-	}
-
-	std::string time_dimension_name;
-	size_t num_dimensions = 0;
-	result &= data_file.GetDimensionName(experiment->GetName(), data_name, 0, time_dimension_name);
-	result &= data_file.GetDimensionCount(experiment->GetName(), data_name, &num_dimensions);
-
-	// Retrieve data from the datafile
-	size_t num_timepoints;
-	result &= data_file.GetDimensionSize(experiment->GetName(), time_dimension_name, &num_timepoints);
-	result &= data_file.GetValues(experiment->GetName(), time_dimension_name, 0, num_timepoints, timepoints);
-
-	if (!result) {
-		return false;
-	}
-
+	// First check whether we are using only a subset of the cells in the data
 	std::string use_only_cell_ix_str = vm["cellpop.use_only_cell_ix"].as<std::string>();
 	std::vector<std::string> use_only_cell_ix_tokens;
 	bcm3::tokenize(use_only_cell_ix_str, use_only_cell_ix_tokens, ",");
 
-	// Check whether there is data for just one cell or an average (one dimension) or a collection of cells (two+ dimensions)
+	// Retrieve data from the datafile
+	size_t num_dimensions = 0;
+	result &= data_file.GetDimensionCount(experiment->GetName(), data_name, &num_dimensions);
 	if (num_dimensions == 1) {
-		observed_data.resize(1);
-		VectorReal od;
-		result &= data_file.GetValues(experiment->GetName(), data_name, 0, num_timepoints, od);
-		observed_data[0] = od;
-		if (!result) {
+		LOG("Time course likelihood for data %s; data has 1 dimension; assuming only 1 cell and no replicates.", data_name.c_str());
+
+		if (use_only_cell_ix_str != "-1") {
+			LOGERROR("use_only_cell_ix has been specified, but there is only 1 cell in the data.");
 			return false;
 		}
+
+		observed_data.resize(1);
+		VectorReal od;
+		result &= data_file.GetValues(experiment->GetName(), data_name, 0, timepoints.size(), od);
+		observed_data[0] = od;
 	} else if (num_dimensions == 2) {
 		size_t num_cells;
 		std::string cell_dimension_name;
 		result &= data_file.GetDimensionName(experiment->GetName(), data_name, 1, cell_dimension_name);
 		result &= data_file.GetDimensionSize(experiment->GetName(), cell_dimension_name, &num_cells);
+		LOG("Time course likelihood for data %s; data has 2 dimension; assuming the second dimension (\"%s\") are the cells (%zu cells).", data_name.c_str(), cell_dimension_name.c_str(), num_cells);
 
 		if (use_only_cell_ix_str == "-1") {
 			observed_data.resize(num_cells);
 			for (size_t i = 0; i < num_cells; i++) {
 				VectorReal od;
-				result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, i, num_timepoints, od);
+				result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, i, timepoints.size(), od);
 				observed_data[i] = od;
 			}
 		} else {
@@ -128,7 +83,7 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 					return false;
 				} else {
 					VectorReal od;
-					result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, ix, num_timepoints, od);
+					result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, ix, timepoints.size(), od);
 					observed_data[i] = od;
 				}
 			}
@@ -140,14 +95,15 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 		result &= data_file.GetDimensionSize(experiment->GetName(), cell_dimension_name, &num_cells);
 		result &= data_file.GetDimensionName(experiment->GetName(), data_name, 2, marker_dim_name);
 		result &= data_file.GetDimensionSize(experiment->GetName(), marker_dim_name, &num_markers);
+		LOG("Time course likelihood for data %s; data has 3 dimension; assuming the second dimension (\"%s\") are the cells (%zu cells) and the third dimension are different markers.", data_name.c_str(), cell_dimension_name.c_str(), num_cells);
 
 		if (use_only_cell_ix_str == "-1") {
 			observed_data.resize(num_cells);
 			for (size_t i = 0; i < num_cells; i++) {
-				observed_data[i] = MatrixReal::Zero(num_timepoints, num_markers);
+				observed_data[i] = MatrixReal::Zero(timepoints.size(), num_markers);
 				for (size_t j = 0; j < num_markers; j++) {
 					VectorReal od;
-					result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, i, j, num_timepoints, od);
+					result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, i, j, timepoints.size(), od);
 					observed_data[i].col(j) = od;
 				}
 			}
@@ -159,60 +115,21 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 					LOGERROR("Requested to use cell %d, but data contains only %u cells", ix, num_cells);
 					return false;
 				} else {
-					observed_data[i] = MatrixReal::Zero(num_timepoints, num_markers);
+					observed_data[i] = MatrixReal::Zero(timepoints.size(), num_markers);
 					for (size_t j = 0; j < num_markers; j++) {
 						VectorReal od;
-						result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, ix, j, num_timepoints, od);
+						result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, ix, j, timepoints.size(), od);
 						observed_data[i].col(j) = od;
 					}
 				}
 			}
 		}
-	}
-
-	if (num_dimensions > 1 && use_population_average) {
-		LOGERROR("use_population_average=true has been specified, but the data reference includes data for more than 1 cell");
+	} else {
+		LOGERROR("Time course likelihood for data %s; data has %zu dimensions but can only handle 1, 2 or 3 dimensions.", data_name.c_str(), num_dimensions);
 		return false;
 	}
-
-	// See if the species reference is a sum of species
-	if (species_name.find_first_of(';') != std::string::npos) {
-		bcm3::tokenize(species_name, species_names, ";");
-		for (size_t i = 0; i < species_names.size(); i++) {
-			boost::trim(species_names[i]);
-		}
-	} else {
-		species_names.resize(1, species_name);
-	}
-
-	if (use_population_average) {
-		population_average.setConstant(num_timepoints, species_names.size(), 0.0);
-		for (size_t i = 0; i < parallel_population_averages.size(); i++) {
-			parallel_population_averages[i] = population_average;
-		}
-	} else {
-		if (experiment->GetMaxNumberOfCells() < observed_data.size()) {
-			LOGERROR("Maximum number of simulated cells (%zu) in the experiment is not sufficient for the amount of cells in the data (%zu)", experiment->GetMaxNumberOfCells(), observed_data.size());
-			return false;
-		}
-		if (experiment->GetMaxNumberOfCells() > observed_data.size()) {
-			// This could fairly easily be supported by fixing the hungarian matching; but estimating variances with more simulated than observed cells leads to 
-			// very difficult posteriors in the variance parameters, due to the Sobol variability
-			LOGERROR("Simulating more cells (%zu) than there are cells in the data (%zu) - currently not supported.", experiment->GetMaxNumberOfCells(), observed_data.size());
-			return false;
-		}
-		cell_trajectories.resize(experiment->GetMaxNumberOfCells(), MatrixReal::Constant(num_timepoints, species_names.size(), std::numeric_limits<Real>::quiet_NaN()));
-		matched_trajectories.resize(observed_data.size(), MatrixReal::Constant(observed_data[0].rows(), observed_data[0].cols(), std::numeric_limits<Real>::quiet_NaN()));
-	}
-
-	if (population_relative_to_time_average) {
-		if (!use_population_average) {
-			LOGERROR("Relative to time average can only be used in combination with use_population_average");
-			return false;
-		}
-	}
-
-	// Do we have parent information?
+	
+	// Load parent information if available
 	if (data_file.VariableExists(experiment->GetName(), "parent")) {
 		std::vector<unsigned int> cell_ids(observed_data.size());
 		if (use_only_cell_ix_str == "-1") {
@@ -253,78 +170,24 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 		}
 	}
 
-	// Request the experiment to provide the required information during the simulation
-	for (size_t j = 0; j < species_names.size(); j++) {
-		const std::string& species_name = species_names[j];
-
-		if (use_log_ratio) {
-			if (species_name.find_first_of('/') == std::string::npos) {
-				LOGERROR("use_log_ratio is specified as true, but the species_name does not contain a division");
-				return false;
-			}
-		}
-
-		if (species_name.find_first_of('+') != std::string::npos) {
-			std::vector<std::string> sum_names;
-			bcm3::tokenize(species_name, sum_names, "+");
-			for (size_t i = 0; i < sum_names.size(); i++) {
-				boost::trim(sum_names[i]);
-				size_t species_ix = experiment->GetCVodeSpeciesByName(sum_names[i]);
-				if (species_ix == std::numeric_limits<size_t>::max()) {
-					return false;
-				}
-				if (species_map[species_ix].empty()) {
-					for (size_t i = 0; i < num_timepoints; i++) {
-						experiment->AddSimulationTimepoints(this, timepoints(i), i, species_ix, synchronize);
-					}
-				}
-				species_map[species_ix].push_back(j);
-			}
-		} else if (species_name.find_first_of('/') != std::string::npos) {
-			if (!use_log_ratio) {
-				LOGERROR("simulated species reference has a division, but use_log_ratio has not been specified; only log ratios are supported for now");
-				return false;
-			}
-
-			std::vector<std::string> sum_names;
-			bcm3::tokenize(species_name, sum_names, "/");
-			if (sum_names.size() != 2) {
-				LOGERROR("only division of exactly two species is supported");
-				return false;
-			}
-			for (size_t i = 0; i < sum_names.size(); i++) {
-				boost::trim(sum_names[i]);
-				size_t species_ix = experiment->GetCVodeSpeciesByName(sum_names[i]);
-				if (species_ix == std::numeric_limits<size_t>::max()) {
-					return false;
-				}
-				if (species_map[species_ix].empty()) {
-					for (size_t i = 0; i < num_timepoints; i++) {
-						experiment->AddSimulationTimepoints(this, timepoints(i), i, species_ix, synchronize);
-					}
-				}
-				species_map[species_ix].push_back(j);
-				if (i == 0) {
-					log_ratio_numerator_ix.resize(j + 1);
-					log_ratio_numerator_ix[j] = species_ix;
-				}
-			}
-		} else {
-			size_t species_ix = experiment->GetCVodeSpeciesByName(species_names[j]);
-			if (species_ix == std::numeric_limits<size_t>::max()) {
-				return false;
-			}
-			if (species_map[species_ix].empty()) {
-				for (size_t i = 0; i < num_timepoints; i++) {
-					experiment->AddSimulationTimepoints(this, timepoints(i), i, species_ix, synchronize);
-				}
-			}
-			species_map[species_ix].push_back(j);
-		}
+	// Check number of cells and allocate memory for receiving data from the simulator
+	if (experiment->GetMaxNumberOfCells() < observed_data.size()) {
+		LOGERROR("Maximum number of simulated cells (%zu) in the experiment is not sufficient for the amount of cells in the data (%zu)", experiment->GetMaxNumberOfCells(), observed_data.size());
+		return false;
+	}
+	if (experiment->GetMaxNumberOfCells() > observed_data.size()) {
+		// This could fairly easily be supported by fixing the hungarian matching; but estimating variances with more simulated than observed cells leads to 
+		// very difficult posteriors in the variance parameters, due to the Sobol variability
+		LOGERROR("Simulating more cells (%zu) than there are cells in the data (%zu) - currently not supported.", experiment->GetMaxNumberOfCells(), observed_data.size());
+		return false;
 	}
 
+	cell_trajectories.resize(experiment->GetMaxNumberOfCells(), MatrixReal::Constant(timepoints.size(), species_names.size(), std::numeric_limits<Real>::quiet_NaN()));
+	matched_trajectories.resize(observed_data.size(), MatrixReal::Constant(observed_data[0].rows(), observed_data[0].cols(), std::numeric_limits<Real>::quiet_NaN()));
 	trajectory_matching.resize(cell_trajectories.size());
 	hungarian_matching_edges.resize(observed_cells_with_no_parents.size() * experiment->GetMaxNumberOfCells());
+
+	result &= RequestSimulationInfo(experiment, ESynchronizeCellTrajectory::None);
 
 	if (synchronize != ESynchronizeCellTrajectory::None) {
 		// If we're going to synchronize, make sure we simulate the cells as long as the full duration of the time course
@@ -332,7 +195,7 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 		Real last_tp = timepoints(timepoints.size() - 1);
 		Real full_duration = last_tp - timepoints(0);
 		if (full_duration > last_tp) {
-			experiment->AddSimulationTimepoints(this, full_duration, num_timepoints+1, std::numeric_limits<size_t>::max(), synchronize);
+			result &= experiment->AddSimulationTimepoints(this, full_duration, timepoints.size() + 1, std::numeric_limits<size_t>::max(), synchronize);
 		}
 	}
 
@@ -341,42 +204,8 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 
 bool DataLikelihoodTimeCourse::PostInitialize(const bcm3::VariableSet& varset, const std::vector<std::string>& non_sampled_parameter_names)
 {
-	if (!DataLikelihoodBase::PostInitialize(varset, non_sampled_parameter_names)) {
+	if (!DataLikelihoodTimeCourseBase::PostInitialize(varset, non_sampled_parameter_names)) {
 		return false;
-	}
-
-	if (!missing_simulation_time_stdev_str.empty()) {
-		fixed_missing_simulation_time_stdev_ix = varset.GetVariableIndex(missing_simulation_time_stdev_str, false);
-		if (fixed_missing_simulation_time_stdev_ix == std::numeric_limits<size_t>::max()) {
-			// No, it ins't - is it a non-sampled parameter?
-			auto it = std::find(non_sampled_parameter_names.begin(), non_sampled_parameter_names.end(), missing_simulation_time_stdev_str);
-			if (it != non_sampled_parameter_names.end()) {
-				fixed_missing_simulation_time_stdev_non_sampled_ix = it - non_sampled_parameter_names.begin();
-			} else {
-				// No, it isn't - try to cast it to a Real
-				try {
-					fixed_missing_simulation_time_stdev = boost::lexical_cast<Real>(missing_simulation_time_stdev_str);
-				} catch (const boost::bad_lexical_cast& e) {
-					LOGERROR("Could not find variable for data missing simulation time stdev parameter \"%s\", and could also not cast it to a constant real value: %s", missing_simulation_time_stdev_str.c_str(), e.what());
-					return false;
-				}
-			}
-		}
-	}
-
-	if (!saturation_scale_str.empty()) {
-		use_signal_saturation = true;
-
-		saturation_scale_ix = varset.GetVariableIndex(saturation_scale_str, false);
-		if (saturation_scale_ix == std::numeric_limits<size_t>::max()) {
-			// Try to cast it to a Real
-			try {
-				saturation_scale = boost::lexical_cast<Real>(saturation_scale_str);
-			} catch (const boost::bad_lexical_cast& e) {
-				LOGERROR("Could not find variable for saturation scale \"%s\", and could also not cast it to a constant real value: %s", saturation_scale_str.c_str(), e.what());
-				return false;
-			}
-		}
 	}
 
 	return true;
@@ -387,16 +216,8 @@ void DataLikelihoodTimeCourse::Reset()
 	for (size_t i = 0; i < cell_trajectories.size(); i++) {
 		cell_trajectories[i].setConstant(std::numeric_limits<Real>::quiet_NaN());
 	}
-	if (!use_population_average) {
-		for (size_t i = 0; i < observed_data.size(); i++) {
-			matched_trajectories[i].setConstant(std::numeric_limits<Real>::quiet_NaN());
-		}
-	}
-	if (use_population_average) {
-		population_average.setConstant(0.0);
-		for (size_t i = 0; i < parallel_population_averages.size(); i++) {
-			parallel_population_averages[i].setConstant(0.0);
-		}
+	for (size_t i = 0; i < observed_data.size(); i++) {
+		matched_trajectories[i].setConstant(std::numeric_limits<Real>::quiet_NaN());
 	}
 	simulated_cell_parents.clear();
 	simulated_cell_children.clear();
@@ -404,64 +225,14 @@ void DataLikelihoodTimeCourse::Reset()
 
 bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, Real& logp)
 {
-	std::vector<Real> stdevs(species_names.size());
-	std::vector<Real> proportional_stdevs(species_names.size());
-	std::vector<Real> data_offsets(species_names.size());
-	std::vector<Real> data_scales(species_names.size());
-	for (size_t i = 0; i < species_names.size(); i++) {
-		stdevs[i] = GetCurrentSTDev(transformed_values, non_sampled_parameters, i);
-		proportional_stdevs[i] = GetCurrentProportionalSTDev(transformed_values, non_sampled_parameters, i);
-		data_offsets[i] = GetCurrentDataOffset(transformed_values, non_sampled_parameters, i);
-		data_scales[i] = GetCurrentDataScale(transformed_values, non_sampled_parameters, i);
+	if (!PrepateEvaluation(values, transformed_values, non_sampled_parameters, logp)) {
+		return false;
 	}
 
-	Real missing_simulation_time_stdev = 1.0;
-	if (fixed_missing_simulation_time_stdev_ix != std::numeric_limits<size_t>::max()) {
-		missing_simulation_time_stdev = transformed_values[fixed_missing_simulation_time_stdev_ix];
-	} else if (fixed_missing_simulation_time_stdev_non_sampled_ix != std::numeric_limits<size_t>::max()) {
-		missing_simulation_time_stdev = non_sampled_parameters[fixed_missing_simulation_time_stdev_non_sampled_ix];
-	} else if (!std::isnan(fixed_missing_simulation_time_stdev)) {
-		missing_simulation_time_stdev = fixed_missing_simulation_time_stdev;
-	}
-
-	Real saturation_scale = this->saturation_scale;
-	if (saturation_scale_ix != std::numeric_limits<size_t>::max()) {
-		saturation_scale = transformed_values[saturation_scale_ix];
-	}
-
-	if (use_population_average) {
-		// If parallel_population_averages.size() >= 1, then add the parallel evaluations
-		for (size_t i = 0; i < parallel_population_averages.size(); i++) {
-			for (int j = 0; j < population_average.array().size(); j++) {
-				if (!std::isnan(parallel_population_averages[i].array()(j))) {
-					if (std::isnan(population_average.array()(j))) {
-						population_average.array()(j) = parallel_population_averages[i].array()(j);
-					} else {
-						population_average.array()(j) += parallel_population_averages[i].array()(j);
-					}
-				}
-			}
-		}
-	}
-
-	if (population_relative_to_time_average && use_population_average) {
-		VectorReal time_average = population_average.colwise().mean();
-		for (int i = 0; i < time_average.size(); i++) {
-			//population_average.col(i) = (population_average.col(i) /= time_average(i)).array().log();
-			population_average.col(i) = population_average.col(i).array() -= time_average(i);
-		}
-	}
-
-	if (use_population_average) {
-		ASSERT(species_names.size() == 1);
-		population_average.array() *= data_scales[0];
-		population_average.array() += data_offsets[0];
-	} else {
-		for (size_t i = 0; i < cell_trajectories.size(); i++) {
-			for (int j = 0; j < species_names.size(); j++) {
-				cell_trajectories[i].col(j).array() *= data_scales[j];
-				cell_trajectories[i].col(j).array() += data_offsets[j];
-			}
+	for (size_t i = 0; i < cell_trajectories.size(); i++) {
+		for (int j = 0; j < species_names.size(); j++) {
+			cell_trajectories[i].col(j).array() *= data_scales[j];
+			cell_trajectories[i].col(j).array() += data_offsets[j];
 		}
 	}
 
@@ -479,137 +250,92 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 
 	logp = 0.0;
 
-	if (use_population_average) {
-		ASSERT(observed_data.size() == 1);
-		size_t num_missing_points = 0;
-		for (int i = 0; i < timepoints.size(); i++) {
-			if (!std::isnan(observed_data[0](i))) {
-				Real x = population_average.row(i).sum();
-				if (std::isnan(x)) {
-					Real cell_trajectories_firstnonan = timepoints(timepoints.size() - 1);
-					for (int m = 0; m < timepoints.size(); m++) {
-						if (!std::isnan(population_average.row(m).sum())) {
-							cell_trajectories_firstnonan = timepoints(m);
-							break;
-						}
-					}
-					Real cell_trajectories_lastnonan = timepoints(0);
-					for (int m = timepoints.size() - 1; m >= 0; m--) {
-						if (!std::isnan(population_average.row(m).sum())) {
-							cell_trajectories_lastnonan = timepoints(m);
-							break;
-						}
-					}
-					Real time_offset = std::min(std::abs(timepoints(i) - cell_trajectories_firstnonan),
-												std::abs(timepoints(i) - cell_trajectories_lastnonan));
-					if (error_model == ErrorModel::Normal) {
-						logp += bcm3::LogPdfNormal(time_offset, 0, missing_simulation_time_stdev);
-					} else if (error_model == ErrorModel::StudentT4) {
-						logp += bcm3::LogPdfTnu4(time_offset, 0, missing_simulation_time_stdev);
-					} else {
-						assert(false);
-						logp = std::numeric_limits<Real>::quiet_NaN();
-					}
-				} else {
-					if (error_model == ErrorModel::Normal) {
-						logp += bcm3::LogPdfNormal(observed_data[0](i), x, stdevs[0]);
-					} else if (error_model == ErrorModel::StudentT4) {
-						logp += bcm3::LogPdfTnu4(observed_data[0](i), x, stdevs[0]);
-					} else {
-						assert(false);
-						logp = std::numeric_limits<Real>::quiet_NaN();
-					}
-				}
-			}
-		}
-	} else {
-		// Calculate likelihood of every observed parent cell (recursing into the children) against every simulated cell
-		// TODO - relay from the likelihood file how many cells are going to be simulated
-		int n = std::max(observed_cells_with_no_parents.size(), simulated_cell_parents.size());
-		MatrixReal cell_likelihoods(n, n);
-		cell_likelihoods.setZero();
+	// Calculate likelihood of every observed parent cell (recursing into the children) against every simulated cell
+	// TODO - relay from the likelihood file how many cells are going to be simulated
+	int n = std::max(observed_cells_with_no_parents.size(), simulated_cell_parents.size());
+	MatrixReal cell_likelihoods(n, n);
+	cell_likelihoods.setZero();
 
-		std::vector< std::vector< std::vector<int> > > matched_hierarchies;
-		if (!observed_children.empty()) {
-			matched_hierarchies.resize(observed_cells_with_no_parents.size());
-			for (size_t i = 0; i < observed_cells_with_no_parents.size(); i++) {
-				matched_hierarchies[i].resize(simulated_cell_parents.size());
-				for (size_t j = 0; j < simulated_cell_parents.size(); j++) {
-					matched_hierarchies[i][j].resize(cell_trajectories.size());
-				}
-			}
-		}
-
-		Real maxdiff = 0.0;
-		int edge_count = 0;
+	std::vector< std::vector< std::vector<int> > > matched_hierarchies;
+	if (!observed_children.empty()) {
+		matched_hierarchies.resize(observed_cells_with_no_parents.size());
 		for (size_t i = 0; i < observed_cells_with_no_parents.size(); i++) {
-			size_t finite_count = 0;
-			size_t observed_cell_ix = observed_cells_with_no_parents[i];
+			matched_hierarchies[i].resize(simulated_cell_parents.size());
 			for (size_t j = 0; j < simulated_cell_parents.size(); j++) {
-				if (simulated_cell_parents[j] == std::numeric_limits<size_t>::max()) {
-					if (!observed_children.empty()) {
-						cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, proportional_stdevs, missing_simulation_time_stdev, &matched_hierarchies[i][j]);
-					} else {
-						cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, proportional_stdevs, missing_simulation_time_stdev, nullptr);
-					}
-					if (cell_likelihoods(i, j) != cell_likelihoods(i, j)) {
-						logp = -std::numeric_limits<Real>::infinity();
-						return false;
-					}
-
-					if (cell_likelihoods(i,j) > -std::numeric_limits<Real>::infinity()) {
-						finite_count++;
-					}
-				} else {
-					cell_likelihoods(i, j) = -std::numeric_limits<Real>::infinity();
-				}
-
-				hungarian_matching_edges[edge_count].left = i;
-				hungarian_matching_edges[edge_count].right = j;
-				hungarian_matching_edges[edge_count].cost = -cell_likelihoods(i, j);
-				edge_count++;
-			}
-			if (finite_count < observed_cells_with_no_parents.size()) {
-				// Too many infinite likelihoods for this observed cell; won't be able to match all cells so no need to go further and HA doesn't like it
-				logp = -std::numeric_limits<Real>::infinity();
-				return true;
+				matched_hierarchies[i][j].resize(cell_trajectories.size());
 			}
 		}
+	}
 
-		std::vector<int> matching = hungarianMinimumWeightPerfectMatching(n, hungarian_matching_edges, edge_count);
-		if (matching.size() != observed_cells_with_no_parents.size()) {
+	Real maxdiff = 0.0;
+	int edge_count = 0;
+	for (size_t i = 0; i < observed_cells_with_no_parents.size(); i++) {
+		size_t finite_count = 0;
+		size_t observed_cell_ix = observed_cells_with_no_parents[i];
+		for (size_t j = 0; j < simulated_cell_parents.size(); j++) {
+			if (simulated_cell_parents[j] == std::numeric_limits<size_t>::max()) {
+				if (!observed_children.empty()) {
+					cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, proportional_stdevs, missing_simulation_time_stdev, &matched_hierarchies[i][j]);
+				} else {
+					cell_likelihoods(i, j) = CalculateCellLikelihood(observed_cell_ix, j, stdevs, proportional_stdevs, missing_simulation_time_stdev, nullptr);
+				}
+				if (cell_likelihoods(i, j) != cell_likelihoods(i, j)) {
+					logp = -std::numeric_limits<Real>::infinity();
+					return false;
+				}
+
+				if (cell_likelihoods(i,j) > -std::numeric_limits<Real>::infinity()) {
+					finite_count++;
+				}
+			} else {
+				cell_likelihoods(i, j) = -std::numeric_limits<Real>::infinity();
+			}
+
+			hungarian_matching_edges[edge_count].left = i;
+			hungarian_matching_edges[edge_count].right = j;
+			hungarian_matching_edges[edge_count].cost = -cell_likelihoods(i, j);
+			edge_count++;
+		}
+		if (finite_count < observed_cells_with_no_parents.size()) {
+			// Too many infinite likelihoods for this observed cell; won't be able to match all cells so no need to go further and HA doesn't like it
 			logp = -std::numeric_limits<Real>::infinity();
 			return true;
-		} else {
-			for (int i = 0; i < observed_cells_with_no_parents.size(); i++) {
-				int j = matching[i];
-				if (j == -1) {
-					LOGERROR("Could not find matching");
-					logp = -std::numeric_limits<Real>::infinity();
-					return true;
-				} else {
-					logp += cell_likelihoods(i, j);
+		}
+	}
 
-					size_t oi = observed_cells_with_no_parents[i];
+	std::vector<int> matching = hungarianMinimumWeightPerfectMatching(n, hungarian_matching_edges, edge_count);
+	if (matching.size() != observed_cells_with_no_parents.size()) {
+		logp = -std::numeric_limits<Real>::infinity();
+		return true;
+	} else {
+		for (int i = 0; i < observed_cells_with_no_parents.size(); i++) {
+			int j = matching[i];
+			if (j == -1) {
+				LOGERROR("Could not find matching");
+				logp = -std::numeric_limits<Real>::infinity();
+				return true;
+			} else {
+				logp += cell_likelihoods(i, j);
 
-					if (per_cell_optimize_offset_scale) {
-						for (int l = 0; l < species_names.size(); l++) {
-							Real offset = 0.0, scale = 1.0;
-							OptimizeOffsetScale(observed_data[oi], cell_trajectories[j], l, offset, scale);
-							matched_trajectories[oi].col(l).array() = offset + scale * cell_trajectories[j].col(l).array();
-						}
-					} else {
-						matched_trajectories[oi] = cell_trajectories[j];
+				size_t oi = observed_cells_with_no_parents[i];
+
+				if (optimize_offset_scale) {
+					for (int l = 0; l < species_names.size(); l++) {
+						Real offset = 0.0, scale = 1.0;
+						OptimizeOffsetScale(observed_data[oi], cell_trajectories[j], l, offset, scale);
+						matched_trajectories[oi].col(l).array() = offset + scale * cell_trajectories[j].col(l).array();
 					}
+				} else {
+					matched_trajectories[oi] = cell_trajectories[j];
+				}
 
-					trajectory_matching[oi] = j;
+				trajectory_matching[oi] = j;
 
-					if (!observed_children.empty()) {
-						for (auto ci = observed_children[oi].begin(); ci != observed_children[oi].end(); ci++) {
-							size_t child = matched_hierarchies[i][j][*ci];
-							matched_trajectories[*ci] = cell_trajectories[child];
-							trajectory_matching[*ci] = child;
-						}
+				if (!observed_children.empty()) {
+					for (auto ci = observed_children[oi].begin(); ci != observed_children[oi].end(); ci++) {
+						size_t child = matched_hierarchies[i][j][*ci];
+						matched_trajectories[*ci] = cell_trajectories[child];
+						trajectory_matching[*ci] = child;
 					}
 				}
 			}
@@ -631,56 +357,31 @@ bool DataLikelihoodTimeCourse::NotifySimulatedValue(size_t timepoint_ix, Real x,
 	for (size_t i = 0; i < our_species_ixs.size(); i++) {
 		size_t our_species_ix = our_species_ixs[i];
 
-		if (use_population_average) {
-			if (entered_mitosis || !include_only_cells_that_went_through_mitosis) {
-				Real y = x;
-				if (include_only_cells_that_went_through_mitosis) {
-					y /= mitotic_population_size;
-				} else {
-					y /= current_population_size;
-				}
-				if (!parallel_population_averages.empty()) {
-					Real& target = parallel_population_averages[parallel_evaluation_ix](timepoint_ix, our_species_ix);
-					if (std::isnan(target)) {
-						target = y;
-					} else {
-						target += y;
-					}
-				} else {
-					Real& target = population_average(timepoint_ix, our_species_ix);
-					if (std::isnan(target)) {
-						target = y;
-					} else {
-						target += y;
-					}
-				}
-			}
-		} else {
-			if (cell_ix < cell_trajectories.size()) {
-				Real& val = cell_trajectories[cell_ix](timepoint_ix, our_species_ix);
-				if (std::isnan(val)) {
-					val = x;
-				} else {
-					if (use_log_ratio) {
-						if (species_ix == log_ratio_numerator_ix[i]) {
-							if (val < 1e-16) {
-								val = 1e-16;
-							}
-							val = bcm3::log10(x / val);
-						} else {
-							if (x < 1e-16) {
-								val = bcm3::log10(val / 1e-16);
-							} else {
-								val = bcm3::log10(val / x);
-							}
+		if (cell_ix < cell_trajectories.size()) {
+			Real& val = cell_trajectories[cell_ix](timepoint_ix, our_species_ix);
+			if (std::isnan(val)) {
+				val = x;
+			} else {
+				if (use_log_ratio) {
+					if (species_ix == log_ratio_numerator_ix[i]) {
+						if (val < 1e-16) {
+							val = 1e-16;
 						}
+						val = bcm3::log10(x / val);
 					} else {
-						val += x;
+						if (x < 1e-16) {
+							val = bcm3::log10(val / 1e-16);
+						} else {
+							val = bcm3::log10(val / x);
+						}
 					}
+				} else {
+					val += x;
 				}
 			}
 		}
 	}
+
 	return true;
 }
 
@@ -734,7 +435,7 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 		for (int l = 0; l < species_names.size(); l++) {
 			Real offset = 0.0;
 			Real scale = 1.0;
-			if (per_cell_optimize_offset_scale) {
+			if (optimize_offset_scale) {
 				OptimizeOffsetScale(observed_data[observed_cell_ix], cell_trajectories[simulated_cell_ix], l, offset, scale);
 			}
 
@@ -843,14 +544,7 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 Real DataLikelihoodTimeCourse::CalculateMissingValueLikelihood(size_t simulated_cell_ix, int timepoint_ix, int species_ix, Real missing_simulation_time_stdev)
 {
 	if (simulated_cell_ix == std::numeric_limits<size_t>::max()) {
-		if (error_model == ErrorModel::Normal) {
-			return bcm3::LogPdfNormal(timepoints(timepoint_ix), 0, missing_simulation_time_stdev);
-		} else if (error_model == ErrorModel::StudentT4) {
-			return bcm3::LogPdfTnu4(timepoints(timepoint_ix), 0, missing_simulation_time_stdev);
-		} else {
-			assert(false);
-			return std::numeric_limits<Real>::quiet_NaN();
-		}
+		return EvaluateMissingValue(timepoints(timepoint_ix));
 	} else {
 		Real cell_trajectories_firstnonan = timepoints(timepoints.size() - 1);
 		for (int m = 0; m < timepoints.size(); m++) {
@@ -866,23 +560,7 @@ Real DataLikelihoodTimeCourse::CalculateMissingValueLikelihood(size_t simulated_
 				break;
 			}
 		}
-		Real time_offset = std::min(std::abs(timepoints(timepoint_ix) - cell_trajectories_firstnonan),
-			std::abs(timepoints(timepoint_ix) - cell_trajectories_lastnonan));
-		if (error_model == ErrorModel::Normal || error_model == ErrorModel::ProportionalNormal || error_model == ErrorModel::AdditiveProportionalNormal) {
-			return bcm3::LogPdfNormal(time_offset, 0, missing_simulation_time_stdev);
-		} else if (error_model == ErrorModel::StudentT4) {
-			return bcm3::LogPdfTnu4(time_offset, 0, missing_simulation_time_stdev);
-		} else {
-			assert(false);
-			return std::numeric_limits<Real>::quiet_NaN();
-		}
+		Real time_offset = std::min(std::abs(timepoints(timepoint_ix) - cell_trajectories_firstnonan), std::abs(timepoints(timepoint_ix) - cell_trajectories_lastnonan));
+		return EvaluateMissingValue(time_offset);
 	}
-}
-
-
-void DataLikelihoodTimeCourse::OptimizeOffsetScale(const MatrixReal& observed, const MatrixReal& simulated, int col_ix, Real& offset, Real& scale) const
-{
-	bcm3::linear_regress_columns(simulated.col(col_ix), observed.col(col_ix), offset, scale);
-	scale = std::min(std::max(scale, per_cell_optimize_scale_min), per_cell_optimize_scale_max);
-	offset = std::min(std::max(offset, per_cell_optimize_offset_min), per_cell_optimize_offset_max);
 }

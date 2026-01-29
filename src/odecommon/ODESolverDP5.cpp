@@ -1,14 +1,15 @@
 #include "Utils.h"
 #include "ODESolverDP5.h"
 
-static const OdeReal MIN_DT = 1e-3;
 static const int ATTEMPTS = 10;
 static const OdeReal MIN_SCALE_FACTOR = 0.2;
 static const OdeReal MAX_SCALE_FACTOR = 5.0;
-static const unsigned int MAX_STEPS = 2000;
 
 ODESolverDP5::ODESolverDP5()
-	: ytmp(nullptr)
+	: min_dt(1e-3)
+	, max_dt(std::numeric_limits<Real>::infinity())
+	, max_steps(2000)
+	, ytmp(nullptr)
 	, yn(nullptr)
 {
 	for (int i = 0; i < 7; i++) {
@@ -60,30 +61,45 @@ bool ODESolverDP5::Initialize(size_t N, void* user)
 	return true;
 }
 
-bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, OdeMatrixReal& output, bool verbose)
+bool ODESolverDP5::SetSolverParameter(const std::string& parameter, int int_value, OdeReal real_value)
+{
+	if (parameter == "min_dt") {
+		if (real_value <= 0.0) {
+			LOGERROR("min_dt should be strictly positive, but %g was provided", real_value);
+			return false;
+		}
+		min_dt = real_value;
+		return true;
+	} else if (parameter == "max_dt") {
+		if (real_value <= 0.0) {
+			LOGERROR("max_dt should be strictly positive, but %g was provided", real_value);
+			return false;
+		}
+		max_dt = real_value;
+		return true;
+	} else if (parameter == "max_steps") {
+		if (int_value <= 0) {
+			LOGERROR("max_steps should be strictly positive, but %d was provided", int_value);
+			return false;
+		}
+		max_steps = int_value;
+		return true;
+	} else {
+		LOGERROR("Unknown solver parameter \"%s\"", parameter.c_str());
+		return false;
+	}
+}
+
+bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_time, bool do_interpolation, bool store_integration_points, bool verbose)
 {
 	ASSERT(ytmp != nullptr);
 	
-	if (timepoints.size() == 0) {
-		LOGERROR("No timepoints requested");
-		return false;
-	}
-
-	output.setConstant(N, timepoints.size(), std::numeric_limits<OdeReal>::quiet_NaN());
-
-	size_t ti = 0;
-	while (timepoints(ti) < std::numeric_limits<OdeReal>::epsilon()) {
-		for (size_t i = 0; i < N; i++) {
-			output(i, ti) = initial_conditions[i];
-		}
-		ti++;
-		if (ti == timepoints.size()) {
-			return true;
-		}
+	if (do_interpolation) {
+		interpolated_output->setConstant(N, interpolation_timepoints->size(), std::numeric_limits<OdeReal>::quiet_NaN());
 	}
 
 	OdeReal t = 0.0;
-	OdeReal dt = 1.0;
+	OdeReal dt = std::min(max_dt, 1.0);
 
 	for (size_t i = 0; i < N; i++) {
 		yn[i] = initial_conditions[i];
@@ -92,17 +108,19 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 	derivative(t, yn, k[0], user_data);
 
 	unsigned int steps = 0;
+
+	size_t ti = interpolation_timepoints_start;
 	
 	while (1) {
 		// Temporarily decrease timestep if we're approaching a discontinuity.
 		OdeReal cur_dt;
 		OdeReal next_dt = dt;
 		bool approaching_discontinuity = false;
-		if (std::isnan(discontinuity_time)) {
+		if (std::isnan(next_discontinuity_time)) {
 			cur_dt = dt;
 		} else {
-			if (discontinuity_time < t + dt) {
-				cur_dt = discontinuity_time - t;
+			if (next_discontinuity_time < t + dt) {
+				cur_dt = next_discontinuity_time - t;
 				approaching_discontinuity = true;
 			} else {
 				cur_dt = dt;
@@ -118,22 +136,22 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 			}
 
 			if (verbose) {
-				LOG("t=%g - dt=%g maxdiff=%g dctime=%g%s - %g,%g,%g", t, cur_dt, maxdiff, discontinuity_time, approaching_discontinuity ? " approaching dc" : "", yn[0], yn[1], yn[2]);
+				LOG("t=%g - dt=%g maxdiff=%g dctime=%g%s - %g,%g,%g", t, cur_dt, maxdiff, next_discontinuity_time, approaching_discontinuity ? " approaching dc" : "", yn[0], yn[1], yn[2]);
 			}
 
 			// From Hairer I; section II.4, p167
 			if (maxdiff > 1.1) {
-				if (cur_dt == MIN_DT) {
+				if (cur_dt == min_dt) {
 					break;
 				} else {
 					OdeReal scale = (OdeReal)0.9 * pow(maxdiff, (OdeReal)-0.2);
 					scale = std::max(MIN_SCALE_FACTOR, scale);
 					cur_dt *= scale;
-					if (cur_dt < MIN_DT) {
-						cur_dt = MIN_DT;
+					if (cur_dt < min_dt) {
+						cur_dt = min_dt;
 					}
-					if (discontinuity_time == discontinuity_time) {
-						if (approaching_discontinuity && t + cur_dt < discontinuity_time) {
+					if (!std::isnan(next_discontinuity_time)) {
+						if (approaching_discontinuity && t + cur_dt < next_discontinuity_time) {
 							// Time step decreased enough so that we're no longer approaching the discontinuity in this time step
 							approaching_discontinuity = false;
 						}
@@ -145,6 +163,9 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 					OdeReal scale = (OdeReal)0.9 * pow(maxdiff, (OdeReal)-0.2);
 					scale = std::min(MAX_SCALE_FACTOR, scale);
 					next_dt = cur_dt * scale;
+					if (next_dt > max_dt) {
+						next_dt = max_dt;
+					}
 				}
 				succeeded = true;
 				break;
@@ -156,44 +177,48 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 		}
 
 		if (!succeeded) {
-			//LOGERROR("Time step adaptation did not converge in %d steps", ATTEMPTS);
-			//LOGERROR("%g,%g,%g - %g,%g,%g", yn[0], yn[1], yn[2], k[0][0], k[0][1], k[0][2]);
+			if (verbose) {
+				LOG("Time step adaptation did not converge in %d steps", ATTEMPTS);
+				//LOGERROR("%g,%g,%g - %g,%g,%g", yn[0], yn[1], yn[2], k[0][0], k[0][1], k[0][2]);
+			}
 			return false;
 		}
 
 		// Interpolate any timepoints we may have passed
 		OdeReal target_t = t + cur_dt;
-		while (target_t >= timepoints(ti)) {
-			OdeReal theta = (timepoints(ti) - t) / cur_dt;
-			if (theta >= 1.0) { // theta should not be bigger than 1.0; if it is than it should be only a rounding error
-				for (size_t i = 0; i < N; i++) {
-					output(i, ti) = ytmp[i];
-				}
-			} else {
-				// From Hairer I; section II.5, p179
-				OdeReal thetaSq = theta * theta;
-				OdeReal b1 = theta * ((OdeReal)1.0 + theta * ((OdeReal)-2.7854166666666669 + theta * ((OdeReal)2.8861111111111111 + theta * ((OdeReal)-1.0095486111111112))));
-				OdeReal b3 = (OdeReal)33.33333333333333 * thetaSq * (0.11363881401617251 + theta * ((OdeReal)-0.1682659478885894 + theta * (OdeReal)0.068104222821203958));
-				OdeReal b4 = (OdeReal)-2.5 * thetaSq * ((OdeReal)0.675 + theta * ((OdeReal)-1.8 + theta * ((OdeReal)0.8645833333333333)));
-				OdeReal b5 = (OdeReal)21.491745283018869 * thetaSq * (-0.012 + theta * ((OdeReal)0.058666666666666666 + theta * ((OdeReal)-0.06166666666666666)));
-				OdeReal b6 = (OdeReal)-3.1428571428571428 * thetaSq * (-0.3 + theta * ((OdeReal)0.9666666666666666 + theta * ((OdeReal)-0.7083333333333333)));
+		if (do_interpolation) {
+			while (target_t >= (*interpolation_timepoints)(ti)) {
+				OdeReal theta = ((*interpolation_timepoints)(ti) - t) / cur_dt;
+				if (theta >= 1.0) { // theta should not be bigger than 1.0; if it is than it should be only a rounding error
+					for (size_t i = 0; i < N; i++) {
+						(*interpolated_output)(i, ti) = ytmp[i];
+					}
+				} else {
+					// From Hairer I; section II.5, p179
+					OdeReal thetaSq = theta * theta;
+					OdeReal b1 = theta * ((OdeReal)1.0 + theta * ((OdeReal)-2.7854166666666669 + theta * ((OdeReal)2.8861111111111111 + theta * ((OdeReal)-1.0095486111111112))));
+					OdeReal b3 = (OdeReal)33.33333333333333 * thetaSq * (0.11363881401617251 + theta * ((OdeReal)-0.1682659478885894 + theta * (OdeReal)0.068104222821203958));
+					OdeReal b4 = (OdeReal)-2.5 * thetaSq * ((OdeReal)0.675 + theta * ((OdeReal)-1.8 + theta * ((OdeReal)0.8645833333333333)));
+					OdeReal b5 = (OdeReal)21.491745283018869 * thetaSq * (-0.012 + theta * ((OdeReal)0.058666666666666666 + theta * ((OdeReal)-0.06166666666666666)));
+					OdeReal b6 = (OdeReal)-3.1428571428571428 * thetaSq * (-0.3 + theta * ((OdeReal)0.9666666666666666 + theta * ((OdeReal)-0.7083333333333333)));
 
-				for (size_t i = 0; i < N; i++) {
-					output(i, ti) = yn[i] + cur_dt * (b1 * k[0][i] +
-													  b3 * k[2][i] +
-													  b4 * k[3][i] +
-													  b5 * k[4][i] +
-													  b6 * k[5][i]);
+					for (size_t i = 0; i < N; i++) {
+						(*interpolated_output)(i, ti) = yn[i] + cur_dt * (b1 * k[0][i] +
+																		  b3 * k[2][i] +
+																		  b4 * k[3][i] +
+																		  b5 * k[4][i] +
+																		  b6 * k[5][i]);
+					}
+				}
+				ti++;
+				if (ti == interpolation_timepoints->size()) {
+					break;
 				}
 			}
-			ti++;
-			if (ti == timepoints.size()) {
+			if (ti == interpolation_timepoints->size()) {
+				// All done; no need to finish the step
 				break;
 			}
-		}
-		if (ti == timepoints.size()) {
-			// All done; no need to finish the step
-			break;
 		}
 
 		// Advance solution
@@ -202,10 +227,10 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 
 		if (approaching_discontinuity) {
 			// Might as well set the time exactly, although t + cur_dt should equal discontinuity_time
-			t = discontinuity_time;
+			t = next_discontinuity_time;
 
 			// Call the callback and reset the system if necessary
-			discontinuity_time = discontinuity_cb(t, discontinuity_user);
+			next_discontinuity_time = discontinuity_cb(t, discontinuity_user);
 			derivative(t, yn, k[0], user_data);
 			next_dt = 1.0;
 
@@ -214,24 +239,42 @@ bool ODESolverDP5::Simulate(const OdeReal* initial_conditions, const OdeVectorRe
 			t += cur_dt;
 		}
 
-		dt = next_dt;
 		steps++;
-		if (steps == MAX_STEPS) {
-			//LOGERROR("MAXSTEPS reached, bailing out");
-			//LOGERROR("%g,%g,%g - %g,%g,%g", yn[0], yn[1], yn[2], k[0][0], k[0][1], k[0][2]);
+
+		if (integration_step_cb) {
+			integration_step_cb(t, k[0], user_data);
+		}
+
+		if (t >= end_time) {
+			break;
+		}
+
+		if (steps == max_steps) {
+			if (verbose) {
+				LOG("Maximum number of time steps reached.");
+				//LOGERROR("%g,%g,%g - %g,%g,%g", yn[0], yn[1], yn[2], k[0][0], k[0][1], k[0][2]);
+			}
 			return false;
 		}
+
+		dt = next_dt;
 	}
 
 	return true;
 }
 
-OdeReal ODESolverDP5::get_y(size_t i)
+OdeReal ODESolverDP5::GetInterpolatedY(OdeReal t, size_t i)
+{
+	// Not yet implemented
+	return std::numeric_limits<Real>::quiet_NaN();
+}
+
+OdeReal ODESolverDP5::get_current_y(size_t i)
 {
 	return yn[i];
 }
 
-void ODESolverDP5::set_y(size_t i, OdeReal y)
+void ODESolverDP5::set_current_y(size_t i, OdeReal y)
 {
 	yn[i] = y;
 }
@@ -307,7 +350,7 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 			- (OdeReal)0.025							  * k[6][i]);
 		error = fabs(error);
 		
-		OdeReal D = abstol(i) + reltol * fabs(ytmp[i] + k[6][i] * cur_dt);
+		OdeReal D = absolute_tolerance(i) + relative_tolerance * fabs(ytmp[i] + k[6][i] * cur_dt);
 		OdeReal diff = error / D;
 		maxdiff = (std::max)(maxdiff, diff);
 	}

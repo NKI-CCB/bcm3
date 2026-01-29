@@ -58,6 +58,7 @@ private:
 	OdeVectorReal constant_species_y;
 	SUNMatrix J;
 	bool cvode_initialized;
+	bool store_integration;
 	OdeReal creation_time;				// The time in "experiment time" at which the cell is created. So in "cell time", t=0 will be creation_time
 	OdeReal current_simulation_time;
 	size_t cvode_steps;
