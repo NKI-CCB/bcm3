@@ -20,8 +20,6 @@ public:
 
 protected:
 	virtual bool Solve(const OdeVectorReal& initial_conditions, OdeReal end_time, bool do_interpolation, bool store_integration_points, bool verbose);
-	int cvode_rhs_fn(OdeReal t, OdeReal* y, OdeReal* ydot);
-	int cvode_jac_fn(OdeReal t, OdeReal* y, OdeReal* ydot, OdeMatrixReal& jac);
 
 	// Settings
 	int max_steps;
@@ -34,6 +32,14 @@ protected:
 	N_Vector tmpvector;
 	SUNMatrix J;
 
+	int cvode_rhs_fn(OdeReal t, const OdeReal* y, OdeReal* ydot);
 	friend int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data);
+
+#if CVODE_USE_EIGEN_SOLVER
+	OdeVectorReal y_copy;
+	OdeVectorReal work_vector;
+	bool DifferenceQuotientJacobian(OdeReal t, const OdeVectorReal& y, const OdeVectorReal& ydot, OdeMatrixReal& jac);
+	int cvode_jac_fn(OdeReal t, const OdeVectorReal& y, const OdeVectorReal& ydot, OdeMatrixReal& jac);
 	friend int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3);
+#endif
 };

@@ -19,16 +19,13 @@ int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data)
 	return solver->cvode_rhs_fn(t, NV_DATA_S(y), NV_DATA_S(ydot));
 }
 
+#if CVODE_USE_EIGEN_SOLVER
 int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3)
 {
 	ODESolverCVODE* solver = reinterpret_cast<ODESolverCVODE*>(user_data);
-#if CVODE_USE_EIGEN_SOLVER
-	return solver->cvode_jac_fn(t, NV_DATA_S(y), NV_DATA_S(fy), EIGMAT(Jac));
-#else
-	ASSERT(false);
-	return -1;
-#endif
+	return solver->cvode_jac_fn(t, *NV_CONTENT_S(y), *NV_CONTENT_S(fy), EIGMAT(Jac));
 }
+#endif
 
 ODESolverCVODE::ODESolverCVODE()
 	: max_steps(2000)
@@ -93,7 +90,22 @@ bool ODESolverCVODE::Initialize(size_t N, void* user)
 	CVodeSetUserData(cvode_mem, this);
 	CVodeSetLinearSolver(cvode_mem, LS, J);
 	CVodeSetNonlinearSolver(cvode_mem, NLS);
+
+#if CVODE_USE_EIGEN_SOLVER
 	CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
+	if (!jacobian) {
+		// Difference quotient approximation requires some work space
+		y_copy = OdeVectorReal(N);
+		work_vector = OdeVectorReal(N);
+	}
+#else
+	if (jacobian) {
+		LOGERROR("Custom jacobian is not implemented for solver other than the Eigen solver");
+		return false;
+	} else {
+		// Standard CVODE solver has a built-in jacobian approximation, so no need to specify.
+	}	
+#endif
 
 	return true;
 }
@@ -218,14 +230,31 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 				}
 			}
 
-			if (!std::isnan(next_discontinuity_time) && (result == CV_TSTOP_RETURN || next_discontinuity_time == tret)) {
-				next_discontinuity_time = discontinuity_cb(tret, discontinuity_user);
+			t = tret;
+
+			if (integration_step_cb) {
+				integration_step_cb(t, NV_DATA_S(y), user_data);
+			}
+
+			if (t >= end_time) {
+				break;
+			}
+
+			if (step_count == max_steps) {
+				if (verbose) {
+					LOG("Maximum number of time steps reached.");
+				}
+				return false;
+			}
+
+			if (!std::isnan(next_discontinuity_time) && (result == CV_TSTOP_RETURN || next_discontinuity_time == t)) {
+				next_discontinuity_time = discontinuity_cb(t, discontinuity_user);
 				if (!std::isnan(next_discontinuity_time) && next_discontinuity_time < std::numeric_limits<Real>::infinity()) {
-					CVodeReInit(cvode_mem, tret, (N_Vector)y);
+					CVodeReInit(cvode_mem, t, (N_Vector)y);
 					CVodeSetStopTime(cvode_mem, next_discontinuity_time);
 				} else {
 					// Continue simulation but no new discontinuity
-					CVodeReInit(cvode_mem, tret, (N_Vector)y);
+					CVodeReInit(cvode_mem, t, (N_Vector)y);
 				}
 			}
 		}
@@ -234,7 +263,7 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 	return true;
 }
 
-int ODESolverCVODE::cvode_rhs_fn(OdeReal t, OdeReal* y, OdeReal* ydot)
+int ODESolverCVODE::cvode_rhs_fn(OdeReal t, const OdeReal* y, OdeReal* ydot)
 {
 	if (!derivative) {
 		return -2;
@@ -248,16 +277,64 @@ int ODESolverCVODE::cvode_rhs_fn(OdeReal t, OdeReal* y, OdeReal* ydot)
 	}
 }
 
-int ODESolverCVODE::cvode_jac_fn(OdeReal t, OdeReal* y, OdeReal* ydot, OdeMatrixReal& jac)
-{
-	if (!jacobian) {
-		return -2;
-	}
+#if CVODE_USE_EIGEN_SOLVER
 
-	bool result = jacobian(t, y, ydot, jac, user_data);
+int ODESolverCVODE::cvode_jac_fn(OdeReal t, const OdeVectorReal& y, const OdeVectorReal& ydot, OdeMatrixReal& jac)
+{
+	bool result;
+	if (jacobian) {
+		result = jacobian(t, y.data(), ydot.data(), jac, user_data);
+	} else {
+		result = DifferenceQuotientJacobian(t, y, ydot, jac);
+	}
 	if (result) {
 		return 0;
 	} else {
 		return -1;
 	}
 }
+
+bool ODESolverCVODE::DifferenceQuotientJacobian(OdeReal t, const OdeVectorReal& y, const OdeVectorReal& ydot, OdeMatrixReal& jac)
+{
+	// Adapted from cvLsDenseDQJac
+
+	static const OdeReal MIN_INC_MULT = OdeReal(1000.0);
+
+	CVodeMem cv_mem = reinterpret_cast<CVodeMem>(cvode_mem);
+	CVLsMem cvls_mem = reinterpret_cast<CVLsMem>(cv_mem->cv_lmem);
+
+	y_copy = y;
+
+	// Set minimum increment based on uround and norm of f
+	OdeReal srur = SUNRsqrt(cv_mem->cv_uround);
+	OdeVectorReal& ewt = *NV_CONTENT_S(cv_mem->cv_ewt);
+	OdeReal fnorm = sqrt((ydot.array() * ewt.array()).square().sum() / N);
+
+	OdeReal minInc;
+	if (fnorm != (OdeReal)0.0) {
+		minInc = (MIN_INC_MULT * fabs(cv_mem->cv_h) * cv_mem->cv_uround * N * fnorm);
+	} else {
+		minInc = 1.0;
+	}
+
+	for (int j = 0; j < N; j++) {
+		OdeReal inc = std::max(srur * fabs(y[j]), minInc / NV_Ith_S(cv_mem->cv_ewt, j));
+
+		y_copy[j] += inc;
+
+		int retval = cvode_rhs_fn(t, y_copy.data(), work_vector.data());
+		cvls_mem->nfeDQ++;
+		if (retval != 0) {
+			return false;
+		}
+
+		y_copy[j] = y[j];
+
+		OdeReal inc_inv = (OdeReal)1.0 / inc;
+		jac.col(j) = inc_inv * (work_vector - ydot);
+	}
+
+	return true;
+}
+
+#endif
