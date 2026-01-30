@@ -242,7 +242,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 		steps++;
 
 		if (integration_step_cb) {
-			integration_step_cb(t, k[0], user_data);
+			integration_step_cb(t, yn, user_data);
 		}
 
 		if (t >= end_time) {
