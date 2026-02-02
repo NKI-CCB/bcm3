@@ -33,10 +33,18 @@ target_link_libraries(likelihoods
     utils
     sampler
     odecommon
-    fISA
-    cellpop
     pharmaco
 )
+
+if(INCLUDE_CELLPOP)
+    target_compile_definitions(likelihoods PRIVATE BCM_INCLUDE_CELLPOP=1)
+    target_link_libraries(likelihoods PUBLIC cellpop)
+endif(INCLUDE_CELLPOP)
+
+if(INCLUDE_fISA)
+    target_compile_definitions(likelihoods PRIVATE BCM_INCLUDE_fISA=1)
+    target_link_libraries(likelihoods PUBLIC fISA)
+endif(INCLUDE_fISA)
 
 set_target_properties(likelihoods PROPERTIES DEBUG_POSTFIX d)
 target_precompile_headers(likelihoods PRIVATE ../utils/Utils.h)

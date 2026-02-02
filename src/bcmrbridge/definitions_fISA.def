@@ -1,0 +1,10 @@
+EXPORTS
+	bcm3_rbridge_fISA_get_num_data
+	bcm3_rbridge_fISA_get_num_cell_lines
+	bcm3_rbridge_fISA_get_cell_line_name
+	bcm3_rbridge_fISA_get_num_replicates
+	bcm3_rbridge_fISA_get_num_signaling_molecules
+	bcm3_rbridge_fISA_get_observed_data
+	bcm3_rbridge_fISA_get_log_likelihood
+	bcm3_rbridge_fISA_get_modeled_data
+	bcm3_rbridge_fISA_get_modeled_activities

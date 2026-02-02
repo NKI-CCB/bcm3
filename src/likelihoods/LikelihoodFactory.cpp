@@ -1,8 +1,6 @@
 #include "Utils.h"
 #include "LikelihoodFactory.h"
 
-#include "CellPopulationLikelihood.h"
-#include "fISALikelihood.h"
 #include "LikelihoodDLL.h"
 #include "LikelihoodDummy.h"
 #include "LikelihoodIncucytePopulation.h"
@@ -16,6 +14,14 @@
 #include "TestLikelihoodCircular.h"
 #include "TestLikelihoodMultimodalGaussians.h"
 #include "TestLikelihoodTruncatedT.h"
+
+#if BCM_INCLUDE_fISA
+#include "fISALikelihood.h"
+#endif
+
+#if BCM_INCLUDE_CELLPOP
+#include "CellPopulationLikelihood.h"
+#endif
 
 #include <boost/property_tree/xml_parser.hpp>
 
@@ -38,11 +44,7 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 		boost::property_tree::ptree likelihood_node = pt.get_child("bcm_likelihood");
 		
 		std::string type = likelihood_node.get<std::string>("<xmlattr>.type");
-		if (type == "fISA") {
-			ll = std::make_shared<fISALikelihood>(sampling_threads, evaluation_threads);
-		} else if (type == "cell_population") {
-			ll = std::make_shared<CellPopulationLikelihood>(sampling_threads, evaluation_threads, !running_inference);
-		} else if (type == "dll") {
+		if (type == "dll") {
 			ll = std::make_shared<LikelihoodDLL>(sampling_threads, evaluation_threads);
 		} else if (type == "dummy") {
 			ll = std::make_shared<LikelihoodDummy>(sampling_threads, evaluation_threads);
@@ -68,6 +70,14 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 			ll = std::make_shared<TestLikelihoodMultimodalGaussians>(sampling_threads, evaluation_threads);
 		} else if (type == "truncated_t") {
 			ll = std::make_shared<TestLikelihoodTruncatedT>(sampling_threads, evaluation_threads);
+#if INCLUDE_fISA
+		} else if (type == "fISA") {
+			ll = std::make_shared<fISALikelihood>(sampling_threads, evaluation_threads);
+#endif
+#if BCM_INCLUDE_CELLPOP
+		} else if (type == "cell_population") {
+			ll = std::make_shared<CellPopulationLikelihood>(sampling_threads, evaluation_threads, !running_inference);
+#endif
 		} else {
 			LOGERROR("Unknown likelihood type \"%s\"", type.c_str());
 		}
@@ -89,7 +99,9 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 
 void LikelihoodFactory::AddOptionsDescription(boost::program_options::options_description& pod)
 {
+#if BCM_INCLUDE_CELLPOP
 	CellPopulationLikelihood::AddOptionsDescription(pod);
+#endif
 	LikelihoodPharmacokineticTrajectory::AddOptionsDescription(pod);
 	PharmacoLikelihoodSingle::AddOptionsDescription(pod);
 }

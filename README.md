@@ -55,12 +55,12 @@ Do the following steps:
 
 #### Creating a likelihood
 
-Several likelihoods are available in the package; but likely you will want to build your own likelihood function. There are two main ways to do that; either by creating a DLL that exports a likelihood function, or by adding a class to BCM3.
+Several likelihoods are available in the package that you can use. If you want to use BCM for your own likelihood function, you can incorporate it in one of two ways: either by creating a DLL that exports a likelihood function, or by adding a class to BCM3.
 
 - The class approach:
   - Make a class that derives from bcm3::Likelihood
   - Implement the function EvaluateLogProbability.
-  - Let the sampler know whether EvaluateLogProbability is re-entrant by overloading the IsReentrant function.
+  - Let the sampler know whether EvaluateLogProbability is re-entrant or not by overloading the IsReentrant function.
   - Add the class to LikelihoodFactory::CreateLikelihood
   - In the likelihood.xml file, you can specify the name of your likelihood, such that the factory will create a class instance. You can add configuration/hyperparameters in the likelihood.xml as needed (see the existing likelihood classes for examples).
 
@@ -68,7 +68,7 @@ Several likelihoods are available in the package; but likely you will want to bu
   - Copy the code in examples/dll_likelihood to a new folder
   - Add initialization or data loading code to the "initialize_likelihood" function; this will be called once at the start of sampling.
   - Add likelihood evaluation code to the "evaluate_log_probability" function. The current paramter values are provided, and the resulting log likelihood should be stored into the log_p variable. 
-    <strong>Important</strong>: this function should be re-entrant; i.e. it can be called from multiple threads with different parameter values.
+    <strong>Important</strong>: this function should be re-entrant; i.e. this function will be called from multiple threads simultaneously with different parameter values.
 
 #### Running an inference
 To start an inference run, use  
@@ -78,7 +78,7 @@ To start an inference run, use
 The working directory should contain three files:
 - prior.xml -- specifying the variables which are to be sampled and their prior distributions
 - likelihood.xml -- specifying the likelihood
-- config.txt -- specifying configuration of the sampling algorith, output directory, etc
+- config.txt -- specifying the configuration of the sampling algorith, output directory, etc
 
 Several examples of these files are provided in the examples folder.
 

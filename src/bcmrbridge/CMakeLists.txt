@@ -4,8 +4,6 @@ target_sources(bcmrbridge
   PRIVATE
     interface.h
     interface.cpp
-    interface_cellpop.cpp
-    interface_fISA.cpp
     interface_incucyte.cpp
     interface_ODE.cpp
     interface_pharmaco_population.cpp
@@ -14,6 +12,14 @@ target_sources(bcmrbridge
     interface_popPK.cpp
     definitions.def
 )
+
+if(INCLUDE_CELLPOP)
+    target_sources(bcmrbridge PRIVATE interface_cellpop.cpp definitions_cellpop.def)
+endif(INCLUDE_CELLPOP)
+
+if(INCLUDE_fISA)
+    target_sources(bcmrbridge PRIVATE interface_fISA.cpp definitions_fISA.def)
+endif(INCLUDE_fISA)
 
 target_include_directories(bcmrbridge
   PRIVATE
