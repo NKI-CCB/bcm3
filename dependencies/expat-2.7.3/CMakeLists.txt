@@ -1,30 +1,6 @@
-macro(_expat_copy_bool_int source_ref dest_ref)
-    if(${source_ref})
-        set(${dest_ref} 1)
-    else()
-        set(${dest_ref} 0)
-    endif()
-endmacro()
-_expat_copy_bool_int(EXPAT_ATTR_INFO        XML_ATTR_INFO)
-_expat_copy_bool_int(EXPAT_DTD              XML_DTD)
-_expat_copy_bool_int(EXPAT_GE               XML_GE)
-_expat_copy_bool_int(EXPAT_LARGE_SIZE       XML_LARGE_SIZE)
-_expat_copy_bool_int(EXPAT_MIN_SIZE         XML_MIN_SIZE)
-_expat_copy_bool_int(EXPAT_NS               XML_NS)
-if(NOT WIN32)
-    _expat_copy_bool_int(EXPAT_DEV_URANDOM  XML_DEV_URANDOM)
-endif()
-if(NOT EXPAT_CONTEXT_BYTES GREATER 0)  # in particular with -DEXPAT_CONTEXT_BYTES=OFF
-    set(EXPAT_CONTEXT_BYTES 0)
-endif()
-set(XML_CONTEXT_BYTES 1024)
-set(_SHARED STATIC)
-set(HAVE_STDLIB_H 1)
-
-configure_file(expat_config.h.cmake "${CMAKE_CURRENT_BINARY_DIR}/expat_config.h")
-
-
 add_library(expat)
+
+target_compile_definitions(expat PRIVATE XML_GE=1)
 
 target_sources(expat
   PRIVATE
