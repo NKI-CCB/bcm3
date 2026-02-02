@@ -22,13 +22,13 @@ The following dependencies are required:
 - [Boost C++ libraries](https://www.boost.org/)
 - [NetCDF](https://www.unidata.ucar.edu/software/netcdf/)
 - [hdf5](https://www.hdfgroup.org/solutions/hdf5/)
-- Optional: [libsbml](https://synonym.caltech.edu/software/libsbml/) - a version of libsbml is included to simplify installation, but a system-wide installation will be used if available. You can remove this dependency by disabling the modules 'sbml', 'cellpop' and 'fISA'
+- Optional: [libsbml](https://synonym.caltech.edu/software/libsbml/) - a version of libsbml is included to simplify installation, but a system-wide installation will be used if available. You will need this for the cellpop and fISA modules, or if you want to use SBML in your own likelihood.
 - Note: BCM3 uses [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) and [SUNDIALS](https://computing.llnl.gov/projects/sundials), but versions of these libraries are included as part of BCM3 and do not need to be installed separately.
 
 On <strong>Linux</strong>, these dependencies can be installed through the package manager; e.g.:
 `apt install libboost-all-dev libnetcdf-dev libhdf5-dev libsbml-dev`.  
 On <strong>Windows</strong>, vcpkg is useful to install these dependencies. This can be done with a manifest if you wish to install the dependencies specifically for this project, but personally I use vcpkg in classic mode to have a reusable installation of these packages. This can be done by installing vcpkg separately (the one bundled with Visual Studio can only work in manifest mode), and then installing the packages with the stand-alone vcpkg ( "vcpkg.exe install [boost/netcdf-c/libsbml]").  
-On <strong>Mac</strong>, it may be easiest to install these dependencies with Homebrew.
+On <strong>Mac</strong>, it may be easiest to install these dependencies with Homebrew.  
 For <strong>Conda</strong> users, you can install the dependencies by `conda install conda-forge::libnetcdf`, `conda install conda-forge::hdf5`, `conda-forge::boost`
 
 For using the <strong>R interface and plotting functions</strong>, the following R packages are needed: ```install.packages("XML", "hdf5r", "extraDistr", "crch", "pracma", "sm")```.
@@ -46,8 +46,8 @@ Do the following steps:
    For <strong>Windows</strong> when using vcpkg, run     `cmake .. -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake`  within the build folder (change the path to vcpkg).  
    For <strong>Linux/mac/other systems</strong>, run     `cmake ..`        within the build folder.
 
-   If you want to include support for cellpop, fISA or SBML, set the cmake options for these modules to ON.  
-   On <strong>Windows</strong> you can do this with the CMake GUI
+   If you want to include support for the cellpop, fISA or SBML modules, set the cmake options for these modules to ON.  
+   On <strong>Windows</strong> you can do this with the CMake GUI  
    On <strong>Linux/mac/other systems</strong>, you can do this by adding "-DINCLUDE_CELLPOP=ON", "-DINCLUDE_fISA=ON", "-DINCLUDE_SBML=ON" to the call to cmake.
 
 
