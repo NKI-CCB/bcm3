@@ -26,7 +26,7 @@ The following dependencies are required:
 - Note: BCM3 uses [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) and [SUNDIALS](https://computing.llnl.gov/projects/sundials), but versions of these libraries are included as part of BCM3 and do not need to be installed separately.
 
 On <strong>Linux</strong>, these dependencies can be installed through the package manager; e.g.:
-```apt install libboost-dev libsbml-dev libnetcdf-dev libhdf5-dev```.  
+```apt install libboost-all-dev libsbml-dev libnetcdf-dev libhdf5-dev```.  
 On <strong>Windows</strong>, vcpkg is useful to install these dependencies. This can be done with a manifest if you wish to install the dependencies specifically for this project, but personally I use vcpkg in classic mode to have a reusable installation of these packages. This can be done by installing vcpkg separately (the one bundled with Visual Studio can only work in manifest mode), and then installing the packages with the stand-alone vcpkg ( "vcpkg.exe install [boost/netcdf-c/libsbml]").  
 On <strong>Mac</strong>, it may be easiest to install these dependencies with Homebrew.
 

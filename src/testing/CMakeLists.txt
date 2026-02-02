@@ -10,6 +10,7 @@ target_link_libraries(testing
     utils
     hungarian_matching
     hungarian_matching2
+    odecommon
 )
 
 set_target_properties(testing PROPERTIES DEBUG_POSTFIX d)
