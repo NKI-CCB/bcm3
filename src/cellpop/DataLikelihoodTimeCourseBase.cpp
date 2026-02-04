@@ -7,6 +7,22 @@
 #include <boost/algorithm/string.hpp>
 
 DataLikelihoodTimeCourseBase::DataLikelihoodTimeCourseBase()
+	: include_only_cells_that_went_through_mitosis(false)
+	, use_log_ratio(false)
+	, optimize_offset_scale(false)
+	, optimize_offset_min(-1.0)
+	, optimize_offset_max(1.0)
+	, optimize_scale_min(0.1)
+	, optimize_scale_max(10.0)
+	, use_signal_saturation(false)
+	, saturation_scale_fixed_value(std::numeric_limits<Real>::max())
+	, saturation_scale_ix(std::numeric_limits<size_t>::max())
+	, fixed_missing_simulation_time_stdev_ix(std::numeric_limits<size_t>::max())
+	, fixed_missing_simulation_time_stdev_non_sampled_ix(std::numeric_limits<size_t>::max())
+	, fixed_missing_simulation_time_stdev(300.0)
+	, saturation_scale(std::numeric_limits<Real>::quiet_NaN())
+	, missing_simulation_time_stdev(std::numeric_limits<Real>::quiet_NaN())
+
 {
 }
 
