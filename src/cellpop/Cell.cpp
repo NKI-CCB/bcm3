@@ -526,11 +526,17 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 	Real first_discontinuity = std::numeric_limits<Real>::quiet_NaN();
 	for (int i = 0; i < experiment->treatment_trajectories.size(); i++) {
 		Real discontinuity = experiment->treatment_trajectories[i]->FirstDiscontinuity(creation_time);
+		if (!std::isnan(discontinuity)) {
+			while (discontinuity < 0.0) {
+				discontinuity = experiment->treatment_trajectories[i]->NextDiscontinuity(discontinuity, creation_time);
+			}
+		}
+
 		if (!(first_discontinuity < discontinuity)) { // Slightly odd comparison to handle nan's
 			first_discontinuity = discontinuity;
 		}
 	}
-	if (!std::isnan(first_discontinuity)) {
+	if (!std::isnan(first_discontinuity) && first_discontinuity > 0.0) {
 		ODESolver::TDiscontinuityCallback cb = boost::bind(&Cell::discontinuity_cb, this, boost::placeholders::_1);
 		solver->SetDiscontinuity(first_discontinuity, cb, nullptr);
 	}

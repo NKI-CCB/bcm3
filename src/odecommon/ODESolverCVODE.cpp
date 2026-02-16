@@ -183,15 +183,6 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 	OdeReal t = 0.0;
 	size_t tpi = interpolation_timepoints_start;
 	while (1) {
-		// Make sure we don't take too many steps
-		if (step_count >= MAX_CVODE_STEPS) {
-			if (verbose) {
-				LOGERROR("Maximum number of steps reached, stopping.");
-			}
-			return false;
-		}
-		step_count++;
-
 		// Take one CVode step
 		OdeReal tret;
 		int result = CVode(cvode_mem, end_time, (N_Vector)y, &tret, CV_ONE_STEP);
@@ -216,6 +207,9 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 				while (tret >= (*interpolation_timepoints)(tpi)) {
 					result = CVodeGetDky(cvode_mem, (*interpolation_timepoints)(tpi), 0, (N_Vector)tmpvector);
 					if (result != CV_SUCCESS) {
+						if (verbose) {
+							LOG("Interpolation failed.");
+						}
 						return false;
 					}
 
@@ -240,6 +234,7 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 				break;
 			}
 
+			step_count++;
 			if (step_count == max_steps) {
 				if (verbose) {
 					LOG("Maximum number of time steps reached.");

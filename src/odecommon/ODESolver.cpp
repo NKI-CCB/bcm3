@@ -54,9 +54,13 @@ void ODESolver::SetUserData(void* user)
 
 void ODESolver::SetDiscontinuity(OdeReal time, TDiscontinuityCallback cb, void* user)
 {
-	next_discontinuity_time = time;
-	discontinuity_cb = cb;
-	discontinuity_user = user;
+	if (time <= 0.0) {
+		LOGWARNING("Attempting to set discontinuity timepoint before or at t=0 - ignoring");
+	} else {
+		next_discontinuity_time = time;
+		discontinuity_cb = cb;
+		discontinuity_user = user;
+	}
 }
 
 void ODESolver::ResetDiscontinuity()

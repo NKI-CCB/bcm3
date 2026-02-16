@@ -131,7 +131,9 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 		for (int i = 0; i < ATTEMPTS; i++) {
 			OdeReal maxdiff = ApplyRK(t, cur_dt);
 			if (std::isnan(maxdiff) || maxdiff == -std::numeric_limits<OdeReal>::infinity()) {
-				// LOGERROR(ODESolverDP5, IntegrateImpl, "NaN in error calculation");
+				if (verbose) {
+					LOGERROR("NaN in error calculation");
+				}
 				return false;
 			}
 
@@ -142,6 +144,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 			// From Hairer I; section II.4, p167
 			if (maxdiff > 1.1) {
 				if (cur_dt == min_dt) {
+					LOG("Time step adaptation decreases time step below minimum time step.");
 					break;
 				} else {
 					OdeReal scale = (OdeReal)0.9 * pow(maxdiff, (OdeReal)-0.2);
@@ -178,7 +181,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 
 		if (!succeeded) {
 			if (verbose) {
-				LOG("Time step adaptation did not converge in %d steps", ATTEMPTS);
+				LOG("Time step adaptation did not converge.");
 				//LOGERROR("%g,%g,%g - %g,%g,%g", yn[0], yn[1], yn[2], k[0][0], k[0][1], k[0][2]);
 			}
 			return false;

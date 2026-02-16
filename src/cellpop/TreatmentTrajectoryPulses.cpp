@@ -38,7 +38,7 @@ Real TreatmentTrajectoryPulses::GetConcentration(Real time, Real cell_creation_t
 Real TreatmentTrajectoryPulses::FirstDiscontinuity(Real cell_creation_time)
 {
 	if (timepoints.size() > 0) {
-		return timepoints[0] - cell_creation_time;
+		return timepoints[0] - cell_creation_time + 2.0;
 	} else {
 		return std::numeric_limits<Real>::quiet_NaN();
 	}
