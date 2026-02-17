@@ -28,4 +28,6 @@ private:
 	OdeReal* k[7];
 	OdeReal* ytmp;
 	OdeReal* yn;
+
+	static bool warn_discontinuity;
 };

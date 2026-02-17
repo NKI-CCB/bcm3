@@ -237,9 +237,9 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 			// Call the callback and reset the system if necessary
 			next_discontinuity_time = discontinuity_cb(t, discontinuity_user);
 			if (next_discontinuity_time <= t) {
-				if (warn_discontinuity) {
+				if (ODESolverDP5::warn_discontinuity) {
 					LOGWARNING("Discontinuity callback returned a next discontinuity time (%g) before or equal to the current integration time (%g); ignoring", next_discontinuity_time, t);
-					warn_discontinuity = false;
+					ODESolverDP5::warn_discontinuity = false;
 				}
 				next_discontinuity_time = std::numeric_limits<OdeReal>::quiet_NaN();
 			}
