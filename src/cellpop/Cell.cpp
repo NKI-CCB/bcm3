@@ -118,7 +118,7 @@ Real Cell::discontinuity_cb(OdeReal t)
 	if (disc == std::numeric_limits<Real>::infinity()) {
 		return std::numeric_limits<Real>::quiet_NaN();
 	} else {
-		return disc - creation_time;
+		return disc;
 	}
 }
 

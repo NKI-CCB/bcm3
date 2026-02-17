@@ -5,6 +5,8 @@ static const int ATTEMPTS = 10;
 static const OdeReal MIN_SCALE_FACTOR = 0.2;
 static const OdeReal MAX_SCALE_FACTOR = 5.0;
 
+bool ODESolverDP5::warn_discontinuity = true;
+
 ODESolverDP5::ODESolverDP5()
 	: min_dt(1e-3)
 	, max_dt(std::numeric_limits<Real>::infinity())
@@ -234,6 +236,13 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 
 			// Call the callback and reset the system if necessary
 			next_discontinuity_time = discontinuity_cb(t, discontinuity_user);
+			if (next_discontinuity_time <= t) {
+				if (warn_discontinuity) {
+					LOGWARNING("Discontinuity callback returned a next discontinuity time (%g) before or equal to the current integration time (%g); ignoring", next_discontinuity_time, t);
+					warn_discontinuity = false;
+				}
+				next_discontinuity_time = std::numeric_limits<OdeReal>::quiet_NaN();
+			}
 			derivative(t, yn, k[0], user_data);
 			next_dt = 1.0;
 
