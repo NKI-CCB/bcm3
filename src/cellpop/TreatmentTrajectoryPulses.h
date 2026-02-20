@@ -11,7 +11,5 @@ public:
 	virtual Real NextDiscontinuity(Real time, Real cell_creation_time);
 
 private:
-	Real CalculatePulse(Real t, Real pulse_time);
-
 	VectorReal timepoints;
 };

@@ -22,17 +22,20 @@ Real TreatmentTrajectoryPulses::GetConcentration(Real time, Real cell_creation_t
 {
 	Real global_time = time + cell_creation_time;
 
-	// Iterate backwards because the pulse calculation returns most quickly if time is before the pulse time
-	Real value = 0.0;
-	for (int i = timepoints.size() - 1; i >= 0; i--) {
-		value += CalculatePulse(global_time, timepoints(i));
-		if (value > 0.0) {
-			// Pulses do not overlap so we can quickly bail out
-			break;
+	for (int i = 0; i < timepoints.size(); i++) {
+		Real t_in_pulse = global_time - timepoints(i) - 2.0;
+		if (t_in_pulse >= 14.0 || t_in_pulse <= 0.0) {
+			return 0.0;
+		} else if (t_in_pulse < 2.0) {
+			return t_in_pulse * 0.5;
+		} else if (t_in_pulse < 10.0) {
+			return 1.0;
+		} else {
+			return 1 - (t_in_pulse - 10.0) * 0.25;
 		}
 	}
 
-	return value;
+	return 0.0;
 }
 
 Real TreatmentTrajectoryPulses::FirstDiscontinuity(Real cell_creation_time)
@@ -63,22 +66,4 @@ Real TreatmentTrajectoryPulses::NextDiscontinuity(Real time, Real cell_creation_
 	}
 
 	return std::numeric_limits<OdeReal>::quiet_NaN();
-}
-
-Real TreatmentTrajectoryPulses::CalculatePulse(Real t, Real pulse_time)
-{
-	Real t_in_pulse = t - pulse_time - 2.0;
-
-	//return ((0.5 * tanh(100.0 * t_in - 100.0 * t + 300.0) + 0.5) * (t_in - 1.0 * t + 2.0) + (0.5 * tanh(100.0 * t_in - 100.0 * t + 300.0) - 0.5) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1000.0) - 1.0 * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1400.0) + 0.5) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 1000.0) - 0.5) * (0.25 * t_in - 0.25 * t + 3.5) + 0.5)) * (0.5 * tanh(100.0 * t_in - 100.0 * t + 200.0) - 0.5);
-	if (t_in_pulse < 0.0) {
-		return 0.0;
-	} else if (t_in_pulse < 2.0) {
-		return t_in_pulse * 0.5;
-	} else if (t_in_pulse < 10.0) {
-		return 1.0;
-	} else if (t_in_pulse < 14.0) {
-		return 1 - (t_in_pulse - 10.0) * 0.25;
-	} else {
-		return 0.0;
-	}
 }
