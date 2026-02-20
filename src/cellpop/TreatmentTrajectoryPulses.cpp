@@ -24,7 +24,9 @@ Real TreatmentTrajectoryPulses::GetConcentration(Real time, Real cell_creation_t
 
 	for (int i = 0; i < timepoints.size(); i++) {
 		Real t_in_pulse = global_time - timepoints(i) - 2.0;
-		if (t_in_pulse >= 14.0 || t_in_pulse <= 0.0) {
+		if (t_in_pulse >= 14.0) {
+			continue;
+		} else if (t_in_pulse <= 0.0) {
 			return 0.0;
 		} else if (t_in_pulse < 2.0) {
 			return t_in_pulse * 0.5;
