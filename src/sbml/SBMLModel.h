@@ -40,25 +40,28 @@ public:
 
 	void GetParameters(std::vector<std::string>& parameters) const;
 	size_t GetNumSimulatedSpecies() const;
-	size_t GetNumCVodeSpecies() const;
+	size_t GetNumODEIntegratedSpecies() const;
 	size_t GetNumConstantSpecies() const;
 	const SBMLSpecies* GetSimulatedSpecies(size_t i) const;
-	const SBMLSpecies* GetCVodeSpecies(size_t i) const;
+	const SBMLSpecies* GetODEIntegratedSpecies(size_t i) const;
 	const SBMLSpecies* GetConstantSpecies(size_t i) const;
 	const std::string& GetSimulatedSpeciesName(size_t i) const;
-	const std::string& GetCVodeSpeciesName(size_t i) const;
+	const std::string& GetODEIntegratedSpeciesName(size_t i) const;
 	const std::string& GetConstantSpeciesName(size_t i) const;
 	std::string GetSimulatedSpeciesFullName(size_t i) const;
 	size_t GetSimulatedSpeciesByName(const std::string& name, bool log_error = true) const;
-	inline size_t GetSimulatedSpeciesFromCVodeSpecies(size_t cvode_i) const { return cvode_to_simulated_map[cvode_i]; }
+	inline size_t GetSimulatedSpeciesFromODEIntegratedSpecies(size_t ode_i) const { return ode_integrated_to_simulated_map[ode_i]; }
 	inline size_t GetSimulatedSpeciesFromConstantSpecies(size_t constant_i) const { return constant_to_simulated_map[constant_i]; }
-	size_t GetCVodeSpeciesByName(const std::string& name, bool log_error = true) const;
+	inline size_t GetConstantSpeciesFromSimulatedSpecies(size_t simulated_i) const { return simulated_to_constant_map[simulated_i]; }
+	size_t GetODEIntegratedSpeciesByName(const std::string& name, bool log_error = true) const;
 	size_t GetConstantSpeciesByName(const std::string& name, bool log_error = true) const;
 	void GetSimulatedSpeciesFullNames(std::vector<std::string>& species_names) const;
 	const SBMLSpecies* GetSpecies(const std::string& id) const;
 	const SBMLSpecies* GetSpeciesFromFullName(const std::string& id) const;
 	inline size_t GetNumAssignmentRules() const { return AssignmentRules.size(); }
 	inline const SBMLAssignmentRule& GetAssignmentRule(size_t i) const { return *AssignmentRules[i]; }
+	inline size_t GetAssignmentRuleTarget(size_t i) const { return AssignmentRulesTargetIx[i]; }
+	const SBMLAssignmentRule* GetAssignmentRuleForSimulatedSpecies(size_t i) const;
 
 private:
 #if BCM3_SBML_INCLUDE_SOLVERS
@@ -74,13 +77,14 @@ private:
 	std::map< std::string, std::unique_ptr<SBMLSpecies> > Species;
 	std::map< std::string, std::unique_ptr<SBMLReaction> > Reactions;
 	std::vector<std::string> SimulatedSpecies;
-	std::vector<std::string> CVodeSpecies;
+	std::vector<std::string> ODEIntegratedSpecies;
 	std::vector<std::string> ConstantSpecies;
 	std::vector< std::unique_ptr<SBMLAssignmentRule> > AssignmentRules;
 	std::vector<size_t> AssignmentRulesTargetIx;
 	std::vector<bool> SpeciesIsAssigned;
-	std::vector<size_t> cvode_to_simulated_map;
+	std::vector<size_t> ode_integrated_to_simulated_map;
 	std::vector<size_t> constant_to_simulated_map;
+	std::vector<size_t> simulated_to_constant_map;
 	std::map<std::string, Real> fixed_parameter_values;
 
 #if BCM3_SBML_INCLUDE_SOLVERS

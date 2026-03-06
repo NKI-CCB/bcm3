@@ -48,6 +48,7 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, max_number_of_cells(0)
 	, divide_cells(true)
 	, entry_time_varix(std::numeric_limits<size_t>::max())
+	, entry_time_nonsampled_varix(std::numeric_limits<size_t>::max())
 	, fixed_entry_time(0.0)
 	, synchronization_time_offset_varix(std::numeric_limits<size_t>::max())
 	, fixed_synchronization_time_offset(0.0)
@@ -66,6 +67,7 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, min_start_time(std::numeric_limits<Real>::quiet_NaN())
 	, max_achieved_time(std::numeric_limits<Real>::quiet_NaN())
 {
+	this->store_simulation = true;
 	if (evaluation_threads > 1) {
 		AuxEvaluationThreads.resize(evaluation_threads);
 		for (size_t i = 0; i < AuxEvaluationThreads.size(); i++) {
@@ -163,9 +165,66 @@ bool Experiment::PostInitialize()
 		cell_variabilities[i]->PostInitialize(varset, non_sampled_parameter_names, cell_model);
 	}
 
-	simulation_timepoints_vector = VectorReal(simulation_timepoints.size());
+	entry_time_varix = varset->GetVariableIndex(entry_time_varname, false);
+	if (entry_time_varix == std::numeric_limits<size_t>::max()) {
+		auto it = std::find(non_sampled_parameter_names.begin(), non_sampled_parameter_names.end(), entry_time_varname);
+		if (it != non_sampled_parameter_names.end()) {
+			entry_time_nonsampled_varix = it - non_sampled_parameter_names.begin();
+		} else {
+			try {
+				fixed_entry_time = boost::lexical_cast<Real>(entry_time_varname);
+			} catch (const boost::bad_lexical_cast& e) {
+				LOGERROR("Could not find variable for entry_time \"%s\", and could also not cast it to a constant real value: %s", entry_time_varname.c_str(), e.what());
+				return false;
+			}
+		}
+	}
+
+	if (!synchronization_time_offset_varname.empty()) {
+		synchronization_time_offset_varix = varset->GetVariableIndex(synchronization_time_offset_varname, false);
+		if (synchronization_time_offset_varix == std::numeric_limits<size_t>::max()) {
+			try {
+				fixed_entry_time = boost::lexical_cast<Real>(synchronization_time_offset_varname);
+			} catch (const boost::bad_lexical_cast& e) {
+				LOGERROR("Synchronization time offset was specified as \"%s\", but could not find variable and also could not cast it to a constant real value: %s", synchronization_time_offset_varname.c_str(), e.what());
+				return false;
+			}
+		}
+	} else {
+		synchronization_time_offset_varix = std::numeric_limits<size_t>::max();
+		fixed_synchronization_time_offset = 0.0;
+	}
+
+	simulated_cell_parents.resize(max_number_of_cells, std::numeric_limits<size_t>::max());
+
+	Real simulation_begin_time = 0;
+	Real simulation_end_time = 0;
+
+	std::vector<Real> request_simulation_timepoints;
 	for (size_t i = 0; i < simulation_timepoints.size(); i++) {
-		simulation_timepoints_vector[i] = simulation_timepoints[i].time;
+		request_simulation_timepoints.push_back(simulation_timepoints[i].time);
+		simulation_end_time = std::max(simulation_end_time, simulation_timepoints[i].time);
+	}
+
+	if (store_simulation) {
+		// Allocate space to store the trajectories
+		output_trajectories_timepoints.resize(output_trajectory_num_timepoints);
+		for (size_t i = 0; i < output_trajectories_timepoints.size(); i++) {
+			output_trajectories_timepoints(i) = simulation_begin_time + (simulation_end_time - simulation_begin_time) * i / (Real)(output_trajectory_num_timepoints - 1);
+			request_simulation_timepoints.push_back(output_trajectories_timepoints(i));
+		}
+
+		simulated_trajectories.resize(max_number_of_cells);
+		for (size_t i = 0; i < simulated_trajectories.size(); i++) {
+			simulated_trajectories[i].resize(output_trajectory_num_timepoints, VectorReal::Constant(cell_model.GetNumSimulatedSpecies(), std::numeric_limits<Real>::quiet_NaN()));
+		}
+	}
+
+	std::sort(request_simulation_timepoints.begin(), request_simulation_timepoints.end());
+
+	simulation_timepoints_vector = VectorReal(request_simulation_timepoints.size());
+	for (size_t i = 0; i < request_simulation_timepoints.size(); i++) {
+		simulation_timepoints_vector(i) = request_simulation_timepoints[i];
 	}
 
 	if (Cell::use_generated_code) {
@@ -227,14 +286,30 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 		}
 
 		// Report data references
-		for (int synchronize_i = 0; synchronize_i <= (int)ESynchronizeCellTrajectory::None; synchronize_i++) {
-			// Need to reset the timepoint iteration for each different synchronization timepoint
-			for (size_t i = 0; i < active_cells; i++) {
-				cells[i]->RestartInterpolationIteration();
+		if (any_requested_synchronization) {
+			for (int synchronize_i = 0; synchronize_i <= (int)ESynchronizeCellTrajectory::None; synchronize_i++) {
+				// Need to reset the timepoint iteration for each different synchronization timepoint
+				for (size_t i = 0; i < active_cells; i++) {
+					cells[i]->RestartInterpolationIteration();
+				}
+				for (size_t ti = 0; ti < simulation_timepoints.size(); ti++) {
+					const SimulationTimepoints& st = simulation_timepoints[ti];
+					if (st.species_ix != std::numeric_limits<size_t>::max() && (int)st.synchronize == synchronize_i) {
+						size_t population_size = CountCellsAtTime(st.time + time_offset, st.synchronize, false);
+						size_t mitotic_population_size = CountCellsAtTime(st.time + time_offset, st.synchronize, true);
+						for (size_t i = 0; i < active_cells; i++) {
+							Real x = cells[i]->GetInterpolatedSpeciesValue(st.time + time_offset, st.species_ix, st.synchronize);
+							if (x == x) {
+								data_likelihoods[st.data_likelihood_ix]->NotifySimulatedValue(st.time_ix, x, st.species_ix, i, population_size, mitotic_population_size, 0, cells[i]->EnteredMitosis(), i >= initial_number_of_cells);
+							}
+						}
+					}
+				}
 			}
+		} else {
 			for (size_t ti = 0; ti < simulation_timepoints.size(); ti++) {
 				const SimulationTimepoints& st = simulation_timepoints[ti];
-				if (st.species_ix != std::numeric_limits<size_t>::max() && (int)st.synchronize == synchronize_i) {
+				if (st.species_ix != std::numeric_limits<size_t>::max()) {
 					size_t population_size = CountCellsAtTime(st.time + time_offset, st.synchronize, false);
 					size_t mitotic_population_size = CountCellsAtTime(st.time + time_offset, st.synchronize, true);
 					for (size_t i = 0; i < active_cells; i++) {
@@ -248,27 +323,31 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 		}
 
 		if (store_simulation) {
-			for (size_t i = 0; i < active_cells; i++) {
-				cells[i]->RestartInterpolationIteration();
+			if (any_requested_synchronization) {
+				for (size_t i = 0; i < active_cells; i++) {
+					cells[i]->RestartInterpolationIteration();
+				}
 			}
 
+#if 0
 			Real simulation_begin_time = min_start_time;
 			Real simulation_end_time = max_achieved_time;
 
 			for (size_t i = 0; i < output_trajectories_timepoints.size(); i++) {
 				output_trajectories_timepoints(i) = simulation_begin_time + (simulation_end_time - simulation_begin_time) * i / (Real)(output_trajectory_num_timepoints - 1);
 			}
+#endif
 
 			for (size_t ti = 0; ti < output_trajectories_timepoints.size(); ti++) {
 				Real output_t = output_trajectories_timepoints(ti);
 				for (size_t i = 0; i < active_cells; i++) {
-					for (size_t j = 0; j < cell_model.GetNumCVodeSpecies(); j++) {
-						size_t simix = cell_model.GetSimulatedSpeciesFromCVodeSpecies(j);
+					for (size_t j = 0; j < cell_model.GetNumODEIntegratedSpecies(); j++) {
+						size_t simix = cell_model.GetSimulatedSpeciesFromODEIntegratedSpecies(j);
 						simulated_trajectories[i][ti](simix) = cells[i]->GetInterpolatedSpeciesValue(output_t, j, ESynchronizeCellTrajectory::None);
 					}
 					for (size_t j = 0; j < cell_model.GetNumConstantSpecies(); j++) {
 						size_t simix = cell_model.GetSimulatedSpeciesFromConstantSpecies(j);
-						simulated_trajectories[i][ti](simix) = cell_model.GetConstantSpecies(j)->GetInitialValue();
+						simulated_trajectories[i][ti](simix) = cells[i]->GetInterpolatedSpeciesValue(output_t, cell_model.GetNumODEIntegratedSpecies() + j, ESynchronizeCellTrajectory::None);
 					}
 					for (size_t j = 0; j < treatment_trajectories.size(); j++) {
 						size_t simix = cell_model.GetSimulatedSpeciesByName(cell_model.GetConstantSpeciesName(treatment_trajectories_species_ix[j]));
@@ -292,15 +371,15 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 		logp = -std::numeric_limits<Real>::infinity();
 	}
 
-	Real max_cvode_steps = 0;
-	Real min_cvode_step_size = std::numeric_limits<Real>::infinity();
+	Real max_solver_steps = 0;
+	Real min_solver_step_size = std::numeric_limits<Real>::infinity();
 
 	for (size_t i = 0; i < active_cells; i++) {
-		max_cvode_steps = (std::max)(max_cvode_steps, cells[i]->GetCVodeSteps());
-		min_cvode_step_size = (std::min)(min_cvode_step_size, cells[i]->GetCVodeMinStepSize());
+		max_solver_steps = (std::max)(max_solver_steps, (Real)cells[i]->GetSolverSteps());
+		min_solver_step_size = (std::min)(min_solver_step_size, (Real)cells[i]->GetSolverMinStepSize());
 	}
 
-	cvode_stats.push_back(std::tuple<Real, Real, bool>(max_cvode_steps, min_cvode_step_size, result));
+	solver_stats.push_back(std::tuple<Real, Real, bool>(max_solver_steps, min_solver_step_size, result));
 
 	return true;
 }
@@ -310,8 +389,8 @@ void Experiment::DumpCVodeStatistics(const std::string& output_folder)
 	std::string fn = output_folder + std::string("/cvode_statistics_") + Name + std::string(".tsv");
 	FILE* f = fopen(fn.c_str(), "w");
 	fprintf(f, "cvode_steps\tmin_step_size\tsucceeded\n");
-	for (size_t i = 0; i < cvode_stats.size(); i++) {
-		fprintf(f, "%g\t%g\t%d\n", std::get<0>(cvode_stats[i]), std::get<1>(cvode_stats[i]), std::get<2>(cvode_stats[i]));
+	for (size_t i = 0; i < solver_stats.size(); i++) {
+		fprintf(f, "%g\t%g\t%d\n", std::get<0>(solver_stats[i]), std::get<1>(solver_stats[i]), std::get<2>(solver_stats[i]));
 	}
 	fclose(f);
 }
@@ -383,7 +462,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	for(int i = 0; i < num_variables; i++){
 		std::string name_var = variable_names[i];
 		if(name_var.substr(0,8).compare("species_") == 0){
-			set_init_map[GetCVodeSpeciesByName(name_var.substr(8))] = i;
+			set_init_map[GetODEIntegratedSpeciesByName(name_var.substr(8), true)] = i;
 		}
 
 		if(name_var.substr(0,6).compare("ratio_") == 0){
@@ -395,8 +474,8 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 				if(name_var_internal.substr(0,6).compare("total_") == 0 && name_var.substr(6).compare(name_var_internal.substr(6)) == 0){
 					also_total_var = true;
 					std::vector<int> v = {i, j};
-					size_t active_species = GetCVodeSpeciesByName("active_" + name_var.substr(6));
-					size_t inactive_species = GetCVodeSpeciesByName("inactive_" + name_var.substr(6));
+					size_t active_species = GetODEIntegratedSpeciesByName("active_" + name_var.substr(6), true);
+					size_t inactive_species = GetODEIntegratedSpeciesByName("inactive_" + name_var.substr(6), true);
 
 					if(active_species == std::numeric_limits<size_t>::max()){
 						LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species; but the corresponding active species \"active_%s\" is not found in the model.", name_var.c_str(), name_var.substr(6).c_str());
@@ -414,8 +493,8 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 			}
 
 			if (!also_total_var) {
-				size_t active_species = GetCVodeSpeciesByName("active_" + name_var.substr(6));
-				size_t inactive_species = GetCVodeSpeciesByName("inactive_" + name_var.substr(6));
+				size_t active_species = GetODEIntegratedSpeciesByName("active_" + name_var.substr(6), true);
+				size_t inactive_species = GetODEIntegratedSpeciesByName("inactive_" + name_var.substr(6), true);
 
 				if(active_species == std::numeric_limits<size_t>::max()){
 					LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species; but the corresponding active species \"active_%s\" is not found in the model.", name_var.c_str(), name_var.substr(6).c_str());
@@ -562,47 +641,13 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		}
 	}
 
-	simulated_cell_parents.resize(max_number_of_cells, std::numeric_limits<size_t>::max());
-
-	if (store_simulation) {
-		// Allocate space to store the trajectories
-		output_trajectories_timepoints.resize(output_trajectory_num_timepoints);
-		simulated_trajectories.resize(max_number_of_cells);
-		for (size_t i = 0; i < simulated_trajectories.size(); i++) {
-			simulated_trajectories[i].resize(output_trajectory_num_timepoints, VectorReal::Constant(cell_model.GetNumSimulatedSpecies(), std::numeric_limits<Real>::quiet_NaN()));
-		}
-	}
-
 	return Initialize(xml_node);
 }
 
 bool Experiment::Initialize(const boost::property_tree::ptree& xml_node)
 {
-	std::string entry_time_varname = xml_node.get<std::string>("<xmlattr>.entry_time");
-	entry_time_varix = varset->GetVariableIndex(entry_time_varname, false);
-	if (entry_time_varix == std::numeric_limits<size_t>::max()) {
-		try {
-			fixed_entry_time = boost::lexical_cast<Real>(entry_time_varname);
-		} catch (const boost::bad_lexical_cast& e) {
-			LOGERROR("Could not find variable for mitosis_entry_time \"%s\", and could also not cast it to a constant real value: %s", entry_time_varname.c_str(), e.what());
-			return false;
-		}
-	}
-	std::string synchronization_time_offset_varname = xml_node.get<std::string>("<xmlattr>.synchronization_time_offset", "");
-	if (!synchronization_time_offset_varname.empty()) {
-		synchronization_time_offset_varix = varset->GetVariableIndex(synchronization_time_offset_varname, false);
-		if (synchronization_time_offset_varix == std::numeric_limits<size_t>::max()) {
-			try {
-				fixed_entry_time = boost::lexical_cast<Real>(synchronization_time_offset_varname);
-			} catch (const boost::bad_lexical_cast& e) {
-				LOGERROR("Synchronization time offset was specified as \"%s\", but could not find variable and also could not cast it to a constant real value: %s", synchronization_time_offset_varname.c_str(), e.what());
-				return false;
-			}
-		}
-	} else {
-		synchronization_time_offset_varix = std::numeric_limits<size_t>::max();
-		fixed_synchronization_time_offset = 0.0;
-	}
+	entry_time_varname = xml_node.get<std::string>("<xmlattr>.entry_time");
+	synchronization_time_offset_varname = xml_node.get<std::string>("<xmlattr>.synchronization_time_offset", "");
 
 	transformed_sampled_parameters.setConstant(varset->GetNumVariables(), std::numeric_limits<Real>::quiet_NaN());
 
@@ -706,8 +751,8 @@ bool Experiment::GenerateAndCompileSolverCode(const std::string& codegen_name)
 		f << "typedef Eigen::MatrixXd MatrixReal;\n";
 		f << "#include \"LinearAlgebraSelector.h\"\n";
 		f << std::endl;
-		for (size_t i = 0; i < cell_model.GetNumCVodeSpecies(); i++) {
-			f << "// species[" + std::to_string(i) + "] -- " + cell_model.GetCVodeSpeciesName(i) + " -- " + cell_model.GetCVodeSpecies(i)->GetFullName() + "\n";
+		for (size_t i = 0; i < cell_model.GetNumODEIntegratedSpecies(); i++) {
+			f << "// species[" + std::to_string(i) + "] -- " + cell_model.GetODEIntegratedSpeciesName(i) + " -- " + cell_model.GetODEIntegratedSpecies(i)->GetFullName() + "\n";
 		}
 		f << std::endl;
 		f << "#define EXPORT_PREFIX  extern \"C\"\n";
@@ -1035,6 +1080,8 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 	Real entry_time;
 	if (entry_time_varix != std::numeric_limits<size_t>::max()) {
 		entry_time = transformed_sampled_parameters[entry_time_varix];
+	} else if (entry_time_nonsampled_varix != std::numeric_limits<size_t>::max()) {
+		entry_time = non_sampled_parameters[entry_time_nonsampled_varix];
 	} else {
 		entry_time = fixed_entry_time;
 	}

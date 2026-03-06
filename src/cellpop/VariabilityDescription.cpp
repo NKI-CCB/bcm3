@@ -68,7 +68,7 @@ bool VariabilityDescription::PostInitialize(std::shared_ptr<const bcm3::Variable
 	}
 
 	if (!species_name.empty()) {
-		size_t ix = model.GetCVodeSpeciesByName(species_name);
+		size_t ix = model.GetODEIntegratedSpeciesByName(species_name);
 		if (ix == std::numeric_limits<size_t>::max()) {
 			return false;
 		}

@@ -14,9 +14,15 @@ public:
 
 	virtual bool Initialize(size_t N, void* user);
 	virtual bool SetSolverParameter(const std::string& parameter, int int_value, OdeReal real_value);
+	
+	virtual void RestartInterpolationIteration();
+	virtual const OdeVectorReal& GetInterpolatedY(OdeReal t);
 	virtual OdeReal GetInterpolatedY(OdeReal t, size_t i);
-	virtual OdeReal get_current_y(size_t i);
-	virtual void set_current_y(size_t i, OdeReal y);
+
+	virtual OdeVectorReal get_current_y() const;
+	virtual OdeReal get_current_y(size_t i) const;
+	virtual void set_current_y(size_t i, OdeReal y) const;
+	virtual Real get_threshold_crossing_time(size_t species_ix, Real threshold, bool above, Real prev_time) const;
 
 protected:
 	virtual bool Solve(const OdeVectorReal& initial_conditions, OdeReal end_time, bool do_interpolation, bool store_integration_points, bool verbose);
@@ -31,6 +37,23 @@ protected:
 	N_Vector y;
 	N_Vector tmpvector;
 	SUNMatrix J;
+	OdeReal t;
+
+	struct CVodeTimepoint
+	{
+		CVodeTimepoint();
+		OdeReal cvode_time;
+		OdeReal cv_uround;
+		OdeReal cv_tn;
+		OdeReal cv_h;
+		OdeReal cv_hu;
+		int cv_q;
+	};
+	std::vector<CVodeTimepoint> cvode_timepoints;
+	OdeMatrixReal cvode_timepoints_zn[6];
+	size_t cvode_timepoint_iter;
+	OdeVectorReal interpolation_y;
+	OdeReal interpolation_time;
 
 	int cvode_rhs_fn(OdeReal t, const OdeReal* y, OdeReal* ydot);
 	friend int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data);

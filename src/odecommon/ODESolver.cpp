@@ -4,9 +4,11 @@
 ODESolver::ODESolver()
 	: user_data(nullptr)
 	, N(0)
-	, next_discontinuity_time(std::numeric_limits<Real>::quiet_NaN())
+	, next_discontinuity_time(std::numeric_limits<OdeReal>::quiet_NaN())
 	, discontinuity_user(nullptr)
-	, relative_tolerance(std::numeric_limits<Real>::quiet_NaN())
+	, relative_tolerance(std::numeric_limits<OdeReal>::quiet_NaN())
+	, num_steps_used(0)
+	, min_used_step_size(std::numeric_limits<OdeReal>::quiet_NaN())
 {
 }
 
@@ -94,6 +96,9 @@ bool ODESolver::SolveReturnSolution(const OdeVectorReal& initial_conditions, con
 		return false;
 	}
 
+	num_steps_used = 0;
+	min_used_step_size = std::numeric_limits<OdeReal>::quiet_NaN();
+
 	output->resize(N, timepoints->size());
 
 	size_t ti = 0;
@@ -126,6 +131,9 @@ bool ODESolver::SolveStoreIntegrationPoints(const OdeVectorReal& initial_conditi
 		LOGERROR("end_time should be larger than zero");
 		return false;
 	}
+
+	num_steps_used = 0;
+	min_used_step_size = std::numeric_limits<OdeReal>::quiet_NaN();
 
 	if (!Solve(initial_conditions, end_time, false, true, verbose)) {
 		return false;

@@ -113,32 +113,35 @@ bool SBMLModel::LoadSBML(const std::string& fn)
 	}
 	
 	// Do not include species which are neither a reactant nor a product in the CVode calculations
-	CVodeSpecies = SimulatedSpecies;
-	for (auto ssi = CVodeSpecies.begin(); ssi != CVodeSpecies.end(); ) {
+	ODEIntegratedSpecies = SimulatedSpecies;
+	for (auto ssi = ODEIntegratedSpecies.begin(); ssi != ODEIntegratedSpecies.end(); ) {
 		auto si = species_without_reactions.find(*ssi);
 		if (si != species_without_reactions.end()) {
 			ConstantSpecies.push_back(*ssi);
-			ssi = CVodeSpecies.erase(ssi);
+			ssi = ODEIntegratedSpecies.erase(ssi);
 		} else {
 			++ssi;
 		}
 	}
 	for (auto ri = Reactions.begin(); ri != Reactions.end(); ++ri) {
-		if (!ri->second->SetSpeciesVector(CVodeSpecies, ConstantSpecies)) {
+		if (!ri->second->SetSpeciesVector(ODEIntegratedSpecies, ConstantSpecies)) {
 			return false;
 		}
 	}
-	cvode_to_simulated_map.resize(CVodeSpecies.size());
-	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
-		auto it = std::find(SimulatedSpecies.begin(), SimulatedSpecies.end(), CVodeSpecies[i]);
+	ode_integrated_to_simulated_map.resize(ODEIntegratedSpecies.size());
+	for (size_t i = 0; i < ODEIntegratedSpecies.size(); i++) {
+		auto it = std::find(SimulatedSpecies.begin(), SimulatedSpecies.end(), ODEIntegratedSpecies[i]);
 		ASSERT(it != SimulatedSpecies.end());
-		cvode_to_simulated_map[i] = it - SimulatedSpecies.begin();
+		ode_integrated_to_simulated_map[i] = it - SimulatedSpecies.begin();
 	}
 	constant_to_simulated_map.resize(ConstantSpecies.size());
+	simulated_to_constant_map.resize(SimulatedSpecies.size());
 	for (size_t i = 0; i < ConstantSpecies.size(); i++) {
 		auto it = std::find(SimulatedSpecies.begin(), SimulatedSpecies.end(), ConstantSpecies[i]);
 		ASSERT(it != SimulatedSpecies.end());
-		constant_to_simulated_map[i] = it - SimulatedSpecies.begin();
+		size_t simulated_ix = it - SimulatedSpecies.begin();
+		constant_to_simulated_map[i] = simulated_ix;
+		simulated_to_constant_map[simulated_ix] = i;
 	}
 
 	// Initialize assignment rules
@@ -150,7 +153,7 @@ bool SBMLModel::LoadSBML(const std::string& fn)
 			if (!newrule->Initialize(rule, this)) {
 				return false;
 			}
-			newrule->SetSpeciesVector(CVodeSpecies);
+			newrule->SetSpeciesVector(ODEIntegratedSpecies);
 
 			const std::string& target = newrule->GetVariable();
 			bool found = false;
@@ -313,14 +316,14 @@ std::string SBMLModel::GenerateCode()
 		i++;
 	}
 
-	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
+	for (size_t i = 0; i < ODEIntegratedSpecies.size(); i++) {
 		code += "\tout[" + std::to_string((uint64)i) + "] = ";
 
 		std::string eqn;
 		for (auto ri = Reactions.begin(); ri != Reactions.end(); ++ri) {
 			const std::vector<std::string>& products = ri->second->GetProducts();
 			for (size_t pi = 0; pi < products.size(); pi++) {
-				if (products[pi] == CVodeSpecies[i]) {
+				if (products[pi] == ODEIntegratedSpecies[i]) {
 					Real stoichiometry = ri->second->GetProductStoichiometry(pi);
 					if (stoichiometry == 1.0) {
 						eqn += "+ratelaws[" + std::to_string(ratelaw_ix[ri->second.get()]) + "]";
@@ -335,7 +338,7 @@ std::string SBMLModel::GenerateCode()
 			}
 			const std::vector<std::string>& reactants = ri->second->GetReactants();
 			for (size_t pi = 0; pi < reactants.size(); pi++) {
-				if (reactants[pi] == CVodeSpecies[i]) {
+				if (reactants[pi] == ODEIntegratedSpecies[i]) {
 					Real stoichiometry = ri->second->GetReactantStoichiometry(pi);
 					if (stoichiometry == 1.0) {
 						eqn += "-ratelaws[" + std::to_string(ratelaw_ix[ri->second.get()]) + "]";
@@ -363,17 +366,18 @@ std::string SBMLModel::GenerateCode()
 
 	code += "}\n\n";
 
-	code += "EXPORT_PREFIX void generated_jacobian(SUNMatrix out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)\n";
+	code += "EXPORT_PREFIX void generated_jacobian(OdeMatrixReal& out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters)\n";
 	code += "{\n";
 
-	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
-		for (size_t j = 0; j < CVodeSpecies.size(); j++) {
+	for (size_t i = 0; i < ODEIntegratedSpecies.size(); i++) {
+		for (size_t j = 0; j < ODEIntegratedSpecies.size(); j++) {
 			std::string eqn;
 			for (auto ri = Reactions.begin(); ri != Reactions.end(); ++ri) {
 				ri->second->AddRateDerivativeEquation(i, j, eqn);
 			}
 			if (!eqn.empty()) {
-				code += "\tSM_ELEMENT_D(out, " + std::to_string((uint64)i) + ", " + std::to_string((uint64)j) + ") = " + eqn + ";\n";
+				//code += "\tSM_ELEMENT_D(out, " + std::to_string((uint64)i) + ", " + std::to_string((uint64)j) + ") = " + eqn + ";\n";
+				code += "\tout(" + std::to_string((uint64)i) + ", " + std::to_string((uint64)j) + ") = " + eqn + ";\n";
 			}
 		}
 		code += "\n";
@@ -395,7 +399,7 @@ std::string SBMLModel::GenerateJacobianCode(size_t i, size_t j)
 
 bool SBMLModel::CalculateDerivativePublic(OdeReal t, const OdeReal* y, OdeReal* dydt, const OdeReal* constant_species_y, const OdeReal* transformed_variables, const OdeReal* non_sampled_parameters) const
 {
-	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
+	for (size_t i = 0; i < ODEIntegratedSpecies.size(); i++) {
 		dydt[i] = 0.0;
 	}
 	for (auto ri = Reactions.begin(); ri != Reactions.end(); ++ri) {
@@ -553,9 +557,9 @@ size_t SBMLModel::GetNumSimulatedSpecies() const
 	return SimulatedSpecies.size();
 }
 
-size_t SBMLModel::GetNumCVodeSpecies() const
+size_t SBMLModel::GetNumODEIntegratedSpecies() const
 {
-	return CVodeSpecies.size();
+	return ODEIntegratedSpecies.size();
 }
 
 size_t SBMLModel::GetNumConstantSpecies() const
@@ -568,9 +572,9 @@ const SBMLSpecies* SBMLModel::GetSimulatedSpecies(size_t i) const
 	return Species.at(SimulatedSpecies[i]).get();
 }
 
-const SBMLSpecies* SBMLModel::GetCVodeSpecies(size_t i) const
+const SBMLSpecies* SBMLModel::GetODEIntegratedSpecies(size_t i) const
 {
-	return Species.at(CVodeSpecies[i]).get();
+	return Species.at(ODEIntegratedSpecies[i]).get();
 }
 
 const SBMLSpecies* SBMLModel::GetConstantSpecies(size_t i) const
@@ -583,9 +587,9 @@ const std::string& SBMLModel::GetSimulatedSpeciesName(size_t i) const
 	return Species.at(SimulatedSpecies[i])->GetName();
 }
 
-const std::string& SBMLModel::GetCVodeSpeciesName(size_t i) const
+const std::string& SBMLModel::GetODEIntegratedSpeciesName(size_t i) const
 {
-	return Species.at(CVodeSpecies[i])->GetName();
+	return Species.at(ODEIntegratedSpecies[i])->GetName();
 }
 
 const std::string& SBMLModel::GetConstantSpeciesName(size_t i) const
@@ -612,10 +616,10 @@ size_t SBMLModel::GetSimulatedSpeciesByName(const std::string& name, bool log_er
 	return std::numeric_limits<size_t>::max();
 }
 
-size_t SBMLModel::GetCVodeSpeciesByName(const std::string& name, bool log_error) const
+size_t SBMLModel::GetODEIntegratedSpeciesByName(const std::string& name, bool log_error) const
 {
-	for (size_t i = 0; i < CVodeSpecies.size(); i++) {
-		if (Species.at(CVodeSpecies[i])->GetName() == name) {
+	for (size_t i = 0; i < ODEIntegratedSpecies.size(); i++) {
+		if (Species.at(ODEIntegratedSpecies[i])->GetName() == name) {
 			return i;
 		}
 	}
@@ -665,6 +669,17 @@ const SBMLSpecies* SBMLModel::GetSpeciesFromFullName(const std::string& id) cons
 		}
 	}
 	return NULL;
+}
+
+const SBMLAssignmentRule* SBMLModel::GetAssignmentRuleForSimulatedSpecies(size_t i) const
+{
+	for (size_t ri = 0; ri < AssignmentRules.size(); ri++) {
+		if (AssignmentRulesTargetIx[ri] == i) {
+			return AssignmentRules[ri].get();
+		}
+	}
+
+	return nullptr;
 }
 
 #if BCM3_SBML_INCLUDE_SOLVERS

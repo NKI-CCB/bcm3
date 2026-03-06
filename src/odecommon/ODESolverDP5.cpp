@@ -110,6 +110,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 	derivative(t, yn, k[0], user_data);
 
 	unsigned int steps = 0;
+	min_used_step_size = std::numeric_limits<Real>::infinity();
 
 	size_t ti = interpolation_timepoints_start;
 	
@@ -186,6 +187,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 				LOG("Time step adaptation did not converge.");
 				//LOGERROR("%g,%g,%g - %g,%g,%g", yn[0], yn[1], yn[2], k[0][0], k[0][1], k[0][2]);
 			}
+			num_steps_used = steps;
 			return false;
 		}
 
@@ -253,6 +255,8 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 
 		steps++;
 
+		min_used_step_size = std::min(min_used_step_size, cur_dt);
+
 		if (integration_step_cb) {
 			integration_step_cb(t, yn, user_data);
 		}
@@ -266,19 +270,38 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 				LOG("Maximum number of time steps reached.");
 				//LOGERROR("%g,%g,%g - %g,%g,%g", yn[0], yn[1], yn[2], k[0][0], k[0][1], k[0][2]);
 			}
+			num_steps_used = steps;
 			return false;
 		}
 
 		dt = next_dt;
 	}
 
+	num_steps_used = steps;
 	return true;
+}
+
+void ODESolverDP5::RestartInterpolationIteration()
+{
+	// Not yet implemented
+	ASSERT(false);
+}
+
+const OdeVectorReal& ODESolverDP5::GetInterpolatedY(OdeReal t)
+{
+	// Not yet implemented
+	interpolated_y.setConstant(N, std::numeric_limits<Real>::quiet_NaN());
+	return interpolated_y;
 }
 
 OdeReal ODESolverDP5::GetInterpolatedY(OdeReal t, size_t i)
 {
-	// Not yet implemented
-	return std::numeric_limits<Real>::quiet_NaN();
+	return GetInterpolatedY(t)(i);
+}
+
+OdeVectorReal ODESolverDP5::get_current_y() const
+{
+	return Eigen::Map<OdeVectorReal>(yn, N);
 }
 
 OdeReal ODESolverDP5::get_current_y(size_t i)
@@ -289,6 +312,13 @@ OdeReal ODESolverDP5::get_current_y(size_t i)
 void ODESolverDP5::set_current_y(size_t i, OdeReal y)
 {
 	yn[i] = y;
+}
+
+Real ODESolverDP5::get_threshold_crossing_time(size_t species_ix, Real threshold, bool above, Real prev_time) const
+{
+	// Not yet implemented
+	ASSERT(false);
+	return std::numeric_limits<Real>::quiet_NaN();
 }
 
 OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)

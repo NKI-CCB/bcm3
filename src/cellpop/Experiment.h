@@ -14,7 +14,7 @@
 
 extern "C" {
 	typedef void (*derivative_fn)(OdeReal* out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters);
-	typedef void (*jacobian_fn)(SUNMatrix out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters);
+	typedef void (*jacobian_fn)(OdeMatrixReal& out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters);
 }
 
 class Cell;
@@ -53,8 +53,10 @@ public:
 
 	static std::unique_ptr<Experiment> Create(const boost::property_tree::ptree& xml_node, std::shared_ptr<const bcm3::VariableSet> varset, const boost::program_options::variables_map& vm, bcm3::RNG& rng, size_t evaluation_threads, bool store_simulation);
 	inline const std::string& GetName() const { return Name; }
+	inline size_t GetNumODEIntegratedSpecies() const { return cell_model.GetNumODEIntegratedSpecies(); }
 	inline size_t GetSimulatedSpeciesByName(const std::string& species_name) const { return cell_model.GetSimulatedSpeciesByName(species_name); }
-	inline size_t GetCVodeSpeciesByName(const std::string& species_name) const { return cell_model.GetCVodeSpeciesByName(species_name); }
+	inline size_t GetODEIntegratedSpeciesByName(const std::string& species_name, bool log_error) const { return cell_model.GetODEIntegratedSpeciesByName(species_name, log_error); }
+	inline size_t GetConstantSpeciesByName(const std::string& species_name, bool log_error) const { return cell_model.GetConstantSpeciesByName(species_name, log_error); }
 	inline size_t GetMaxNumberOfCells() const { return max_number_of_cells; }
 	inline const bcm3::VariableSet* GetVarset() const { return varset.get(); }
 
@@ -97,8 +99,11 @@ protected:
 	size_t initial_number_of_cells;
 	size_t max_number_of_cells;
 	bool divide_cells;
+	std::string entry_time_varname;
 	size_t entry_time_varix;
+	size_t entry_time_nonsampled_varix;
 	Real fixed_entry_time;
+	std::string synchronization_time_offset_varname;
 	size_t synchronization_time_offset_varix;
 	Real fixed_synchronization_time_offset;
 	Real trailing_simulation_time;
@@ -162,7 +167,7 @@ protected:
 	jacobian_fn jacobian;
 	mutable bcm3::RNG rng;
 
-	std::vector< std::tuple<Real, Real, bool> > cvode_stats;
+	std::vector< std::tuple<Real, Real, bool> > solver_stats;
 
 	struct AuxEvaluation {
 		AuxEvaluation();

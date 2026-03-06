@@ -14,7 +14,7 @@ public:
 
 	bool SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const std::map<size_t, std::vector<int>>& ratio_active_map, const std::map<size_t, std::vector<int>>& ratio_inactive_map, const std::map<size_t, std::vector<size_t>>& ratio_total_active,const std::map<size_t, std::vector<size_t>>& ratio_total_inactive,const VectorReal& transformed_values, Real time);
 	bool SetInitialConditionsFromOtherCell(const Cell* other);
-	bool Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_point, Real abs_tol, Real rel_tol);
+	bool Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_points, Real abs_tol, Real rel_tol);
 
 	bool Simulate(Real end_time, Real simulate_past_chromatid_separation_time, VectorReal& output_times, bool &die, bool &divide, Real& achieved_time);
 
@@ -22,11 +22,11 @@ public:
 	void RestartInterpolationIteration();
 	bool CellAliveAtTime(Real time, ESynchronizeCellTrajectory synchronize) const;
 	inline Real GetCreationTime() const { return creation_time; }
-	inline bool CellCompleted() const { return completed; }
 	inline bool EnteredMitosis() const { return !std::isnan(nuclear_envelope_breakdown_time); }
-	inline Real GetCVodeSteps() const { return cvode_steps; }
-	inline Real GetCVodeMinStepSize() const { return min_step_size;	}
 	Real GetDuration(EPhaseDuration duration) const;
+
+	size_t GetSolverSteps() const { return solver->GetNumSteps(); }
+	OdeReal GetSolverMinStepSize() const { return solver->GetMinStepSize(); }
 
 	void SetDerivativeFunctions(derivative_fn fn, jacobian_fn jac);
 
@@ -37,48 +37,25 @@ public:
 
 private:
 	void SetTreatmentConcentration(Real t);
-	void RetrieveCVodeInterpolationInfo();
-	Real InterpolateEventTime(size_t species_ix, Real threshold, bool above, Real prev_time);
-	void CalculateEndY(Real end_time);
-	static int static_cvode_rhs_fn(OdeReal t, N_Vector y, N_Vector ydot, void* user_data);
-	static int static_cvode_jac_fn(OdeReal t, N_Vector y, N_Vector fy, SUNMatrix Jac, void* user_data, N_Vector ytmp1, N_Vector ytmp2, N_Vector ytmp3);
 	bool solver_rhs_fn(OdeReal t, const OdeReal* y, OdeReal* ydot, void* user_data);
+	bool solver_jac_fn(OdeReal t, const OdeReal* y, const OdeReal* ydot, OdeMatrixReal& jac, void* user_data);
 	Real discontinuity_cb(OdeReal t);
+	bool integration_step_cb(OdeReal t, const OdeReal* y, void* user_data);
 
+	// Settings
 	const SBMLModel* model;
 	const Experiment* experiment;
 	OdeVectorReal cell_specific_transformed_variables;
 	OdeVectorReal cell_specific_non_sampled_transformed_variables;
 
-	void* cvode_mem;
-	SUNLinearSolver LS;
-	SUNNonlinearSolver NLS;
-	N_Vector cvode_y;
-	OdeVectorReal cvode_end_y;
-	OdeVectorReal constant_species_y;
-	SUNMatrix J;
-	bool cvode_initialized;
-	bool store_integration;
+	bool store_integration_points;
 	OdeReal creation_time;				// The time in "experiment time" at which the cell is created. So in "cell time", t=0 will be creation_time
 	OdeReal current_simulation_time;
-	size_t cvode_steps;
-	OdeReal min_step_size;
-	bool completed;
 
-	struct CVodeTimepoint {
-		CVodeTimepoint();
-		OdeReal cvode_time;
-		OdeReal cv_uround;
-		OdeReal cv_tn;
-		OdeReal cv_h;
-		OdeReal cv_hu;
-		int cv_q;
-	};
-	std::vector<CVodeTimepoint> cvode_timepoints;
-	OdeMatrixReal cvode_timepoints_zn[6];
-	size_t cvode_timepoint_iter;
 	Real synchronize_offset_time;
+	Real simulate_past_chromatid_separation_time;
 
+	// Runtime variables
 	size_t DNA_replication_ix;
 	size_t DNA_replicated_ix;
 	size_t PCNA_gfp_ix;
@@ -93,14 +70,18 @@ private:
 	OdeReal nuclear_envelope_breakdown_time;
 	OdeReal anaphase_onset_time;
 
-	OdeVectorReal cvode_interpolate_y;
-	OdeReal interpolation_time;
-
 	derivative_fn derivative;
 	jacobian_fn jacobian;
 
 	std::shared_ptr<ODESolver> solver;
+	OdeVectorReal initial_y;
+	OdeVectorReal constant_species_y;
 	OdeVectorReal solver_stored_timepoints;
 	OdeMatrixReal solver_output;
-	OdeMatrixReal constant_solver_output;
+	OdeReal simulation_end_time;
+	OdeVectorReal simulation_end_y;
+	OdeReal previous_integration_step_time;
+
+	bool cell_divided;
+	bool cell_died;
 };

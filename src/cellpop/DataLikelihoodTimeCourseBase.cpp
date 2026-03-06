@@ -151,9 +151,15 @@ bool DataLikelihoodTimeCourseBase::RequestSimulationInfo(Experiment* experiment,
 			bcm3::tokenize(species_name, sum_names, "+");
 			for (size_t i = 0; i < sum_names.size(); i++) {
 				boost::trim(sum_names[i]);
-				size_t species_ix = experiment->GetCVodeSpeciesByName(sum_names[i]);
+				size_t species_ix = experiment->GetODEIntegratedSpeciesByName(sum_names[i], false);
 				if (species_ix == std::numeric_limits<size_t>::max()) {
-					return false;
+					size_t constant_species_ix = experiment->GetConstantSpeciesByName(sum_names[i], false);
+					if (constant_species_ix == std::numeric_limits<size_t>::max()) {
+						LOGERROR("Could not find species \"%s\" as either an dynamic or constant species", sum_names[i].c_str());
+						return false;
+					} else {
+						species_ix = constant_species_ix + experiment->GetNumODEIntegratedSpecies();
+					}
 				}
 				if (species_map[species_ix].empty()) {
 					for (size_t i = 0; i < timepoints.size(); i++) {
@@ -176,9 +182,15 @@ bool DataLikelihoodTimeCourseBase::RequestSimulationInfo(Experiment* experiment,
 			}
 			for (size_t i = 0; i < sum_names.size(); i++) {
 				boost::trim(sum_names[i]);
-				size_t species_ix = experiment->GetCVodeSpeciesByName(sum_names[i]);
+				size_t species_ix = experiment->GetODEIntegratedSpeciesByName(sum_names[i], false);
 				if (species_ix == std::numeric_limits<size_t>::max()) {
-					return false;
+					size_t constant_species_ix = experiment->GetConstantSpeciesByName(sum_names[i], false);
+					if (constant_species_ix == std::numeric_limits<size_t>::max()) {
+						LOGERROR("Could not find species \"%s\" as either an dynamic or constant species", sum_names[i].c_str());
+						return false;
+					} else {
+						species_ix = constant_species_ix + experiment->GetNumODEIntegratedSpecies();
+					}
 				}
 				if (species_map[species_ix].empty()) {
 					for (size_t i = 0; i < timepoints.size(); i++) {
@@ -192,9 +204,15 @@ bool DataLikelihoodTimeCourseBase::RequestSimulationInfo(Experiment* experiment,
 				}
 			}
 		} else {
-			size_t species_ix = experiment->GetCVodeSpeciesByName(species_names[j]);
+			size_t species_ix = experiment->GetODEIntegratedSpeciesByName(species_names[j], false);
 			if (species_ix == std::numeric_limits<size_t>::max()) {
-				return false;
+				size_t constant_species_ix = experiment->GetConstantSpeciesByName(species_names[j], false);
+				if (constant_species_ix == std::numeric_limits<size_t>::max()) {
+					LOGERROR("Could not find species \"%s\" as either an dynamic or constant species", species_names[j].c_str());
+					return false;
+				} else {
+					species_ix = constant_species_ix + experiment->GetNumODEIntegratedSpecies();
+				}
 			}
 			if (species_map[species_ix].empty()) {
 				for (size_t i = 0; i < timepoints.size(); i++) {

@@ -8,7 +8,7 @@ public:
 	typedef std::function<bool(OdeReal, const OdeReal*, OdeReal*, void*)> TDeriviativeFunction;
 	typedef std::function<bool(OdeReal, const OdeReal*, const OdeReal*, OdeMatrixReal&, void*)> TJacobianFunction;
 	typedef std::function<Real(OdeReal, void*)> TDiscontinuityCallback;
-	typedef std::function<void(OdeReal, const OdeReal*, void*)> TIntegrationStepCallback;
+	typedef std::function<bool(OdeReal, const OdeReal*, void*)> TIntegrationStepCallback;
 
 	ODESolver();
 	virtual ~ODESolver();
@@ -29,12 +29,19 @@ public:
 	bool SolveReturnSolution(const OdeVectorReal& initial_conditions, const OdeVectorReal* timepoints, OdeMatrixReal* output, bool verbose = false);
 	bool SolveStoreIntegrationPoints(const OdeVectorReal& initial_conditions, Real end_time, bool verbose = false);
 
+	size_t GetNumSteps() const { return num_steps_used; }
+	OdeReal	GetMinStepSize() const { return min_used_step_size; }
+
 	// For use after SolveStoreIntegrationPoints
+	virtual void RestartInterpolationIteration() = 0;
+	virtual const OdeVectorReal& GetInterpolatedY(OdeReal t) = 0;
 	virtual OdeReal GetInterpolatedY(OdeReal t, size_t i) = 0;
 
 	// For use during callbacks
-	virtual OdeReal get_current_y(size_t i) { return std::numeric_limits<OdeReal>::quiet_NaN(); }
-	virtual void set_current_y(size_t i, OdeReal y) {}
+	virtual OdeVectorReal get_current_y() const { return OdeVectorReal::Constant(N, std::numeric_limits<OdeReal>::quiet_NaN()); }
+	virtual OdeReal get_current_y(size_t i) const { return std::numeric_limits<OdeReal>::quiet_NaN(); }
+	virtual void set_current_y(size_t i, OdeReal y) const {}
+	virtual Real get_threshold_crossing_time(size_t species_ix, Real threshold, bool above, Real prev_time) const { return std::numeric_limits<Real>::quiet_NaN(); }
 
 protected:
 	virtual bool Solve(const OdeVectorReal& initial_conditions, OdeReal end_time, bool do_interpolation, bool store_integration_points, bool verbose) = 0;
@@ -58,4 +65,6 @@ protected:
 	size_t interpolation_timepoints_start;
 	const OdeVectorReal* interpolation_timepoints;
 	OdeMatrixReal* interpolated_output;
+	size_t num_steps_used;
+	OdeReal min_used_step_size;
 };
