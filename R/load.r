@@ -119,6 +119,9 @@ bcm3.load <- function(base_folder, prior_file="prior.xml", likelihood_file="like
           if (is.na(model$likelihood$experiments[[i]]$data[[j]]$stdev_multiplication_factor)) {
             model$likelihood$experiments[[i]]$data[[j]]$stdev_multiplication_factor <- 1.0
           }
+          if (is.na(model$likelihood$experiments[[i]]$data[[j]]$proportional_stdev)) {
+            model$likelihood$experiments[[i]]$data[[j]]$proportional_stdev <- ""
+          }
         }
       }
     }
