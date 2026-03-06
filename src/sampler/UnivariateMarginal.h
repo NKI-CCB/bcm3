@@ -32,22 +32,23 @@ public:
 	Real GetUpperBound() const;
 
 private:
-	enum EDistribution
+	enum class Distribution
 	{
-		D_Invalid,
-		D_Uniform,
-		D_Normal,
-		D_Exponential,
-		D_Gamma,
-		D_Beta,
-		D_HalfCauchy,
-		D_BetaPrime,
-		D_ExponentialMix,
+		Invalid,
+		DiracDelta,
+		Uniform,
+		Normal,
+		Exponential,
+		Gamma,
+		Beta,
+		HalfCauchy,
+		BetaPrime,
+		ExponentialMix,
 	};
 	
-	EDistribution PriorType;
+	Distribution PriorType;
 
-	Real mu;			// Normal
+	Real mu;			// Normal, DiracDelta
 	Real sigma;			// Normal
 	Real a;				// Uniform, Beta, BetaPrime
 	Real b;				// Uniform, Beta, BetaPrime

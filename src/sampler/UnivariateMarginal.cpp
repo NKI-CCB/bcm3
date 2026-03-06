@@ -6,7 +6,7 @@
 namespace bcm3 {
 
 UnivariateMarginal::UnivariateMarginal()
-	: PriorType(D_Invalid)
+	: PriorType(Distribution::Invalid)
 	, mu(0)
 	, sigma(0)
 	, a(0)
@@ -26,16 +26,19 @@ bool UnivariateMarginal::Initialize(boost::property_tree::ptree pt)
 {
 	try {
 		std::string distribution_name = pt.get<std::string>("<xmlattr>.distribution");
-		if(distribution_name == "uniform") {
-			PriorType = D_Uniform;
+		if (distribution_name == "dirac_delta") {
+			PriorType = Distribution::DiracDelta;
+			mu = pt.get<Real>("<xmlattr>.value");
+		} if (distribution_name == "uniform") {
+			PriorType = Distribution::Uniform;
 			a = pt.get<Real>("<xmlattr>.lower");
 			b = pt.get<Real>("<xmlattr>.upper");
 			if (b <= a) {
 				LOGERROR("Uniform distribution with upper bound less than or equal to lower bound.");
 				return false;
 			}
-		} else if(distribution_name == "normal") {
-			PriorType = D_Normal;
+		} else if (distribution_name == "normal") {
+			PriorType = Distribution::Normal;
 			mu = pt.get<Real>("<xmlattr>.mu");
 			sigma = pt.get<Real>("<xmlattr>.sigma");
 			OneOverTwoSigmaSq = 1.0 / (2.0 * sigma * sigma);
@@ -44,15 +47,15 @@ bool UnivariateMarginal::Initialize(boost::property_tree::ptree pt)
 				LOGERROR("Normal distribution with non-positive sigma.");
 				return false;
 			}
-		} else if(distribution_name == "exponential") {
-			PriorType = D_Exponential;
+		} else if (distribution_name == "exponential") {
+			PriorType = Distribution::Exponential;
 			lambda = pt.get<Real>("<xmlattr>.lambda");
 			if (lambda <= 0.0) {
 				LOGERROR("Exponential distribution with non-positive lambda.");
 				return false;
 			}
-		} else if(distribution_name == "gamma") {
-			PriorType = D_Gamma;
+		} else if (distribution_name == "gamma") {
+			PriorType = Distribution::Gamma;
 			k = pt.get<Real>("<xmlattr>.k");
 			theta = pt.get<Real>("<xmlattr>.theta");
 			if (k <= 0.0) {
@@ -63,8 +66,8 @@ bool UnivariateMarginal::Initialize(boost::property_tree::ptree pt)
 				LOGERROR("Gamma distribution with non-positive theta.");
 				return false;
 			}
-		} else if(distribution_name == "beta") {
-			PriorType = D_Beta;
+		} else if (distribution_name == "beta") {
+			PriorType = Distribution::Beta;
 			a = pt.get<Real>("<xmlattr>.a");
 			b = pt.get<Real>("<xmlattr>.b");
 			if (a <= 0.0) {
@@ -75,25 +78,25 @@ bool UnivariateMarginal::Initialize(boost::property_tree::ptree pt)
 				LOGERROR("Beta distribution with non-positive b.");
 				return false;
 			}
-		} else if(distribution_name == "half_cauchy") {
-			PriorType = D_HalfCauchy;
+		} else if (distribution_name == "half_cauchy") {
+			PriorType = Distribution::HalfCauchy;
 			scale = pt.get<Real>("<xmlattr>.scale");
 			if (scale <= 0.0) {
 				LOGERROR("Beta distribution with non-positive scale.");
 				return false;
 			}
 		} else if (distribution_name == "beta_prime") {
-			PriorType = D_BetaPrime;
+			PriorType = Distribution::BetaPrime;
 			a = pt.get<Real>("<xmlattr>.a");
 			b = pt.get<Real>("<xmlattr>.b");
 			scale = pt.get<Real>("<xmlattr>.scale");
 		} else if (distribution_name == "exponential_mix") {
-			PriorType = D_ExponentialMix;
+			PriorType = Distribution::ExponentialMix;
 			lambda = pt.get<Real>("<xmlattr>.lambda");
 			lambda2 = pt.get<Real>("<xmlattr>.lambda2");
 			mixing_coeff = pt.get<Real>("<xmlattr>.mix");
 		} else {
-			PriorType = D_Invalid;
+			PriorType = Distribution::Invalid;
 			LOGERROR("Invalid distribution type \"%s\"", distribution_name.c_str());
 			return false;
 		}
@@ -113,7 +116,7 @@ std::unique_ptr<UnivariateMarginal> UnivariateMarginal::CreateUniform(Real lower
 	}
 
 	std::unique_ptr<UnivariateMarginal> m = std::make_unique<UnivariateMarginal>();
-	m->PriorType = D_Uniform;
+	m->PriorType = Distribution::Uniform;
 	m->a = lower;
 	m->b = upper;
 	return m;
@@ -127,7 +130,7 @@ std::unique_ptr<UnivariateMarginal> UnivariateMarginal::CreateNormal(Real mu, Re
 	}
 	
 	std::unique_ptr<UnivariateMarginal> m = std::make_unique<UnivariateMarginal>();
-	m->PriorType = D_Normal;
+	m->PriorType = Distribution::Normal;
 	m->mu = mu;
 	m->sigma = sigma;
 	m->OneOverTwoSigmaSq = 1.0 / (2.0 * sigma * sigma);
@@ -143,7 +146,7 @@ std::unique_ptr<UnivariateMarginal> UnivariateMarginal::CreateExponential(Real l
 	}
 
 	std::unique_ptr<UnivariateMarginal> m = std::make_unique<UnivariateMarginal>();
-	m->PriorType = D_Exponential;
+	m->PriorType = Distribution::Exponential;
 	m->lambda = lambda;
 	return m;
 }
@@ -160,7 +163,7 @@ std::unique_ptr<UnivariateMarginal> UnivariateMarginal::CreateGamma(Real k, Real
 	}
 
 	std::unique_ptr<UnivariateMarginal> m = std::make_unique<UnivariateMarginal>();
-	m->PriorType = D_Gamma;
+	m->PriorType = Distribution::Gamma;
 	m->k = k;
 	m->theta = theta;
 	return m;
@@ -178,7 +181,7 @@ std::unique_ptr<UnivariateMarginal> UnivariateMarginal::CreateBeta(Real a, Real 
 	}
 	
 	std::unique_ptr<UnivariateMarginal> m = std::make_unique<UnivariateMarginal>();
-	m->PriorType = D_Beta;
+	m->PriorType = Distribution::Beta;
 	m->a = a;
 	m->b = b;
 	return m;
@@ -192,7 +195,7 @@ std::unique_ptr<UnivariateMarginal> UnivariateMarginal::CreateHalfCauchy(Real sc
 	}
 	
 	std::unique_ptr<UnivariateMarginal> m = std::make_unique<UnivariateMarginal>();
-	m->PriorType = D_HalfCauchy;
+	m->PriorType = Distribution::HalfCauchy;
 	m->scale = scale;
 	return m;
 }
@@ -213,7 +216,7 @@ std::unique_ptr<UnivariateMarginal> UnivariateMarginal::CreateBetaPrime(Real a, 
 	}
 
 	std::unique_ptr<UnivariateMarginal> m = std::make_unique<UnivariateMarginal>();
-	m->PriorType = D_BetaPrime;
+	m->PriorType = Distribution::BetaPrime;
 	m->a = a;
 	m->b = b;
 	m->scale = scale;
@@ -223,38 +226,42 @@ std::unique_ptr<UnivariateMarginal> UnivariateMarginal::CreateBetaPrime(Real a, 
 bool UnivariateMarginal::Sample(Real& value, RNG* rng) const
 {
 	switch (PriorType) {
-	case D_Uniform:
+	case Distribution::DiracDelta:
+		value = mu;
+		return true;
+
+	case Distribution::Uniform:
 		value = rng->GetUniform(a, b);
 		return true;
 
-	case D_Normal:
+	case Distribution::Normal:
 		value = rng->GetNormal(mu, sigma);
 		return true;
 
-	case D_Exponential:
+	case Distribution::Exponential:
 		value = rng->GetExponential(1.0 / lambda);
 		return true;
 
-	case D_Gamma:
+	case Distribution::Gamma:
 		value = rng->GetGamma(k, theta);
 		return true;
 
-	case D_Beta:
+	case Distribution::Beta:
 		value = rng->GetBeta(a, b);
 		return true;
 
-	case D_HalfCauchy:
+	case Distribution::HalfCauchy:
 		value = rng->GetHalfCauchy(scale);
 		return true;
 
-	case D_BetaPrime:
+	case Distribution::BetaPrime:
 		{
 			Real x = rng->GetBeta(a, b);
 			value = scale * ((x) / (1.0 - x));
 		}
 		return true;
 
-	case D_ExponentialMix:
+	case Distribution::ExponentialMix:
 		{
 			Real p = rng->GetReal();
 			if (p < mixing_coeff) {
@@ -274,7 +281,15 @@ bool UnivariateMarginal::Sample(Real& value, RNG* rng) const
 bool UnivariateMarginal::EvaluatePDF(Real& p, const Real value) const
 {
 	switch (PriorType) {
-	case D_Uniform:
+	case Distribution::DiracDelta:
+		if (value == mu) {
+			return std::numeric_limits<Real>::infinity();
+		} else {
+			return 0;
+		}
+		return true;
+
+	case Distribution::Uniform:
 		if (value < a || value > b) {
 			p = 0.0;
 		} else {
@@ -282,23 +297,23 @@ bool UnivariateMarginal::EvaluatePDF(Real& p, const Real value) const
 		}
 		return true;
 
-	case D_Normal:
+	case Distribution::Normal:
 		p = PdfNormal(value, mu, sigma);
 		return true;
 
-	case D_Exponential:
+	case Distribution::Exponential:
 		p = PdfExponential(value, lambda);
 		return true;
 
-	case D_Gamma:
+	case Distribution::Gamma:
 		p = PdfGamma(value, k, theta);
 		return true;
 
-	case D_Beta:
+	case Distribution::Beta:
 		p = PdfBeta(value, a, b);
 		return true;
 
-	case D_HalfCauchy:
+	case Distribution::HalfCauchy:
 		if (value <= 0.0) {
 			p = 0.0;
 		} else {
@@ -307,7 +322,7 @@ bool UnivariateMarginal::EvaluatePDF(Real& p, const Real value) const
 		}
 		return true;
 
-	case D_BetaPrime:
+	case Distribution::BetaPrime:
 		if (value <= 0.0) {
 			p = 0.0;
 		} else {
@@ -315,7 +330,7 @@ bool UnivariateMarginal::EvaluatePDF(Real& p, const Real value) const
 		}
 		return true;
 
-	case D_ExponentialMix:
+	case Distribution::ExponentialMix:
 		p = mixing_coeff * PdfExponential(value, lambda) + (1.0 - mixing_coeff) * PdfExponential(value, lambda2);
 		return true;
 
@@ -329,7 +344,15 @@ bool UnivariateMarginal::EvaluatePDF(Real& p, const Real value) const
 bool UnivariateMarginal::EvaluateLogPDF(Real& logp, const Real value) const
 {
 	switch (PriorType) {
-	case D_Uniform:
+	case Distribution::DiracDelta:
+		if (value == mu) {
+			return std::numeric_limits<Real>::infinity();
+		} else {
+			return -std::numeric_limits<Real>::infinity();
+		}
+		return true;
+
+	case Distribution::Uniform:
 		if (value < a || value > b) {
 			logp = -std::numeric_limits<Real>::infinity();
 		} else {
@@ -337,26 +360,26 @@ bool UnivariateMarginal::EvaluateLogPDF(Real& logp, const Real value) const
 		}
 		return true;
 
-	case D_Normal:
+	case Distribution::Normal:
 		{
 			const Real d = value - mu;
 			logp = LogOneOverSqrtTwoPiSigmaSq - d * d * OneOverTwoSigmaSq;
 		}
 		return true;
 
-	case D_Exponential:
+	case Distribution::Exponential:
 		logp = LogPdfExponential(value, lambda);
 		return true;
 
-	case D_Gamma:
+	case Distribution::Gamma:
 		logp = log(PdfGamma(value, k, theta));
 		return true;
 
-	case D_Beta:
+	case Distribution::Beta:
 		logp = log(PdfBeta(value, a, b));
 		return true;
 
-	case D_HalfCauchy:
+	case Distribution::HalfCauchy:
 		if (value <= 0.0) {
 			logp = -std::numeric_limits<Real>::infinity();
 		} else {
@@ -364,11 +387,11 @@ bool UnivariateMarginal::EvaluateLogPDF(Real& logp, const Real value) const
 		}
 		return true;
 
-	case D_BetaPrime:
+	case Distribution::BetaPrime:
 		logp = LogPdfBetaPrime(value, a, b, scale);
 		return true;
 
-	case D_ExponentialMix:
+	case Distribution::ExponentialMix:
 		logp = logsum(log(mixing_coeff) + LogPdfExponential(value, lambda), log(1.0 - mixing_coeff) + LogPdfExponential(value, lambda2));
 		return true;
 
@@ -382,15 +405,16 @@ bool UnivariateMarginal::EvaluateLogPDF(Real& logp, const Real value) const
 bool UnivariateMarginal::EvaluateLogDerivative(Real& d, const Real value) const
 {
 	switch (PriorType) {
-	case D_Uniform:
+	case Distribution::DiracDelta:
+	case Distribution::Uniform:
 		d = 0.0;
 		return true;
 
-	case D_Normal:
+	case Distribution::Normal:
 		d = -2.0 * (value - mu) * OneOverTwoSigmaSq;
 		return true;
 
-	case D_Exponential:
+	case Distribution::Exponential:
 		if (value >= 0) {
 			d = -lambda;
 		} else {
@@ -398,11 +422,11 @@ bool UnivariateMarginal::EvaluateLogDerivative(Real& d, const Real value) const
 		}
 		return true;
 
-	case D_Gamma:
-	case D_Beta:
-	case D_HalfCauchy:
-	case D_BetaPrime:
-	case D_ExponentialMix:
+	case Distribution::Gamma:
+	case Distribution::Beta:
+	case Distribution::HalfCauchy:
+	case Distribution::BetaPrime:
+	case Distribution::ExponentialMix:
 		LOGERROR("Derivative not implemented for prior type %d", (int)PriorType);
 		d = std::numeric_limits<Real>::quiet_NaN();
 		return false;
@@ -417,23 +441,24 @@ bool UnivariateMarginal::EvaluateLogDerivative(Real& d, const Real value) const
 bool UnivariateMarginal::EvaluateLog2ndDerivative(Real& d, const Real value) const
 {
 	switch (PriorType) {
-	case D_Uniform:
+	case Distribution::DiracDelta:
+	case Distribution::Uniform:
 		d = 0.0;
 		return true;
 
-	case D_Normal:
+	case Distribution::Normal:
 		d = -2.0 * OneOverTwoSigmaSq; 
 		return true;
 
-	case D_Exponential:
+	case Distribution::Exponential:
 		d = 0;
 		return true;
 
-	case D_Gamma:
-	case D_Beta:
-	case D_HalfCauchy:
-	case D_BetaPrime:
-	case D_ExponentialMix:
+	case Distribution::Gamma:
+	case Distribution::Beta:
+	case Distribution::HalfCauchy:
+	case Distribution::BetaPrime:
+	case Distribution::ExponentialMix:
 		LOGERROR("Second derivative not implemented for prior type %d", (int)PriorType);
 		d = std::numeric_limits<Real>::quiet_NaN();
 		return false;
@@ -448,32 +473,36 @@ bool UnivariateMarginal::EvaluateLog2ndDerivative(Real& d, const Real value) con
 bool UnivariateMarginal::EvaluateMean(Real& mean) const
 {
 	switch (PriorType) {
-	case D_Uniform:
-		mean = 0.5 * (b + a);
-		return true;
-
-	case D_Normal:
+	case Distribution::DiracDelta:
 		mean = mu;
 		return true;
 
-	case D_Exponential:
+	case Distribution::Uniform:
+		mean = 0.5 * (b + a);
+		return true;
+
+	case Distribution::Normal:
+		mean = mu;
+		return true;
+
+	case Distribution::Exponential:
 		mean = 1.0 / lambda;
 		return true;
 
-	case D_Gamma:
+	case Distribution::Gamma:
 		mean = k * theta;
 		return true;
 
-	case D_Beta:
+	case Distribution::Beta:
 		mean = a / (a + b);
 		return true;
 
-	case D_HalfCauchy:
+	case Distribution::HalfCauchy:
 		// Undefined
 		mean = scale;
 		return true;
 
-	case D_BetaPrime:
+	case Distribution::BetaPrime:
 		if (b > 1.0) {
 			mean = scale * a / (b - 1);
 		} else {
@@ -482,7 +511,7 @@ bool UnivariateMarginal::EvaluateMean(Real& mean) const
 		}
 		return true;
 
-	case D_ExponentialMix:
+	case Distribution::ExponentialMix:
 		mean = mixing_coeff / lambda + (1.0 - mixing_coeff) / lambda2;
 		return true;
 
@@ -495,38 +524,42 @@ bool UnivariateMarginal::EvaluateMean(Real& mean) const
 bool UnivariateMarginal::EvaluateVariance(Real& var) const
 {
 	switch (PriorType) {
-	case D_Uniform:
+	case Distribution::DiracDelta:
+		var = 0.0;
+		return true;
+
+	case Distribution::Uniform:
 		{
 			Real d = b - a;
 			var = (d * d) / 12.0;
 		}
 		return true;
 
-	case D_Normal:
+	case Distribution::Normal:
 		var = sigma * sigma;
 		return true;
 
-	case D_Exponential:
+	case Distribution::Exponential:
 		var = 1.0 / (lambda * lambda);
 		return true;
 
-	case D_Gamma:
+	case Distribution::Gamma:
 		var = k * theta * theta;
 		return true;
 
-	case D_Beta:
+	case Distribution::Beta:
 		{
 			Real apb = a + b;
 			var = (a * b) / (apb * apb * (apb + 1));
 		}
 		return true;
 
-	case D_HalfCauchy:
+	case Distribution::HalfCauchy:
 		// This is undefined. We'll give the squared scale as something of an approximation (this is the variance of a T-distribution with dof -> infinity).
 		var = scale * scale;
 		return true;
 
-	case D_BetaPrime:
+	case Distribution::BetaPrime:
 		if (b > 2.0) {
 			var = scale * scale * a * (a + b - 1.0) / ((b - 2) * (b - 1) * (b - 1));
 		} else {
@@ -535,7 +568,7 @@ bool UnivariateMarginal::EvaluateVariance(Real& var) const
 		}
 		return true;
 
-	case D_ExponentialMix:
+	case Distribution::ExponentialMix:
 		var = square(mixing_coeff) / (lambda * lambda) + square(1.0 - mixing_coeff) / (lambda2 * lambda2);
 		return true;
 
@@ -548,7 +581,15 @@ bool UnivariateMarginal::EvaluateVariance(Real& var) const
 bool UnivariateMarginal::EvaluateCDF(Real& p, const Real value) const
 {
 	switch (PriorType) {
-	case D_Uniform:
+	case Distribution::DiracDelta:
+		if (value < mu) {
+			p = 0.0;
+		} else {
+			p = 1.0;
+		}
+		return true;
+
+	case Distribution::Uniform:
 		if (value < a || value > b) {
 			p = 0.0;
 		} else {
@@ -556,23 +597,23 @@ bool UnivariateMarginal::EvaluateCDF(Real& p, const Real value) const
 		}
 		return true;
 
-	case D_Normal:
+	case Distribution::Normal:
 		p = CdfNormal(value, mu, sigma);
 		return true;
 
-	case D_Exponential:
+	case Distribution::Exponential:
 		p = CdfExponential(value, lambda);
 		return true;
 
-	case D_Gamma:
+	case Distribution::Gamma:
 		p = CdfGamma(value, k, theta);
 		return true;
 
-	case D_Beta:
+	case Distribution::Beta:
 		p = CdfBeta(value, a, b);
 		return true;
 
-	case D_HalfCauchy:
+	case Distribution::HalfCauchy:
 		p = CdfHalfCauchy(value, scale);
 		return true;
 
@@ -591,27 +632,27 @@ bool UnivariateMarginal::EvaluateQuantile(Real& value, const Real p) const
 	}
 
 	switch (PriorType) {
-	case D_Uniform:
+	case Distribution::Uniform:
 		value = QuantileUniform(p, a, b);
 		return true;
 
-	case D_Normal:
+	case Distribution::Normal:
 		value = QuantileNormal(p, mu, sigma);
 		return true;
 
-	case D_Exponential:
+	case Distribution::Exponential:
 		value = QuantileExponential(p, lambda);
 		return true;
 
-	case D_Gamma:
+	case Distribution::Gamma:
 		value = QuantileGamma(p, k, theta);
 		return true;
 
-	case D_Beta:
+	case Distribution::Beta:
 		value = QuantileBeta(p, a, b);
 		return true;
 
-	case D_HalfCauchy:
+	case Distribution::HalfCauchy:
 		value = QuantileHalfCauchy(p, scale);
 		return true;
 
@@ -624,9 +665,9 @@ bool UnivariateMarginal::EvaluateQuantile(Real& value, const Real p) const
 
 Real UnivariateMarginal::GetLowerBound() const
 {
-	if (PriorType == D_Uniform) {
+	if (PriorType == Distribution::Uniform) {
 		return a;
-	} else if (PriorType == D_Beta || PriorType == D_Exponential || PriorType == D_Gamma || PriorType == D_HalfCauchy || PriorType == D_BetaPrime) {
+	} else if (PriorType == Distribution::Beta || PriorType == Distribution::Exponential || PriorType == Distribution::Gamma || PriorType == Distribution::HalfCauchy || PriorType == Distribution::BetaPrime) {
 		return 0.0;
 	} else {
 		return -std::numeric_limits<Real>::infinity();
@@ -635,9 +676,9 @@ Real UnivariateMarginal::GetLowerBound() const
 
 Real UnivariateMarginal::GetUpperBound() const
 {
-	if (PriorType == D_Uniform) {
+	if (PriorType == Distribution::Uniform) {
 		return b;
-	} else if (PriorType == D_Beta) {
+	} else if (PriorType == Distribution::Beta) {
 		return 1.0;
 	} else {
 		return std::numeric_limits<Real>::infinity();
