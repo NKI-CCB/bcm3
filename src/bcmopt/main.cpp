@@ -191,7 +191,7 @@ int run(const po::variables_map& vm)
 	if (!file) {
 		return -14;
 	} else {
-		fprintf(file, "temperature_sample");
+		fprintf(file, "temperature_sample\tlog posterior\tlog likelihood");
 		for (size_t i = 0; i < use_parameter_ix.size(); i++) {
 			fprintf(file, "\tfixed_%s", use_parameter_names[i].c_str());
 		}
@@ -237,11 +237,13 @@ int run(const po::variables_map& vm)
 
 			output->Reset();
 			bool result = sampler->Run();
-			Real MAP_lposterior;
+			Real MAP_lposterior, MAP_llikelihood;
 			if (!result) {
 				MAP_lposterior = std::numeric_limits<Real>::quiet_NaN();
+				MAP_llikelihood = std::numeric_limits<Real>::quiet_NaN();
 			} else {
 				MAP_lposterior = output->GetMAPlposterior();
+				MAP_llikelihood = output->GetMAPllikelihood();
 			}
 
 			file = fopen(outputfn.c_str(), "a");
@@ -261,6 +263,7 @@ int run(const po::variables_map& vm)
 			file = fopen(paramoutputfn.c_str(), "a");
 			if (file) {
 				fprintf(file, "%g_%zd", temperatures(tempi), sample_ix);
+				fprintf(file, "\t%g\t%g", MAP_lposterior, MAP_llikelihood);
 				for (size_t pi = 0; pi < use_parameter_ix.size(); pi++) {
 					fprintf(file, "\t%g", sample(use_parameter_ix[pi]));
 				}
