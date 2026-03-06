@@ -115,14 +115,14 @@ namespace bcm3 {
 
 		if (!RunImpl()) {
 			LOGERROR("Sampling failed");
+			result = false;
+		} else {
+			LOG("Sampling finished.");
+			UpdateProgress(1.0, true);
+			if (auto pr = progress.lock()) {
+				pr->NotifyStop();
+			}
 		}
-
-		UpdateProgress(1.0, true);
-		if (auto pr = progress.lock()) {
-			pr->NotifyStop();
-		}
-
-		LOG("Sampling finished.");
 
 		LogStatistics();
 
@@ -136,7 +136,7 @@ namespace bcm3 {
 		LOG("CPU information:");
 		bcm3::logger->LogCPUInfo();
 
-		return true;
+		return result;
 	}
 
 	void Sampler::AddOptionsDescription(boost::program_options::options_description& pod)

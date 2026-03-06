@@ -5,12 +5,14 @@ namespace bcm3 {
 
 SampleHandlerStoreMaxAPosteriori::SampleHandlerStoreMaxAPosteriori()
 	: MAP_lposterior(-std::numeric_limits<Real>::infinity())
+	, MAP_llikelihood(-std::numeric_limits<Real>::infinity())
 {
 }
 
 void SampleHandlerStoreMaxAPosteriori::Reset()
 {
 	MAP_lposterior = -std::numeric_limits<Real>::infinity();
+	MAP_llikelihood = -std::numeric_limits<Real>::infinity();
 }
 
 SampleHandlerStoreMaxAPosteriori::~SampleHandlerStoreMaxAPosteriori()
@@ -23,6 +25,7 @@ void SampleHandlerStoreMaxAPosteriori::ReceiveSample(const VectorReal& values, R
 	Real lposterior = lprior + llh;
 	if (lposterior > MAP_lposterior) {
 		MAP_lposterior = lposterior;
+		MAP_llikelihood = llh;
 		MAP_values = values;
 	}
 }
