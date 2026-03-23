@@ -233,7 +233,7 @@ bool Experiment::PostInitialize()
 
 	// Allocate space for cells
 	population = std::make_unique<CellPopulation>();
-	population->Allocate(this, &cell_model, max_number_of_cells, abs_tol, rel_tol);
+	population->Allocate(this, &cell_model, max_number_of_cells, solver_type);
 
 	return true;
 }
@@ -414,30 +414,13 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	model_filename = xml_node.get<std::string>("<xmlattr>.model_file");
 	std::string data_file = xml_node.get<std::string>("<xmlattr>.data_file", "");
 
-	std::string abs_tol_str = xml_node.get<std::string>("<xmlattr>.absolute_tolerance", "");
-	std::string rel_tol_str = xml_node.get<std::string>("<xmlattr>.relative_tolerance", "");
+	solver_type = xml_node.get<std::string>("<xmlattr>.solver_type", "CVODE");
+	min_timestep = xml_node.get<Real>("<xmlattr>.solver_min_timestep", 1e-8);
+	max_timestep = xml_node.get<Real>("<xmlattr>.solver_type", std::numeric_limits<Real>::infinity());
+	max_solver_steps = xml_node.get<size_t>("<xmlattr>.solver_type", 10000);
+	abs_tol = xml_node.get<Real>("<xmlattr>.absolute_tolerance", 4 * std::numeric_limits<float>::epsilon());
+	rel_tol = xml_node.get<Real>("<xmlattr>.relative_tolerance", 4 * std::numeric_limits<float>::epsilon());
 
-	if (abs_tol_str.empty()) {
-		abs_tol = 4 * std::numeric_limits<float>::epsilon();
-	} else {
-		try {
-			abs_tol = boost::lexical_cast<Real>(abs_tol_str);
-		} catch (const boost::bad_lexical_cast& e) {
-			LOGERROR("No conversion possible of absolute tolerance \"%s\" in experiment \"%s\"", abs_tol_str.c_str(), Name.c_str());
-			return false;
-		}
-	}
-
-	if (rel_tol_str.empty()) {
-		rel_tol = 4 * std::numeric_limits<float>::epsilon();
-	} else {
-		try {
-			rel_tol = boost::lexical_cast<Real>(rel_tol_str);
-		} catch (const boost::bad_lexical_cast& e) {
-			LOGERROR("No conversion possible of absolute tolerance \"%s\" in experiment \"%s\"", rel_tol_str.c_str(), Name.c_str());
-			return false;
-		}
-	}
 
 	// Load & initialize the model
 	if (!cell_model.LoadSBML(model_filename)) {

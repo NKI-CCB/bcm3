@@ -14,13 +14,13 @@ CellPopulation::~CellPopulation()
 {
 }
 
-void CellPopulation::Allocate(const Experiment* experiment, SBMLModel* model, size_t max_cells, Real abs_tol, Real rel_tol)
+void CellPopulation::Allocate(const Experiment* experiment, SBMLModel* model, size_t max_cells, std::string solver_type)
 {
 	cells.resize(max_cells);
 	cell_parents.resize(max_cells);
 	for (size_t i = 0; i < max_cells; i++) {
 		cells[i] = new Cell(model, experiment);
-		cells[i]->AllocateSolver(abs_tol, rel_tol);
+		cells[i]->AllocateSolver(solver_type);
 		cell_parents[i] = std::numeric_limits<size_t>::max();
 	}
 }

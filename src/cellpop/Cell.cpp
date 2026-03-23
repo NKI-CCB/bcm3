@@ -54,13 +54,24 @@ Cell::~Cell()
 {
 }
 
-bool Cell::AllocateSolver(Real abs_tol, Real rel_tol)
+bool Cell::AllocateSolver(std::string solver_type)
 {
-	solver = std::make_shared<ODESolverDP5>();
+	if (solver_type == "DP5") {
+		solver = std::make_shared<ODESolverDP5>();
+	} else if (solver_type == "CVODE") {
+		solver = std::make_shared<ODESolverCVODE>();
+	} else {
+		LOGERROR("Unknown solver type \"%s\"; accepted options are \"DP5\" or \"CVODE\"", solver_type.c_str());
+		return false;
+	}
+
 	solver->SetDerivativeFunction(boost::bind(&Cell::solver_rhs_fn, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
 	solver->SetIntegrationStepCallback(boost::bind(&Cell::integration_step_cb, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
 	solver->Initialize(model->GetNumODEIntegratedSpecies(), (void*)this);
-	solver->SetTolerance(rel_tol, abs_tol);
+	solver->SetTolerance(experiment->rel_tol, experiment->abs_tol);
+	solver->SetSolverParameter("min_dt", 0, experiment->min_timestep);
+	solver->SetSolverParameter("max_dt", 0, experiment->max_timestep);
+	solver->SetSolverParameter("max_steps", experiment->max_solver_steps, std::numeric_limits<OdeReal>::quiet_NaN());
 	return true;
 }
 

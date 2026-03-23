@@ -12,7 +12,7 @@ public:
 	Cell(const SBMLModel* model, const Experiment* experiment);
 	~Cell();
 
-	bool AllocateSolver(Real abs_tol, Real rel_tol);
+	bool AllocateSolver(std::string solver_type);
 	//bool SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const std::map<size_t, std::vector<int>>& ratio_active_map, const std::map<size_t, std::vector<int>>& ratio_inactive_map, const std::map<size_t, std::vector<size_t>>& ratio_total_active,const std::map<size_t, std::vector<size_t>>& ratio_total_inactive,const VectorReal& transformed_values, Real time);
 	bool SetInitialConditionsFromModel();
 	bool SetInitialConditionsFromOtherCell(const Cell* other);

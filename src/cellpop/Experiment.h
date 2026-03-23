@@ -149,6 +149,10 @@ protected:
 	VectorReal output_trajectories_timepoints;
 	std::vector<std::vector<VectorReal>> simulated_trajectories;
 
+	std::string solver_type;
+	Real min_timestep;
+	Real max_timestep;
+	size_t max_solver_steps;
 	Real abs_tol;
 	Real rel_tol;
 
@@ -189,6 +193,5 @@ protected:
 	std::vector<VectorReal> cell_update_timings;
 
 	friend class Cell;
-	friend class Population;
 	friend void experiment_evaluation_worker(Experiment* experiment, size_t threadIndex);
 };

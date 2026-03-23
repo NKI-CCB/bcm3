@@ -8,9 +8,9 @@ static const OdeReal MAX_SCALE_FACTOR = 5.0;
 bool ODESolverDP5::warn_discontinuity = true;
 
 ODESolverDP5::ODESolverDP5()
-	: min_dt(1e-3)
+	: min_dt(1e-8)
 	, max_dt(std::numeric_limits<Real>::infinity())
-	, max_steps(2000)
+	, max_steps(10000)
 	, ytmp(nullptr)
 	, yn(nullptr)
 {
