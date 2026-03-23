@@ -150,11 +150,11 @@ protected:
 	std::vector<std::vector<VectorReal>> simulated_trajectories;
 
 	std::string solver_type;
-	Real min_timestep;
-	Real max_timestep;
-	size_t max_solver_steps;
-	Real abs_tol;
-	Real rel_tol;
+	Real solver_min_timestep;
+	Real solver_max_timestep;
+	size_t solver_max_steps;
+	Real solver_abs_tol;
+	Real solver_rel_tol;
 
 #if PLATFORM_WINDOWS
 	HMODULE derivative_dll;

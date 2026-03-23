@@ -56,8 +56,13 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, trailing_simulation_time(0.0)
 	, simulate_past_chromatid_separation_time(0.0)
 	, derivative_dll(NULL)
-	, abs_tol(1e-8)
-	, rel_tol(1e-8)
+	, solver_min_timestep(4 * std::numeric_limits<float>::epsilon())
+	, solver_max_timestep(std::numeric_limits<Real>::infinity())
+	, solver_max_steps(10000)
+	, solver_abs_tol(4 * std::numeric_limits<float>::epsilon())
+	, solver_rel_tol(4 * std::numeric_limits<float>::epsilon())
+	, derivative(nullptr)
+	, jacobian(nullptr)
 	, requested_duration(EPhaseDuration::None)
 	, any_requested_synchronization(false)
 	, store_simulation(store_simulation)
@@ -415,12 +420,11 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	std::string data_file = xml_node.get<std::string>("<xmlattr>.data_file", "");
 
 	solver_type = xml_node.get<std::string>("<xmlattr>.solver_type", "CVODE");
-	min_timestep = xml_node.get<Real>("<xmlattr>.solver_min_timestep", 1e-8);
-	max_timestep = xml_node.get<Real>("<xmlattr>.solver_type", std::numeric_limits<Real>::infinity());
-	max_solver_steps = xml_node.get<size_t>("<xmlattr>.solver_type", 10000);
-	abs_tol = xml_node.get<Real>("<xmlattr>.absolute_tolerance", 4 * std::numeric_limits<float>::epsilon());
-	rel_tol = xml_node.get<Real>("<xmlattr>.relative_tolerance", 4 * std::numeric_limits<float>::epsilon());
-
+	solver_min_timestep = xml_node.get<Real>("<xmlattr>.solver_min_timestep", 1e-8);
+	solver_max_timestep = xml_node.get<Real>("<xmlattr>.solver_max_timestep", std::numeric_limits<Real>::infinity());
+	solver_max_steps = xml_node.get<size_t>("<xmlattr>.solver_max_steps", 10000);
+	solver_abs_tol = xml_node.get<Real>("<xmlattr>.solver_absolute_tolerance", 4 * std::numeric_limits<float>::epsilon());
+	solver_rel_tol = xml_node.get<Real>("<xmlattr>.solver_relative_tolerance", 4 * std::numeric_limits<float>::epsilon());
 
 	// Load & initialize the model
 	if (!cell_model.LoadSBML(model_filename)) {
