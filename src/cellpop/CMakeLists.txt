@@ -4,6 +4,8 @@ target_sources(cellpop
   PRIVATE
     Cell.h
     Cell.cpp
+    CellPopulation.h
+    CellPopulation.cpp
     CellPopulationLikelihood.h
     CellPopulationLikelihood.cpp
     DataLikelihoodBase.h
@@ -26,8 +28,14 @@ target_sources(cellpop
     TreatmentTrajectoryFromData.cpp
     TreatmentTrajectoryPulses.h
     TreatmentTrajectoryPulses.cpp
+    ValueReference.h
+    ValueReference.cpp
     VariabilityDescription.h
     VariabilityDescription.cpp
+    VariabilityDescriptionVariable.h
+    VariabilityDescriptionVariable.cpp
+    VariabilityPseudoRandomIterator.h
+    VariabilityPseudoRandomIterator.cpp
 )
 
 target_include_directories(cellpop

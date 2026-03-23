@@ -14,6 +14,7 @@ public:
 	virtual ~ODESolver();
 
 	virtual bool Initialize(size_t N, void* user);
+	virtual bool Restart();
 	virtual bool SetSolverParameter(const std::string& parameter, int int_value, OdeReal real_value);
 	void SetTolerance(OdeReal relative, OdeReal absolute);			// SetTolerance should be called after Initialize
 	void SetTolerance(OdeReal relative, OdeVectorReal absolute);	// SetTolerance should be called after Initialize

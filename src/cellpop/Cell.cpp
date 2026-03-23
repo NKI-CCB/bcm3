@@ -22,8 +22,6 @@ Cell::Cell(const SBMLModel* model, const Experiment* experiment)
 	, store_integration_points(false)
 	, creation_time(std::numeric_limits<Real>::quiet_NaN())
 	, current_simulation_time(std::numeric_limits<Real>::quiet_NaN())
-	, derivative(NULL)
-	, jacobian(NULL)
 	, synchronize_offset_time(0.0)
 	, DNA_replication_ix(std::numeric_limits<size_t>::max())
 	, DNA_replicated_ix(std::numeric_limits<size_t>::max())
@@ -56,13 +54,18 @@ Cell::~Cell()
 {
 }
 
-void Cell::SetDerivativeFunctions(derivative_fn fn, jacobian_fn jac)
+bool Cell::AllocateSolver(Real abs_tol, Real rel_tol)
 {
-	derivative = fn;
-	jacobian = jac;
+	solver = std::make_shared<ODESolverDP5>();
+	solver->SetDerivativeFunction(boost::bind(&Cell::solver_rhs_fn, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
+	solver->SetIntegrationStepCallback(boost::bind(&Cell::integration_step_cb, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
+	solver->Initialize(model->GetNumODEIntegratedSpecies(), (void*)this);
+	solver->SetTolerance(rel_tol, abs_tol);
+	return true;
 }
 
-bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const std::map<size_t, std::vector<int>>& ratio_active_map,const std::map<size_t, std::vector<int>>& ratio_inactive_map, const std::map<size_t, std::vector<size_t>>& ratio_total_active, const std::map<size_t, std::vector<size_t>>& ratio_total_inactive,const VectorReal& transformed_values, Real time)
+//bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const std::map<size_t, std::vector<int>>& ratio_active_map,const std::map<size_t, std::vector<int>>& ratio_inactive_map, const std::map<size_t, std::vector<size_t>>& ratio_total_active, const std::map<size_t, std::vector<size_t>>& ratio_total_inactive,const VectorReal& transformed_values, Real time)
+bool Cell::SetInitialConditionsFromModel()
 {
 	for (size_t i = 0; i < model->GetNumODEIntegratedSpecies(); i++) {
 		initial_y(i) = model->GetODEIntegratedSpecies(i)->GetInitialValue();
@@ -71,6 +74,7 @@ bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetS
 		constant_species_y(i) = model->GetConstantSpecies(i)->GetInitialValue();
 	}
 
+#if 0
 	for (std::map<size_t, Experiment::SetSpecies>::const_iterator ssmi = set_species_map.begin(); ssmi != set_species_map.end(); ++ssmi) {
 		if (time >= ssmi->second.begin_time && time < ssmi->second.end_time) {
 			initial_y(ssmi->first) = ssmi->second.value;
@@ -96,6 +100,7 @@ bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetS
 	for(auto const& rtm : ratio_total_inactive){
 		initial_y(rtm.first) = (1 - transformed_values[rtm.second[0]]) * (model ->GetODEIntegratedSpecies(rtm.second[1]) -> GetInitialValue() + model ->GetODEIntegratedSpecies(rtm.second[2]) -> GetInitialValue());
 	}
+#endif
 
 	return true;
 }
@@ -124,7 +129,7 @@ bool Cell::SetInitialConditionsFromOtherCell(const Cell* other)
 	return true;
 }
 
-bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_points, Real abs_tol, Real rel_tol)
+bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variables, const VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_points)
 {
 	store_integration_points = calculate_synchronization_points;
 
@@ -208,11 +213,7 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 
 	total_num_simulations++;
 
-	solver = std::make_shared<ODESolverDP5>();
-	solver->SetDerivativeFunction(boost::bind(&Cell::solver_rhs_fn, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
-	solver->SetIntegrationStepCallback(boost::bind(&Cell::integration_step_cb, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-	solver->Initialize(model->GetNumODEIntegratedSpecies(), (void*)this);
-	solver->SetTolerance(rel_tol, abs_tol);
+	solver->Restart();
 
 	return true;
 }
@@ -453,7 +454,7 @@ bool Cell::solver_rhs_fn(OdeReal t, const OdeReal* y, OdeReal* ydot, void* user_
 {
 	SetTreatmentConcentration(t);
 	if (Cell::use_generated_code) {
-		derivative(ydot, y, constant_species_y.data(), cell_specific_transformed_variables.data(), cell_specific_non_sampled_transformed_variables.data());
+		experiment->derivative(ydot, y, constant_species_y.data(), cell_specific_transformed_variables.data(), cell_specific_non_sampled_transformed_variables.data());
 	} else {
 		model->CalculateDerivativePublic(t, y, ydot, constant_species_y.data(), cell_specific_transformed_variables.data(), cell_specific_non_sampled_transformed_variables.data());
 		ASSERT(false);
@@ -465,7 +466,7 @@ bool Cell::solver_jac_fn(OdeReal t, const OdeReal* y, const OdeReal* ydot, OdeMa
 {
 	SetTreatmentConcentration(t);
 	if (Cell::use_generated_code) {
-		jacobian(jac, y, constant_species_y.data(), cell_specific_transformed_variables.data(), cell_specific_non_sampled_transformed_variables.data());
+		experiment->jacobian(jac, y, constant_species_y.data(), cell_specific_transformed_variables.data(), cell_specific_non_sampled_transformed_variables.data());
 	} else {
 		ASSERT(false);
 	}

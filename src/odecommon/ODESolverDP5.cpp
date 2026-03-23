@@ -63,6 +63,11 @@ bool ODESolverDP5::Initialize(size_t N, void* user)
 	return true;
 }
 
+bool ODESolverDP5::Restart()
+{
+	return true;
+}
+
 bool ODESolverDP5::SetSolverParameter(const std::string& parameter, int int_value, OdeReal real_value)
 {
 	if (parameter == "min_dt") {

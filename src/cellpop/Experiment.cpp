@@ -1,5 +1,6 @@
 #include "Utils.h"
 #include "Cell.h"
+#include "CellPopulation.h"
 #include "DataLikelihoodBase.h"
 #include "Experiment.h"
 #include "NetCDFDataFile.h"
@@ -7,10 +8,10 @@
 #include "SBMLSpecies.h"
 #include "Timer.h"
 #include "VariabilityDescription.h"
+#include "VariabilityPseudoRandomIterator.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
-#include <boost/random/uniform_01.hpp>
 #include <fstream>
 #if !PLATFORM_WINDOWS
 #include <dlfcn.h>
@@ -55,7 +56,6 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, trailing_simulation_time(0.0)
 	, simulate_past_chromatid_separation_time(0.0)
 	, derivative_dll(NULL)
-	, simulated_num_cells(0)
 	, abs_tol(1e-8)
 	, rel_tol(1e-8)
 	, requested_duration(EPhaseDuration::None)
@@ -89,9 +89,6 @@ Experiment::~Experiment()
 		e.condition.notify_one();
 		e.thread->join();
 		delete AuxEvaluationThreads[i];
-	}
-	for (size_t i = 0; i < cells.size(); i++) {
-		delete cells[i];
 	}
 
 	if (derivative_dll) {
@@ -195,8 +192,6 @@ bool Experiment::PostInitialize()
 		fixed_synchronization_time_offset = 0.0;
 	}
 
-	simulated_cell_parents.resize(max_number_of_cells, std::numeric_limits<size_t>::max());
-
 	Real simulation_begin_time = 0;
 	Real simulation_end_time = 0;
 
@@ -238,10 +233,8 @@ bool Experiment::PostInitialize()
 	}
 
 	// Allocate space for cells
-	cells.resize(max_number_of_cells);
-	for (size_t i = 0; i < max_number_of_cells; i++) {
-		cells[i] = new Cell(&cell_model, this);
-	}
+	population = std::make_unique<CellPopulation>();
+	population->Allocate(this, &cell_model, max_number_of_cells, abs_tol, rel_tol);
 
 	return true;
 }
@@ -251,9 +244,6 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 	for (size_t i = 0; i < data_likelihoods.size(); i++) {
 		data_likelihoods[i]->Reset();
 	}
-	for (size_t i = 0; i < simulated_trajectories.size(); i++) {
-		simulated_cell_parents[i] = std::numeric_limits<size_t>::max();
-	}
 	if (store_simulation) {
 		for (size_t i = 0; i < simulated_trajectories.size(); i++) {
 			for (size_t j = 0; j < simulated_trajectories[i].size(); j++) {
@@ -262,15 +252,15 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 		}
 	}
 
-	active_cells = 0;
+	population->Reset();
 	max_achieved_time = -std::numeric_limits<Real>::infinity();
 	bool result = Simulate(transformed_values);
 
 	if (result) {
 		// Report durations
 		if (requested_duration != EPhaseDuration::None) {
-			for (size_t i = 0; i < active_cells; i++) {
-				Real duration = cells[i]->GetDuration(requested_duration);
+			for (size_t i = 0; i < population->GetActiveCount(); i++) {
+				Real duration = population->GetCell(i)->GetDuration(requested_duration);
 				for (size_t j = 0; j < data_likelihoods.size(); j++) {
 					data_likelihoods[j]->NotifyDuration(i, duration);
 				}
@@ -289,18 +279,19 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 		if (any_requested_synchronization) {
 			for (int synchronize_i = 0; synchronize_i <= (int)ESynchronizeCellTrajectory::None; synchronize_i++) {
 				// Need to reset the timepoint iteration for each different synchronization timepoint
-				for (size_t i = 0; i < active_cells; i++) {
-					cells[i]->RestartInterpolationIteration();
+				for (size_t i = 0; i < population->GetActiveCount(); i++) {
+					population->GetCell(i)->RestartInterpolationIteration();
 				}
 				for (size_t ti = 0; ti < simulation_timepoints.size(); ti++) {
 					const SimulationTimepoints& st = simulation_timepoints[ti];
 					if (st.species_ix != std::numeric_limits<size_t>::max() && (int)st.synchronize == synchronize_i) {
-						size_t population_size = CountCellsAtTime(st.time + time_offset, st.synchronize, false);
-						size_t mitotic_population_size = CountCellsAtTime(st.time + time_offset, st.synchronize, true);
-						for (size_t i = 0; i < active_cells; i++) {
-							Real x = cells[i]->GetInterpolatedSpeciesValue(st.time + time_offset, st.species_ix, st.synchronize);
+						size_t population_size = population->CountCellsAtTime(st.time + time_offset, st.synchronize, false);
+						size_t mitotic_population_size = population->CountCellsAtTime(st.time + time_offset, st.synchronize, true);
+						for (size_t i = 0; i < population->GetActiveCount(); i++) {
+							Cell* cell = population->GetCell(i);
+							Real x = cell->GetInterpolatedSpeciesValue(st.time + time_offset, st.species_ix, st.synchronize);
 							if (x == x) {
-								data_likelihoods[st.data_likelihood_ix]->NotifySimulatedValue(st.time_ix, x, st.species_ix, i, population_size, mitotic_population_size, 0, cells[i]->EnteredMitosis(), i >= initial_number_of_cells);
+								data_likelihoods[st.data_likelihood_ix]->NotifySimulatedValue(st.time_ix, x, st.species_ix, i, population_size, mitotic_population_size, 0, cell->EnteredMitosis(), i >= initial_number_of_cells);
 							}
 						}
 					}
@@ -310,12 +301,13 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 			for (size_t ti = 0; ti < simulation_timepoints.size(); ti++) {
 				const SimulationTimepoints& st = simulation_timepoints[ti];
 				if (st.species_ix != std::numeric_limits<size_t>::max()) {
-					size_t population_size = CountCellsAtTime(st.time + time_offset, st.synchronize, false);
-					size_t mitotic_population_size = CountCellsAtTime(st.time + time_offset, st.synchronize, true);
-					for (size_t i = 0; i < active_cells; i++) {
-						Real x = cells[i]->GetInterpolatedSpeciesValue(st.time + time_offset, st.species_ix, st.synchronize);
+					size_t population_size = population->CountCellsAtTime(st.time + time_offset, st.synchronize, false);
+					size_t mitotic_population_size = population->CountCellsAtTime(st.time + time_offset, st.synchronize, true);
+					for (size_t i = 0; i < population->GetActiveCount(); i++) {
+						Cell* cell = population->GetCell(i);
+						Real x = cell->GetInterpolatedSpeciesValue(st.time + time_offset, st.species_ix, st.synchronize);
 						if (x == x) {
-							data_likelihoods[st.data_likelihood_ix]->NotifySimulatedValue(st.time_ix, x, st.species_ix, i, population_size, mitotic_population_size, 0, cells[i]->EnteredMitosis(), i >= initial_number_of_cells);
+							data_likelihoods[st.data_likelihood_ix]->NotifySimulatedValue(st.time_ix, x, st.species_ix, i, population_size, mitotic_population_size, 0, cell->EnteredMitosis(), i >= initial_number_of_cells);
 						}
 					}
 				}
@@ -324,8 +316,8 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 
 		if (store_simulation) {
 			if (any_requested_synchronization) {
-				for (size_t i = 0; i < active_cells; i++) {
-					cells[i]->RestartInterpolationIteration();
+				for (size_t i = 0; i < population->GetActiveCount(); i++) {
+					population->GetCell(i)->RestartInterpolationIteration();
 				}
 			}
 
@@ -340,18 +332,19 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 
 			for (size_t ti = 0; ti < output_trajectories_timepoints.size(); ti++) {
 				Real output_t = output_trajectories_timepoints(ti);
-				for (size_t i = 0; i < active_cells; i++) {
+				for (size_t i = 0; i < population->GetActiveCount(); i++) {
+					Cell* cell = population->GetCell(i);
 					for (size_t j = 0; j < cell_model.GetNumODEIntegratedSpecies(); j++) {
 						size_t simix = cell_model.GetSimulatedSpeciesFromODEIntegratedSpecies(j);
-						simulated_trajectories[i][ti](simix) = cells[i]->GetInterpolatedSpeciesValue(output_t, j, ESynchronizeCellTrajectory::None);
+						simulated_trajectories[i][ti](simix) = cell->GetInterpolatedSpeciesValue(output_t, j, ESynchronizeCellTrajectory::None);
 					}
 					for (size_t j = 0; j < cell_model.GetNumConstantSpecies(); j++) {
 						size_t simix = cell_model.GetSimulatedSpeciesFromConstantSpecies(j);
-						simulated_trajectories[i][ti](simix) = cells[i]->GetInterpolatedSpeciesValue(output_t, cell_model.GetNumODEIntegratedSpecies() + j, ESynchronizeCellTrajectory::None);
+						simulated_trajectories[i][ti](simix) = cell->GetInterpolatedSpeciesValue(output_t, cell_model.GetNumODEIntegratedSpecies() + j, ESynchronizeCellTrajectory::None);
 					}
 					for (size_t j = 0; j < treatment_trajectories.size(); j++) {
 						size_t simix = cell_model.GetSimulatedSpeciesByName(cell_model.GetConstantSpeciesName(treatment_trajectories_species_ix[j]));
-						simulated_trajectories[i][ti](simix) = treatment_trajectories[j]->GetConcentration(output_t, cells[i]->GetCreationTime());
+						simulated_trajectories[i][ti](simix) = treatment_trajectories[j]->GetConcentration(output_t, cell->GetCreationTime());
 					}
 				}
 			}
@@ -374,9 +367,10 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 	Real max_solver_steps = 0;
 	Real min_solver_step_size = std::numeric_limits<Real>::infinity();
 
-	for (size_t i = 0; i < active_cells; i++) {
-		max_solver_steps = (std::max)(max_solver_steps, (Real)cells[i]->GetSolverSteps());
-		min_solver_step_size = (std::min)(min_solver_step_size, (Real)cells[i]->GetSolverMinStepSize());
+	for (size_t i = 0; i < population->GetActiveCount(); i++) {
+		Cell* cell = population->GetCell(i);
+		max_solver_steps = (std::max)(max_solver_steps, (Real)cell->GetSolverSteps());
+		min_solver_step_size = (std::min)(min_solver_step_size, (Real)cell->GetSolverMinStepSize());
 	}
 
 	solver_stats.push_back(std::tuple<Real, Real, bool>(max_solver_steps, min_solver_step_size, result));
@@ -652,16 +646,12 @@ bool Experiment::Initialize(const boost::property_tree::ptree& xml_node)
 	transformed_sampled_parameters.setConstant(varset->GetNumVariables(), std::numeric_limits<Real>::quiet_NaN());
 
 	if (cell_variabilities.size() > 0) {
-		sobol_sequence = std::make_shared< boost::random::sobol >(cell_variabilities.size());
-		sobol_sequence_values.resize(initial_number_of_cells * 100);
-		boost::random::uniform_01<Real> unif;
-		for (int i = 0; i < sobol_sequence_values.size(); i++) {
-			sobol_sequence_values[i].resize(cell_variabilities.size());
-			for (int j = 0; j < cell_variabilities.size(); j++) {
-				sobol_sequence_values[i](j) = unif(*sobol_sequence);
-			}
+		size_t total_dimensions = 0;
+		for (size_t i = 0; i < cell_variabilities.size(); i++) {
+			total_dimensions += cell_variabilities[i]->GetNumDimensions();
 		}
-		sobol_sequence_indices.resize(max_number_of_cells, std::numeric_limits<size_t>::max());
+		variability_iterator = std::make_unique<VariabilityPseudoRandomIterator>();
+		variability_iterator->Initialize(total_dimensions, initial_number_of_cells, max_number_of_cells);
 	}
 
 	return true;
@@ -1093,16 +1083,16 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 	} else {
 		simulation_end_time = trailing_simulation_time;
 	}
-	
+
 	min_start_time = std::numeric_limits<Real>::infinity();
 	if (initial_number_of_cells > 1) {
 		for (size_t i = 0; i < initial_number_of_cells; i++) {
 			Real cell_start_time = entry_time;
-			AddNewCell(cell_start_time, NULL, true, -1);
+			population->AddNewCell(variability_iterator.get(), cell_start_time, NULL, -1, transformed_sampled_parameters, true, any_requested_synchronization, initial_number_of_cells);
 			min_start_time = std::min(cell_start_time, min_start_time);
 		}
 	} else {
-		AddNewCell(entry_time, NULL, false, -1);
+		population->AddNewCell(variability_iterator.get(), entry_time, NULL, -1, transformed_sampled_parameters, false, any_requested_synchronization, initial_number_of_cells);
 		min_start_time = entry_time;
 	}
 
@@ -1111,7 +1101,7 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 		return false;
 	}
 
-	for (size_t i = 0; i < cells.size(); i++) {
+	for (size_t i = 0; i < initial_number_of_cells; i++) {
 		for (auto dli = data_likelihoods.begin(); dli != data_likelihoods.end(); ++dli) {
 			(*dli)->NotifyStartingCells(i);
 		}
@@ -1132,21 +1122,21 @@ bool Experiment::ParallelSimulation(Real target_time)
 	if (!AuxEvaluationThreads.empty()) {
 		cells_to_process_lock.lock();
 		aux_target_time = target_time;
-		for (size_t i = 0; i < active_cells; i++) {
+		for (size_t i = 0; i < population->GetActiveCount(); i++) {
 			cells_to_process.push(i);
 		}
 		cells_to_process_lock.unlock();
 
 		{
 			std::unique_lock<std::mutex> lock(all_done_mutex);
-			cell_submit_count = active_cells;
+			cell_submit_count = population->GetActiveCount();
 			cell_done_count = 0;
 		}
 
 		StartAuxThreads();
 		result = WaitAuxThreads();
 	} else {
-		for (size_t i = 0; i < active_cells; i++) {
+		for (size_t i = 0; i < population->GetActiveCount(); i++) {
 			result &= SimulateCell(i, target_time, achieved_time, 0);
 			if (!result) {
 				break;
@@ -1163,7 +1153,7 @@ bool Experiment::SimulateCell(size_t i, Real target_time, Real& achieved_time, s
 {
 	bool die = false, divide = false;
 	achieved_time = 0.0;
-	if (!cells[i]->Simulate(target_time, simulate_past_chromatid_separation_time, simulation_timepoints_vector, die, divide, achieved_time)) {
+	if (!population->GetCell(i)->Simulate(target_time, simulate_past_chromatid_separation_time, simulation_timepoints_vector, die, divide, achieved_time)) {
 		return false;
 	}
 
@@ -1174,8 +1164,9 @@ bool Experiment::SimulateCell(size_t i, Real target_time, Real& achieved_time, s
 			std::lock_guard<std::mutex> lock(cell_vector_mutex);
 
 			// Create two new cells
-			cell1 = AddNewCell(achieved_time, cells[i], false, 0);
-			cell2 = AddNewCell(achieved_time, cells[i], false, 1);
+			Cell* parent = population->GetCell(i);
+			cell1 = population->AddNewCell(variability_iterator.get(), achieved_time, parent, 0, transformed_sampled_parameters, false, any_requested_synchronization, initial_number_of_cells);
+			cell2 = population->AddNewCell(variability_iterator.get(), achieved_time, parent, 1, transformed_sampled_parameters, false, any_requested_synchronization, initial_number_of_cells);
 			if (cell1 == std::numeric_limits<size_t>::max() || cell2 == std::numeric_limits<size_t>::max()) {
 				return false;
 			}
@@ -1214,88 +1205,6 @@ bool Experiment::SimulateCell(size_t i, Real target_time, Real& achieved_time, s
 	}
 
 	return true;
-}
-
-size_t Experiment::AddNewCell(Real time, Cell* parent, bool entry_time_variable, int child_ix)
-{
-	if (active_cells == max_number_of_cells) {
-		// TODO - what to do? Fail the simulation or just continue?
-		// We'll fail the simulation for now; as it probably indicates the apparent growth rate is too big, at least if the max simulation size was chosen appropriately.
-		//LOG("Max number of cells reached\n");
-		return std::numeric_limits<size_t>::max();
-	}
-
-	// Activate a new cell from the pre-allocated pool
-	bool result = true;
-	size_t new_cell_ix = active_cells;
-	Cell* cell = cells[new_cell_ix];
-	active_cells++;
-
-	// Initialize
-	cell->SetDerivativeFunctions(derivative, jacobian);
-
-	int sobol_sequence_ix = 0;
-	if (parent) {
-		result &= cell->SetInitialConditionsFromOtherCell(parent);
-
-		size_t parent_ix = std::find(cells.begin(), cells.end(), parent) - cells.begin();
-		simulated_cell_parents[new_cell_ix] = parent_ix;
-
-		if (!sobol_sequence_values.empty()) {
-			// This logic assumes max 2 children per cell
-			int generation = 0;
-			size_t grandparent_ix = simulated_cell_parents[parent_ix];
-			while (1) {
-				if (grandparent_ix == std::numeric_limits<size_t>::max()) {
-					break;
-				} else {
-					grandparent_ix = simulated_cell_parents[grandparent_ix];
-					generation++;
-				}
-			}
-			sobol_sequence_ix = sobol_sequence_indices[parent_ix] * 2 + child_ix;
-			while (generation > 0) {
-				sobol_sequence_ix += initial_number_of_cells * (1 << generation);
-				generation--;
-			}
-			if (sobol_sequence_ix >= sobol_sequence_values.size()) {
-				// Way too many generations, fail the simulation
-				return std::numeric_limits<size_t>::max();
-			}
-		}
-	} else {
-		result &= cell->SetInitialConditionsFromModel(set_species_map, set_init_map, ratio_active_map, ratio_inactive_map, ratio_total_active, ratio_total_inactive, transformed_sampled_parameters, time);
-		if (!sobol_sequence_values.empty()) {
-			sobol_sequence_ix = new_cell_ix;
-		}
-	}
-	if (!sobol_sequence_values.empty()) {
-		sobol_sequence_indices[new_cell_ix] = sobol_sequence_ix;
-	}
-	result &= cell->Initialize(time, transformed_sampled_parameters, sobol_sequence_values.empty() ? nullptr : &sobol_sequence_values[sobol_sequence_ix], entry_time_variable, any_requested_synchronization, abs_tol, rel_tol);
-
-	if (!result) {
-		return std::numeric_limits<size_t>::max();
-	} else {
-		return new_cell_ix;
-	}
-}
-
-size_t Experiment::CountCellsAtTime(Real time, ESynchronizeCellTrajectory synchronize, bool count_only_mitotic)
-{
-	size_t count = 0;
-	for (size_t i = 0; i < active_cells; i++) {
-		if (cells[i]->CellAliveAtTime(time, synchronize)) {
-			if (count_only_mitotic) {
-				if (cells[i]->EnteredMitosis()) {
-					count++;
-				}
-			} else {
-				count++;
-			}
-		}
-	}
-	return count;
 }
 
 void Experiment::StartAuxThreads()

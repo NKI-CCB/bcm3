@@ -2,9 +2,9 @@
 
 #include <sundials/sundials_matrix.h>
 #include <boost/program_options.hpp>
-#include <boost/random/sobol.hpp>
 #include <condition_variable>
 
+#include "CellPopulation.h"
 #include "NetCDFDataFile.h"
 #include "RNG.h"
 #include "SBMLModel.h"
@@ -20,6 +20,7 @@ extern "C" {
 class Cell;
 class DataLikelihoodBase;
 class VariabilityDescription;
+class VariabilityPseudoRandomIterator;
 
 enum class ESynchronizeCellTrajectory {
 	DNAReplicationStart,
@@ -62,10 +63,10 @@ public:
 
 	inline size_t GetNumSpecies() const { return cell_model.GetNumSimulatedSpecies(); }
 	inline std::string GetSpeciesName(size_t i) const { return cell_model.GetSimulatedSpeciesName(i); }
-	inline size_t GetOutputNumCells() const { return std::min(active_cells, simulated_trajectories.size()); }
+	inline size_t GetOutputNumCells() const { return std::min(population->GetActiveCount(), simulated_trajectories.size()); }
 	inline const VectorReal& GetOutputTimepoints() const { return output_trajectories_timepoints; }
 	inline const VectorReal& GetSimulatedTrajectory(size_t cell_i, size_t time_i) const { return simulated_trajectories[cell_i][time_i]; }
-	inline size_t GetSimulatedCellParent(size_t cell_i) const { return simulated_cell_parents[cell_i]; }
+	inline size_t GetSimulatedCellParent(size_t cell_i) const { return population->GetCellParent(cell_i); }
 	inline size_t GetNumData() const { return data_likelihoods.size(); }
 	inline const DataLikelihoodBase* GetData(size_t i) const { return data_likelihoods[i].get(); }
 
@@ -76,8 +77,6 @@ protected:
 	bool Simulate(const VectorReal& transformed_values);
 	bool ParallelSimulation(Real target_time);
 	bool SimulateCell(size_t i, Real target_time, Real& achieved_time, size_t eval_thread);
-	size_t AddNewCell(Real time, Cell* parent, bool entry_time_variable, int child_ix);
-	size_t CountCellsAtTime(Real time, ESynchronizeCellTrajectory synchronize, bool count_only_mitotic);
 
 	void StartAuxThreads();
 	bool WaitAuxThreads();
@@ -131,8 +130,8 @@ protected:
 	std::vector<std::string> non_sampled_parameter_names;
 	VectorReal transformed_sampled_parameters;
 	VectorReal non_sampled_parameters;
-	std::vector<Cell*> cells;
-	size_t active_cells;
+	std::unique_ptr<CellPopulation> population;
+	std::unique_ptr<VariabilityPseudoRandomIterator> variability_iterator;
 	struct SimulationTimepoints {
 		SimulationTimepoints();
 		size_t data_likelihood_ix;
@@ -149,11 +148,6 @@ protected:
 
 	VectorReal output_trajectories_timepoints;
 	std::vector<std::vector<VectorReal>> simulated_trajectories;
-	std::vector<size_t> simulated_cell_parents;
-	size_t simulated_num_cells;
-	std::shared_ptr<boost::random::sobol> sobol_sequence;
-	std::vector<size_t> sobol_sequence_indices;
-	std::vector<VectorReal> sobol_sequence_values;
 
 	Real abs_tol;
 	Real rel_tol;
@@ -195,5 +189,6 @@ protected:
 	std::vector<VectorReal> cell_update_timings;
 
 	friend class Cell;
+	friend class Population;
 	friend void experiment_evaluation_worker(Experiment* experiment, size_t threadIndex);
 };

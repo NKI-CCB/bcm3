@@ -12,9 +12,11 @@ public:
 	Cell(const SBMLModel* model, const Experiment* experiment);
 	~Cell();
 
-	bool SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const std::map<size_t, std::vector<int>>& ratio_active_map, const std::map<size_t, std::vector<int>>& ratio_inactive_map, const std::map<size_t, std::vector<size_t>>& ratio_total_active,const std::map<size_t, std::vector<size_t>>& ratio_total_inactive,const VectorReal& transformed_values, Real time);
+	bool AllocateSolver(Real abs_tol, Real rel_tol);
+	//bool SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const std::map<size_t, std::vector<int>>& ratio_active_map, const std::map<size_t, std::vector<int>>& ratio_inactive_map, const std::map<size_t, std::vector<size_t>>& ratio_total_active,const std::map<size_t, std::vector<size_t>>& ratio_total_inactive,const VectorReal& transformed_values, Real time);
+	bool SetInitialConditionsFromModel();
 	bool SetInitialConditionsFromOtherCell(const Cell* other);
-	bool Initialize(Real creation_time, const VectorReal& transformed_variables, VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_points, Real abs_tol, Real rel_tol);
+	bool Initialize(Real creation_time, const VectorReal& transformed_variables, const VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_points);
 
 	bool Simulate(Real end_time, Real simulate_past_chromatid_separation_time, VectorReal& output_times, bool &die, bool &divide, Real& achieved_time);
 
@@ -27,8 +29,6 @@ public:
 
 	size_t GetSolverSteps() const { return solver->GetNumSteps(); }
 	OdeReal GetSolverMinStepSize() const { return solver->GetMinStepSize(); }
-
-	void SetDerivativeFunctions(derivative_fn fn, jacobian_fn jac);
 
 	static size_t total_num_simulations;
 	static size_t cvode_max_steps_reached;
@@ -69,9 +69,6 @@ private:
 	OdeReal PCNA_gfp_increase_time;
 	OdeReal nuclear_envelope_breakdown_time;
 	OdeReal anaphase_onset_time;
-
-	derivative_fn derivative;
-	jacobian_fn jacobian;
 
 	std::shared_ptr<ODESolver> solver;
 	OdeVectorReal initial_y;

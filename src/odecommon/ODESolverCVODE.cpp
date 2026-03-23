@@ -120,6 +120,11 @@ bool ODESolverCVODE::Initialize(size_t N, void* user)
 	return true;
 }
 
+bool ODESolverCVODE::Restart()
+{
+	return true;
+}
+
 bool ODESolverCVODE::SetSolverParameter(const std::string& parameter, int int_value, OdeReal real_value)
 {
 	if (cvode_mem == nullptr) {

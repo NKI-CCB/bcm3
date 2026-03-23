@@ -9,6 +9,7 @@ public:
 	~ODESolverDP5();
 
 	virtual bool Initialize(size_t N, void* user);
+	virtual bool Restart();
 	virtual bool SetSolverParameter(const std::string& parameter, int int_value, OdeReal real_value);
 
 	virtual void RestartInterpolationIteration();

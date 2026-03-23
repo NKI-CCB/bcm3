@@ -28,6 +28,11 @@ bool ODESolver::Initialize(size_t N, void* user)
 	return true;
 }
 
+bool ODESolver::Restart()
+{
+	return true;
+}
+
 bool ODESolver::SetSolverParameter(const std::string& parameter, int int_value, OdeReal real_value)
 {
 	LOGWARNING("Unhandled ODE solver parameter %s - %d / %g", parameter.c_str(), int_value, real_value);
