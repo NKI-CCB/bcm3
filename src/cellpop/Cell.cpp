@@ -133,77 +133,31 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 {
 	store_integration_points = calculate_synchronization_points;
 
-	int sobol_sequence_ix = 0;
-	for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
-		(*it)->ApplyVariabilityEntryTime(creation_time, *sobol_sequence_values, sobol_sequence_ix, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
-	}
-	this->creation_time = creation_time;
-
-#if 1
+	// Make a copy of the sampled and non-sampled parameters so that we can apply variability to them
 	for (size_t i = 0; i < cell_specific_transformed_variables.size(); i++) {
 		cell_specific_transformed_variables(i) = transformed_variables(i);
-		for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
-			(*it)->ApplyVariabilityParameter(experiment->varset->GetVariableName(i), cell_specific_transformed_variables(i), *sobol_sequence_values, sobol_sequence_ix, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
-		}
 	}
-
 	for (size_t i = 0; i < cell_specific_non_sampled_transformed_variables.size(); i++) {
 		cell_specific_non_sampled_transformed_variables(i) = experiment->non_sampled_parameters(i);
-		for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
-			(*it)->ApplyVariabilityParameter(experiment->non_sampled_parameter_names[i], cell_specific_non_sampled_transformed_variables(i), *sobol_sequence_values, sobol_sequence_ix, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
+	}
+
+	// Apply variabilities
+	int sobol_sequence_ix = 0;
+	for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
+		VectorReal pseudorandom_vector = (*it)->GetPseudorandomVector(*sobol_sequence_values, sobol_sequence_ix, transformed_variables, experiment->non_sampled_parameters);
+
+		for (size_t i = 0; i < cell_specific_transformed_variables.size(); i++) {
+			(*it)->ApplyVariabilityParameter(experiment->varset->GetVariableName(i), cell_specific_transformed_variables(i), pseudorandom_vector, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
+		}
+		for (size_t i = 0; i < cell_specific_non_sampled_transformed_variables.size(); i++) {
+			(*it)->ApplyVariabilityParameter(experiment->non_sampled_parameter_names[i], cell_specific_non_sampled_transformed_variables(i), pseudorandom_vector, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
+		}
+		for (size_t i = 0; i < model->GetNumODEIntegratedSpecies(); i++) {
+			(*it)->ApplyVariabilityInitialCondition(model->GetODEIntegratedSpeciesName(i), initial_y(i), pseudorandom_vector, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
 		}
 	}
-#else
 
-#if 0
-	MatrixReal covariance(3, 3);
-	covariance(0, 0) = transformed_variables[3];
-	covariance(1, 1) = transformed_variables[4];
-	covariance(2, 2) = transformed_variables[5];
-	covariance(0, 1) = covariance(1, 0) = transformed_variables[6];
-	covariance(0, 2) = covariance(2, 0) = transformed_variables[7];
-	covariance(1, 2) = covariance(2, 1) = transformed_variables[8];
-	//covariance(0, 1) = covariance(1, 0) = 0.0;
-	//covariance(0, 2) = covariance(2, 0) = 0.0;
-	//covariance(1, 2) = covariance(2, 1) = 0.0;
-	MatrixReal covariance_decomp = covariance.llt().matrixL();
-#else
-	// Log-cholesky parametrization as described by Pinheiro & Bates, Unconstrained parametrizations for variance-covariance matrices, Statistics and Computing 1996
-	// The diagonal terms are on log scale, the off-diagonal not
-	MatrixReal cholesky_L(3, 3);
-	cholesky_L(0, 0) = exp(transformed_variables[3]);
-	cholesky_L(1, 1) = exp(transformed_variables[4]);
-	cholesky_L(2, 2) = exp(transformed_variables[5]);
-	cholesky_L(1, 0) = (transformed_variables[6]);
-	cholesky_L(2, 0) = (transformed_variables[7]);
-	cholesky_L(2, 1) = (transformed_variables[8]);
-	cholesky_L(0, 1) = 0.0;
-	cholesky_L(0, 2) = 0.0;
-	cholesky_L(1, 2) = 0.0;
-#endif
-
-	// Normally distributed pseudorandom values
-	VectorReal varying_params(3);
-	varying_params(0) = bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
-	varying_params(1) = bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
-	varying_params(2) = bcm3::QuantileNormal((*sobol_sequence_values)[sobol_sequence_ix++], 0, 1);
-
-	// Transform by covariance matrix
-	varying_params = cholesky_L * varying_params;
-
-	for (size_t i = 0; i < cell_specific_transformed_variables.size(); i++) {
-		cell_specific_transformed_variables(i) = transformed_variables(i);
-	}
-	cell_specific_transformed_variables(0) = transformed_variables[0] * exp(varying_params(0));
-	cell_specific_transformed_variables(1) = transformed_variables[1] * exp(varying_params(1));
-	cell_specific_transformed_variables(2) = transformed_variables[2] * exp(varying_params(2));
-#endif
-
-	for (size_t i = 0; i < model->GetNumODEIntegratedSpecies(); i++) {
-		for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
-			(*it)->ApplyVariabilitySpecies(model->GetODEIntegratedSpeciesName(i), initial_y(i), *sobol_sequence_values, sobol_sequence_ix, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
-		}
-	}
+	this->creation_time = creation_time;
 
 	replication_start_time = std::numeric_limits<Real>::quiet_NaN();
 	replication_finish_time = std::numeric_limits<Real>::quiet_NaN();
@@ -378,9 +332,6 @@ Real Cell::GetInterpolatedSpeciesValue(Real time, size_t species_ix, ESynchroniz
 						OdeReal value;
 						assignment_rule->Calculate(solver_output.col(i).data(), constant_species_y.data(), cell_specific_transformed_variables.data(), cell_specific_non_sampled_transformed_variables.data(), &value);
 						return (Real)value;
-					} else {
-						LOGERROR("No assignment rule for requested constant species\n");
-						return std::numeric_limits<Real>::quiet_NaN();
 					}
 				}
 			}

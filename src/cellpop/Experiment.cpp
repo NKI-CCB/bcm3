@@ -67,7 +67,6 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, min_start_time(std::numeric_limits<Real>::quiet_NaN())
 	, max_achieved_time(std::numeric_limits<Real>::quiet_NaN())
 {
-	this->store_simulation = true;
 	if (evaluation_threads > 1) {
 		AuxEvaluationThreads.resize(evaluation_threads);
 		for (size_t i = 0; i < AuxEvaluationThreads.size(); i++) {

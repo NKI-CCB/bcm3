@@ -37,6 +37,12 @@ bool VariabilityDescription::PostInitialize(std::shared_ptr<const bcm3::Variable
             return false;
         }
     }
+	for (auto& it : covariance_values) {
+		if (!it.Load(varset, non_sampled_parameter_names)) {
+			LOGERROR("Missing parameter for covariance");
+			return false;
+		}
+	}
 
     return true;
 }
@@ -48,10 +54,11 @@ VectorReal VariabilityDescription::GetPseudorandomVector(const VectorReal& sobol
 	switch (distribution) {
 	case EDistribution::DiagonalGaussian:
 		{
+			// Diagonal covariance matrix; diagonal terms are on log scale for consistency with the parametrization of the full covariance matrix below
 			VectorReal v(D);
 			for (size_t i = 0; i < D; ++i) {
-				v(i) = bcm3::QuantileNormal(sobol_sequence(sobol_sequence_ix++), 0, 1);
-				v(i) *= exp(value_references[i].GetValue(transformed_values, non_sampled_parameters));
+				Real scale = variables[i]->GetScaleReference().GetValue(transformed_values, non_sampled_parameters);
+				v(i) = bcm3::QuantileNormal(sobol_sequence(sobol_sequence_ix++), 0, 1) * exp(scale);
 			}
 			return v;
 		}
@@ -63,9 +70,10 @@ VectorReal VariabilityDescription::GetPseudorandomVector(const VectorReal& sobol
 			MatrixReal cholesky_L(D, D);
 			int value_reference_i = 0;
 			for (int i = 0; i < D; i++) {
-				cholesky_L(i, i) = exp(value_references[value_reference_i++].GetValue(transformed_values, non_sampled_parameters));
+				Real scale = variables[i]->GetScaleReference().GetValue(transformed_values, non_sampled_parameters);
+				cholesky_L(i, i) = exp(scale);
 				for (int j = 0; j < i; j++) {
-					cholesky_L(i, j) = value_references[value_reference_i++].GetValue(transformed_values, non_sampled_parameters);
+					cholesky_L(i, j) = covariance_values[value_reference_i++].GetValue(transformed_values, non_sampled_parameters);
 				}
 				for (int j = i + 1; j < D; j++) {
 					cholesky_L(i, j) = 0.0;
@@ -104,15 +112,15 @@ void VariabilityDescription::ApplyVariabilityParameter(const std::string& parame
 {
 	ASSERT(pseudorandom_vector.size() == variables.size());
 	for (int i = 0; i < variables.size(); i++) {
-		variables[i]->ApplyVariabilityEntryTime(value, pseudorandom_vector(i), transformed_values, non_sampled_parameters, is_initial_cell);
+		variables[i]->ApplyVariabilityParameter(parameter, value, pseudorandom_vector(i), transformed_values, non_sampled_parameters, is_initial_cell);
 	}
 }
 
-void VariabilityDescription::ApplyVariabilitySpecies(const std::string& species, OdeReal& value, const VectorReal& pseudorandom_vector, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
+void VariabilityDescription::ApplyVariabilityInitialCondition(const std::string& species, OdeReal& value, const VectorReal& pseudorandom_vector, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
 {
 	ASSERT(pseudorandom_vector.size() == variables.size());
 	for (int i = 0; i < variables.size(); i++) {
-		variables[i]->ApplyVariabilityEntryTime(value, pseudorandom_vector(i), transformed_values, non_sampled_parameters, is_initial_cell);
+		variables[i]->ApplyVariabilityInitialCondition(species, value, pseudorandom_vector(i), transformed_values, non_sampled_parameters, is_initial_cell);
 	}
 }
 
@@ -151,21 +159,22 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 
 	switch (distribution) {
 	case EDistribution::DiagonalGaussian:
-		{
-			for (size_t i = 0; i < variables.size(); ++i) {
-				value_references.push_back(variables[i]->scale);
-			}
-		}
+		// Nothing special to do
 		break;
 
 	case EDistribution::FullGaussian:
+		// Look for covariance variables
 		{
-		for (size_t i = 0; i < variables.size(); ++i) {
-			value_references.push_back(variables[i]->scale);
-			for (int j = 0; j < i; j++) {
-
+			std::string covar_base_name = xml_node.get<std::string>("<xmlattr>.covar_base_name"); 
+			int value_reference_i = 0;
+			for (int i = 0; i < variables.size(); i++) {
+				for (int j = 0; j < i; j++) {
+					std::string covar_name = covar_base_name + std::to_string(j + 1) + "_" + std::to_string(i + 1);
+					ValueReference val_ref;
+					val_ref.SetString(covar_name);
+					covariance_values.push_back(val_ref);
+				}
 			}
-		}
 		}
 		break;
 	}

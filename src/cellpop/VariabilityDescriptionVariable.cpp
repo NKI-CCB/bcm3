@@ -36,7 +36,7 @@ bool VariabilityDescriptionVariable::PostInitialize(std::shared_ptr<const bcm3::
 	bool result = true;
 
 	// Load the scale value reference
-	result &= scale.Load(varset, non_sampled_parameter_names, model);
+	result &= scale.Load(varset, non_sampled_parameter_names);
 
 	// If the variability is on a parameter, get the parameter index
 	if (!parameter_name.empty()) {
@@ -52,7 +52,7 @@ bool VariabilityDescriptionVariable::PostInitialize(std::shared_ptr<const bcm3::
 		}
 	}
 
-	// If the variability is on an initial condition, get the species index
+	// If the variability is on an initial condition, check that the species exist
 	if (!initial_condition_species_name.empty()) {
 		size_t ix = model.GetODEIntegratedSpeciesByName(initial_condition_species_name);
 		if (ix == std::numeric_limits<size_t>::max()) {
@@ -63,14 +63,12 @@ bool VariabilityDescriptionVariable::PostInitialize(std::shared_ptr<const bcm3::
 	return true;
 }
 
-bool VariabilityDescriptionVariable::ApplyVariabilityEntryTime(Real& value, const VectorReal& pseudorandom_values, int& pseudorandom_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
+bool VariabilityDescriptionVariable::ApplyVariabilityEntryTime(Real& value, Real pseudorandom_value, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
 {
 	if (entry_time) {
 		// This variability description applies to entry time
-		Real sobol_sample = pseudorandom_values[pseudorandom_ix++];
 		if (!only_initial_cells || is_initial_cell) {
-			Real variability = 0.0;
-			variability = TransformValue(variability, transformed_values, non_sampled_parameters);
+			Real variability = TransformValue(pseudorandom_value, transformed_values, non_sampled_parameters);
 			Apply(value, variability);
 		}
 		return true;
@@ -79,14 +77,12 @@ bool VariabilityDescriptionVariable::ApplyVariabilityEntryTime(Real& value, cons
 	}
 }
 
-bool VariabilityDescriptionVariable::ApplyVariabilityParameter(const std::string& parameter, OdeReal& value, const VectorReal& pseudorandom_values, int& pseudorandom_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
+bool VariabilityDescriptionVariable::ApplyVariabilityParameter(const std::string& parameter, OdeReal& value, Real pseudorandom_value, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
 {
 	if (!parameter_name.empty() && parameter == parameter_name) {
 		// This variability description applies to this parameter
-		Real sobol_sample = pseudorandom_values[pseudorandom_ix++];
 		if (!only_initial_cells || is_initial_cell) {
-			Real variability = 0.0;
-			variability = TransformValue(variability, transformed_values, non_sampled_parameters);
+			Real variability = TransformValue(pseudorandom_value, transformed_values, non_sampled_parameters);
 			Real real_value = (Real)value;
 			Apply(real_value, variability);
 			value = (OdeReal)real_value;
@@ -97,14 +93,12 @@ bool VariabilityDescriptionVariable::ApplyVariabilityParameter(const std::string
 	}
 }
 
-bool VariabilityDescriptionVariable::ApplyVariabilityInitialConditionSpecies(const std::string& species, OdeReal& value, const VectorReal& pseudorandom_values, int& pseudorandom_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
+bool VariabilityDescriptionVariable::ApplyVariabilityInitialCondition(const std::string& species, OdeReal& value, Real pseudorandom_value, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const
 {
 	if (!initial_condition_species_name.empty() && species == initial_condition_species_name) {
 		// This variability description applies to this species
-		Real sobol_sample = pseudorandom_values[pseudorandom_ix++];
 		if (!only_initial_cells || is_initial_cell) {
-			Real variability = 0.0;
-			variability = TransformValue(variability, transformed_values, non_sampled_parameters);
+			Real variability = TransformValue(pseudorandom_value, transformed_values, non_sampled_parameters);
 			Real real_value = (Real)value;
 			Apply(real_value, variability);
 			value = (OdeReal)real_value;
@@ -144,8 +138,14 @@ bool VariabilityDescriptionVariable::Load(const boost::property_tree::ptree& xml
 	std::string apply_str = xml_node.get<std::string>("<xmlattr>.apply");
 	if (apply_str == "additive") {
 		apply_type = EType::Additive;
+	} else if (apply_str == "additive_log") {
+		apply_type = EType::Additive_Log;
+	} else if (apply_str == "additive_log2") {
+		apply_type = EType::Additive_Log2;
 	} else if (apply_str == "multiplicative") {
 		apply_type = EType::Multiplicative;
+	} else if (apply_str == "multiplicative_log") {
+		apply_type = EType::Multiplicative_Log;
 	} else if (apply_str == "multiplicative_log2") {
 		apply_type = EType::Multiplicative_Log2;
 	} else if (apply_str == "replace") {
@@ -163,13 +163,9 @@ bool VariabilityDescriptionVariable::Load(const boost::property_tree::ptree& xml
 
 Real VariabilityDescriptionVariable::TransformValue(Real value, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const
 {
-	Real scale_value = scale.GetValue(transformed_values, non_sampled_parameters);
-	value *= scale_value;
-
 	if (negate) {
 		value = -value;
 	}
-
 	return value;
 }
 

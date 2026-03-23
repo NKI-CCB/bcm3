@@ -17,17 +17,14 @@ public:
 
 	VectorReal GetPseudorandomVector(const VectorReal& sobol_sequence, int& sobol_sequence_ix, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
 
-	void ApplyVariabilityEntryTime(Real& value, const VectorReal& transformed_vector, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
-	void ApplyVariabilityParameter(const std::string& parameter, OdeReal& value, const VectorReal& transformed_vector, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
-	void ApplyVariabilitySpecies(const std::string& species, OdeReal& value, const VectorReal& transformed_vector, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
+	void ApplyVariabilityEntryTime(Real& value, const VectorReal& pseudorandom_vector, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
+	void ApplyVariabilityParameter(const std::string& parameter, OdeReal& value, const VectorReal& pseudorandom_vector, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
+	void ApplyVariabilityInitialCondition(const std::string& species, OdeReal& value, const VectorReal& pseudorandom_vector, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
 
 	size_t GetNumDimensions() const;
 
 private:
-	std::vector< std::unique_ptr<VariabilityDescriptionVariable> > variables;
-
 	bool Load(const boost::property_tree::ptree& xml_node);
-	Real DistributionQuantile(Real p, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters) const;
 
 	enum class EDistribution {
 		FullGaussian,
@@ -35,6 +32,7 @@ private:
 		Invalid
 	};
 
+	std::vector< std::unique_ptr<VariabilityDescriptionVariable> > variables;
 	EDistribution distribution;
-	std::vector<ValueReference> value_references;
+	std::vector<ValueReference> covariance_values;
 };

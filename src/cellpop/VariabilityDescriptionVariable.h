@@ -17,7 +17,9 @@ public:
 
 	bool ApplyVariabilityEntryTime(Real& value, Real pseudorandom_value, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
 	bool ApplyVariabilityParameter(const std::string& parameter, OdeReal& value, Real pseudorandom_value, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
-	bool ApplyVariabilityInitialConditionSpecies(const std::string& species, OdeReal& value, Real pseudorandom_value, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
+	bool ApplyVariabilityInitialCondition(const std::string& species, OdeReal& value, Real pseudorandom_value, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, bool is_initial_cell) const;
+
+	const ValueReference& GetScaleReference() const { return scale; }
 
 private:
 	bool Load(const boost::property_tree::ptree& xml_node);
