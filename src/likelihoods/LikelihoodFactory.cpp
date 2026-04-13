@@ -1,6 +1,7 @@
 #include "Utils.h"
 #include "LikelihoodFactory.h"
 
+#include "LikelihoodCellCycleMarker.h"
 #include "LikelihoodDLL.h"
 #include "LikelihoodDummy.h"
 #include "LikelihoodIncucytePopulation.h"
@@ -48,6 +49,8 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 			ll = std::make_shared<LikelihoodDLL>(sampling_threads, evaluation_threads);
 		} else if (type == "dummy") {
 			ll = std::make_shared<LikelihoodDummy>(sampling_threads, evaluation_threads);
+		} else if (type == "cell_cycle_marker") {
+			ll = std::make_shared<LikelihoodCellCycleMarker>(sampling_threads, evaluation_threads);
 		} else if (type == "incucyte_population") {
 			ll = std::make_shared<LikelihoodIncucytePopulation>(sampling_threads, evaluation_threads);
 		} else if (type == "mitosis_time_estimation") {
