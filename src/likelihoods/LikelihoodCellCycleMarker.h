@@ -12,6 +12,8 @@ public:
 	virtual bool IsReentrant() { return true; }
 	virtual bool EvaluateLogProbability(size_t threadix, const VectorReal& values, Real& logp);
 
+	static void AddOptionsDescription(boost::program_options::options_description& pod);
+
 private:
 	std::shared_ptr<const bcm3::VariableSet> varset;
 

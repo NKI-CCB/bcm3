@@ -105,6 +105,7 @@ void LikelihoodFactory::AddOptionsDescription(boost::program_options::options_de
 #if BCM_INCLUDE_CELLPOP
 	CellPopulationLikelihood::AddOptionsDescription(pod);
 #endif
+	LikelihoodCellCycleMarker::AddOptionsDescription(pod);
 	LikelihoodPharmacokineticTrajectory::AddOptionsDescription(pod);
 	PharmacoLikelihoodSingle::AddOptionsDescription(pod);
 }
