@@ -41,6 +41,8 @@ private:
 	std::vector< std::pair<size_t, size_t> > simulated_cell_children;
 	std::vector<size_t> trajectory_matching;
 	std::vector<MatrixReal> matched_trajectories;
+	std::vector<MatrixReal> cell_trajectories_proportional_min_log_sigma;
+	std::vector<MatrixReal> cell_trajectories_proportional_inv_two_sigma_sq;
 
 	std::vector<WeightedBipartiteEdge> hungarian_matching_edges;
 };

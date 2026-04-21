@@ -216,6 +216,10 @@ void DataLikelihoodTimeCourse::Reset()
 	for (size_t i = 0; i < cell_trajectories.size(); i++) {
 		cell_trajectories[i].setConstant(std::numeric_limits<Real>::quiet_NaN());
 	}
+	if ((error_model == ErrorModel::ProportionalNormal || error_model == ErrorModel::AdditiveProportionalNormal) && !optimize_offset_scale) {
+		cell_trajectories_proportional_min_log_sigma = cell_trajectories;
+		cell_trajectories_proportional_inv_two_sigma_sq = cell_trajectories;
+	}
 	for (size_t i = 0; i < observed_data.size(); i++) {
 		matched_trajectories[i].setConstant(std::numeric_limits<Real>::quiet_NaN());
 	}
@@ -263,6 +267,19 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 			matched_hierarchies[i].resize(simulated_cell_parents.size());
 			for (size_t j = 0; j < simulated_cell_parents.size(); j++) {
 				matched_hierarchies[i][j].resize(cell_trajectories.size());
+			}
+		}
+	}
+
+	if ((error_model == ErrorModel::ProportionalNormal || error_model == ErrorModel::AdditiveProportionalNormal) && !optimize_offset_scale) {
+		for (size_t j = 0; j < cell_trajectories.size(); j++) {
+			for (int l = 0; l < species_names.size(); l++) {
+				VectorReal sigma = proportional_stdevs[l] * cell_trajectories[j].col(l).cwiseMax(0.0).array();
+				if (error_model == ErrorModel::AdditiveProportionalNormal) {
+					sigma.array() += stdevs[l];
+				}
+				cell_trajectories_proportional_min_log_sigma[j].col(l) = -sigma.array().log();
+				cell_trajectories_proportional_inv_two_sigma_sq[j].col(l) = (2.0 * sigma.cwiseProduct(sigma)).cwiseInverse();
 			}
 		}
 	}
@@ -456,9 +473,14 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 						Real d = y - x;
 						cell_logp += minus_log_sigma - 0.91893853320467274178032973640562 - d * d * inv_two_sigma_sq;
 					} else if (error_model == ErrorModel::ProportionalNormal) {
-						cell_logp += bcm3::LogPdfNormal(x, y, proportional_stdevs[l] * std::max(x, 0.0));
+						//cell_logp += bcm3::LogPdfNormal(y, x, proportional_stdevs[l] * std::max(x, 0.0));
+						Real d = y - x;
+						cell_logp += cell_trajectories_proportional_min_log_sigma[simulated_cell_ix](k, l) - 0.91893853320467274178032973640562 - d * d * cell_trajectories_proportional_inv_two_sigma_sq[simulated_cell_ix](k, l);
 					} else if (error_model == ErrorModel::AdditiveProportionalNormal) {
-						cell_logp += bcm3::LogPdfNormal(x, y, stdevs[l] + proportional_stdevs[l] * std::max(x, 0.0));
+						//cell_logp += bcm3::LogPdfNormal(y, x, stdevs[l] + proportional_stdevs[l] * std::max(x, 0.0));
+						Real d = y - x;
+						cell_logp += cell_trajectories_proportional_min_log_sigma[simulated_cell_ix](k, l) - 0.91893853320467274178032973640562 - d * d * cell_trajectories_proportional_inv_two_sigma_sq[simulated_cell_ix](k, l);
+
 					} else if (error_model == ErrorModel::StudentT4) {
 						cell_logp += bcm3::LogPdfTnu4(y, x, stdevs[l]);
 					} else {
