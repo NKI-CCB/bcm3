@@ -22,6 +22,8 @@ target_sources(cellpop
     DataLikelihoodTimePoints.cpp
     Experiment.h
     Experiment.cpp
+    SolverCodeGenerator.h
+    SolverCodeGenerator.cpp
     TreatmentTrajectory.h
     TreatmentTrajectory.cpp
     TreatmentTrajectoryFromData.h

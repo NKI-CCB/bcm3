@@ -8,7 +8,11 @@
 
 static const size_t MAX_CVODE_STEPS = 10000;
 
-void static_cvode_err_fn(int error_code, const char *module, const char *function, char *msg, void *user_data)
+void static_cvode_err_fn(int error_code, const char* module, const char* function, char* msg, void* user_data)
+{
+}
+
+void static_cvode_err_fn_log(int error_code, const char *module, const char *function, char *msg, void *user_data)
 {
 	LOGERROR("CVODE error %d in module %s, function %s: %s", error_code, module, function, msg);
 }
@@ -304,6 +308,8 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 	}
 
 	if (verbose) {
+		CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn_log, this);
+	} else {
 		CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
 	}
 

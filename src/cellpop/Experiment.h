@@ -8,14 +8,10 @@
 #include "NetCDFDataFile.h"
 #include "RNG.h"
 #include "SBMLModel.h"
+#include "SolverCodeGenerator.h"
 #include "Spinlock.h"
 #include "TreatmentTrajectory.h"
 #include "VariableSet.h"
-
-extern "C" {
-	typedef void (*derivative_fn)(OdeReal* out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters);
-	typedef void (*jacobian_fn)(OdeMatrixReal& out, const OdeReal* species, const OdeReal* constant_species, const OdeReal* parameters, const OdeReal* non_sampled_parameters);
-}
 
 class Cell;
 class DataLikelihoodBase;
@@ -72,7 +68,6 @@ public:
 
 protected:
 	bool Load(const boost::property_tree::ptree& xml_node, const boost::program_options::variables_map& vm);
-	bool GenerateAndCompileSolverCode(const std::string& codegen_name);
 	bool Initialize(const boost::property_tree::ptree& xml_node);
 	bool Simulate(const VectorReal& transformed_values);
 	bool ParallelSimulation(Real target_time);
@@ -130,6 +125,7 @@ protected:
 	std::vector<std::string> non_sampled_parameter_names;
 	VectorReal transformed_sampled_parameters;
 	VectorReal non_sampled_parameters;
+	std::unique_ptr<SolverCodeGenerator> code_generator;
 	std::unique_ptr<CellPopulation> population;
 	std::unique_ptr<VariabilityPseudoRandomIterator> variability_iterator;
 	struct SimulationTimepoints {
@@ -156,11 +152,6 @@ protected:
 	Real solver_abs_tol;
 	Real solver_rel_tol;
 
-#if PLATFORM_WINDOWS
-	HMODULE derivative_dll;
-#else
-	void* derivative_dll;
-#endif
 	derivative_fn derivative;
 	jacobian_fn jacobian;
 	mutable bcm3::RNG rng;
