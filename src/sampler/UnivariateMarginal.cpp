@@ -26,10 +26,7 @@ bool UnivariateMarginal::Initialize(boost::property_tree::ptree pt)
 {
 	try {
 		std::string distribution_name = pt.get<std::string>("<xmlattr>.distribution");
-		if (distribution_name == "dirac_delta") {
-			PriorType = Distribution::DiracDelta;
-			mu = pt.get<Real>("<xmlattr>.value");
-		} if (distribution_name == "uniform") {
+		if (distribution_name == "uniform") {
 			PriorType = Distribution::Uniform;
 			a = pt.get<Real>("<xmlattr>.lower");
 			b = pt.get<Real>("<xmlattr>.upper");
@@ -226,10 +223,6 @@ std::unique_ptr<UnivariateMarginal> UnivariateMarginal::CreateBetaPrime(Real a, 
 bool UnivariateMarginal::Sample(Real& value, RNG* rng) const
 {
 	switch (PriorType) {
-	case Distribution::DiracDelta:
-		value = mu;
-		return true;
-
 	case Distribution::Uniform:
 		value = rng->GetUniform(a, b);
 		return true;
@@ -281,14 +274,6 @@ bool UnivariateMarginal::Sample(Real& value, RNG* rng) const
 bool UnivariateMarginal::EvaluatePDF(Real& p, const Real value) const
 {
 	switch (PriorType) {
-	case Distribution::DiracDelta:
-		if (value == mu) {
-			return std::numeric_limits<Real>::infinity();
-		} else {
-			return 0;
-		}
-		return true;
-
 	case Distribution::Uniform:
 		if (value < a || value > b) {
 			p = 0.0;
@@ -344,14 +329,6 @@ bool UnivariateMarginal::EvaluatePDF(Real& p, const Real value) const
 bool UnivariateMarginal::EvaluateLogPDF(Real& logp, const Real value) const
 {
 	switch (PriorType) {
-	case Distribution::DiracDelta:
-		if (value == mu) {
-			return std::numeric_limits<Real>::infinity();
-		} else {
-			return -std::numeric_limits<Real>::infinity();
-		}
-		return true;
-
 	case Distribution::Uniform:
 		if (value < a || value > b) {
 			logp = -std::numeric_limits<Real>::infinity();
@@ -405,7 +382,6 @@ bool UnivariateMarginal::EvaluateLogPDF(Real& logp, const Real value) const
 bool UnivariateMarginal::EvaluateLogDerivative(Real& d, const Real value) const
 {
 	switch (PriorType) {
-	case Distribution::DiracDelta:
 	case Distribution::Uniform:
 		d = 0.0;
 		return true;
@@ -441,7 +417,6 @@ bool UnivariateMarginal::EvaluateLogDerivative(Real& d, const Real value) const
 bool UnivariateMarginal::EvaluateLog2ndDerivative(Real& d, const Real value) const
 {
 	switch (PriorType) {
-	case Distribution::DiracDelta:
 	case Distribution::Uniform:
 		d = 0.0;
 		return true;
@@ -473,10 +448,6 @@ bool UnivariateMarginal::EvaluateLog2ndDerivative(Real& d, const Real value) con
 bool UnivariateMarginal::EvaluateMean(Real& mean) const
 {
 	switch (PriorType) {
-	case Distribution::DiracDelta:
-		mean = mu;
-		return true;
-
 	case Distribution::Uniform:
 		mean = 0.5 * (b + a);
 		return true;
@@ -524,10 +495,6 @@ bool UnivariateMarginal::EvaluateMean(Real& mean) const
 bool UnivariateMarginal::EvaluateVariance(Real& var) const
 {
 	switch (PriorType) {
-	case Distribution::DiracDelta:
-		var = 0.0;
-		return true;
-
 	case Distribution::Uniform:
 		{
 			Real d = b - a;
@@ -581,17 +548,11 @@ bool UnivariateMarginal::EvaluateVariance(Real& var) const
 bool UnivariateMarginal::EvaluateCDF(Real& p, const Real value) const
 {
 	switch (PriorType) {
-	case Distribution::DiracDelta:
-		if (value < mu) {
-			p = 0.0;
-		} else {
-			p = 1.0;
-		}
-		return true;
-
 	case Distribution::Uniform:
-		if (value < a || value > b) {
+		if (value < a) {
 			p = 0.0;
+		} else if (value > b) {
+			p = 1.0;
 		} else {
 			p = (value - a) / (b - a);
 		}

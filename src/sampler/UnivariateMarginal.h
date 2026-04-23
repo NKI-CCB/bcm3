@@ -35,7 +35,6 @@ private:
 	enum class Distribution
 	{
 		Invalid,
-		DiracDelta,
 		Uniform,
 		Normal,
 		Exponential,
@@ -48,7 +47,7 @@ private:
 	
 	Distribution PriorType;
 
-	Real mu;			// Normal, DiracDelta
+	Real mu;			// Normal
 	Real sigma;			// Normal
 	Real a;				// Uniform, Beta, BetaPrime
 	Real b;				// Uniform, Beta, BetaPrime
