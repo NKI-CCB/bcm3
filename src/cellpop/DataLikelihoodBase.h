@@ -57,6 +57,7 @@ protected:
 	std::vector<Real> fixed_scale_value;
 	std::vector<Real> fixed_stdev_value;
 	std::vector<Real> fixed_proportional_stdev_value;
+	bool stdev_relative_to_data_scale;
 
 private:
 	bool ParseString(std::string str, size_t& var_ix, size_t& non_sampled_var_ix, Real& fixed_value, const bcm3::VariableSet& varset, const std::vector<std::string>& non_sampled_parameter_names);

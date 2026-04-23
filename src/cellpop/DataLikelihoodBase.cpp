@@ -7,6 +7,7 @@
 DataLikelihoodBase::DataLikelihoodBase()
 	: weight(1.0)
 	, error_model(ErrorModel::Normal)
+	, stdev_relative_to_data_scale(false)
 {
 }
 
@@ -40,6 +41,7 @@ bool DataLikelihoodBase::Load(const boost::property_tree::ptree& xml_node, Exper
 	proportional_stdev_str = xml_node.get<std::string>("<xmlattr>.proportional_stdev", "");
 	offset_str = xml_node.get<std::string>("<xmlattr>.offset", "");
 	scale_str = xml_node.get<std::string>("<xmlattr>.scale", "");
+	stdev_relative_to_data_scale = xml_node.get<bool>("<xmlattr>.stdev_relative_to_scale", false);
 	
 	std::string error_model_str = xml_node.get<std::string>("<xmlattr>.error_model", "normal");
 	if (error_model_str == "normal" || error_model_str == "additive_normal") {
@@ -111,6 +113,12 @@ bool DataLikelihoodBase::PostInitialize(const bcm3::VariableSet& varset, const s
 		}
 	}
 
+	if (stdev_relative_to_data_scale) {
+		if (scale_str.empty()) {
+			LOGWARNING("stdev was specified to be relative to data scale, but a scale was not provided; this may not be what you want");
+		}
+	}
+
 	return result;
 }
 
@@ -134,6 +142,11 @@ Real DataLikelihoodBase::GetCurrentSTDev(const VectorReal& transformed_values, c
 	} else {
 		stdev = fixed_stdev_value[ix];
 	}
+
+	if (stdev_relative_to_data_scale) {
+		stdev *= GetCurrentDataScale(transformed_values, non_sampled_parameters, i);
+	}
+
 	return stdev;
 }
 
