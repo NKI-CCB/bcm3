@@ -21,7 +21,7 @@ namespace bcm3 {
 		bool AdaptProposal(size_t thread);
 		void AdaptProposalAsync();
 		bool AdaptProposalWait();
-		bool FindStartingPosition();
+		bool FindStartingPosition(size_t max_tries);
 		bool MutateMove(size_t thread);
 		void MutateMoveAsync();
 		bool MutateMoveWait();

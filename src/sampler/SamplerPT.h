@@ -53,6 +53,7 @@ namespace bcm3 {
 		size_t proposal_scaling_ema_period;
 		Real target_acceptance_rate;
 		Real proposal_t_dof;
+		size_t initial_position_tries;
 
 		// Run-time variables
 		std::vector< std::unique_ptr<SamplerPTChain> > chains;

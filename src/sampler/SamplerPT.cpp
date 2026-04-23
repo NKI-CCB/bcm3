@@ -30,6 +30,7 @@ namespace bcm3 {
 		, previous_swap_even(false)
 		, target_acceptance_rate(0.234)
 		, proposal_t_dof(0.0)
+		, initial_position_tries(100)
 	{
 	}
 
@@ -60,6 +61,7 @@ namespace bcm3 {
 			num_exploration_steps = vm["ptmhsampler.num_exploration_steps"].as<size_t>();
 			output_proposal_adaptation = vm["ptmhsampler.output_proposal_adaptation"].as<bool>();
 			proposal_t_dof = vm["ptmhsampler.proposal_t_dof"].as<Real>();
+			initial_position_tries = vm["ptmhsampler.initial_position_tries"].as<size_t>();
 
 			std::string swapping_scheme_str = vm["ptmhsampler.swapping_scheme"].as<std::string>();
 			if (swapping_scheme_str == "stochastic_random") {
@@ -165,6 +167,7 @@ namespace bcm3 {
 			("ptmhsampler.temperature_schedule_max",				boost::program_options::value<Real>()->default_value(1.0),								"Specifies the maximum temperature used for the fixed/initial temperature schedule.")
 			("ptmhsampler.output_proposal_adaptation",				boost::program_options::value<bool>()->default_value(false),							"Whether to output information describing the proposal adaptation.")
 			("ptmhsampler.proposal_t_dof",							boost::program_options::value<Real>()->default_value(0.0),								"Degrees of freedom of the t-distribution proposal, set to 0 to use a standard normal distribution.")
+			("ptmhsampler.initial_position_tries",					boost::program_options::value<size_t>()->default_value(100),							"Number of attempts to get a non-zero likelihood as a starting point for the chains.")
 			;
 	}
 
@@ -174,7 +177,7 @@ namespace bcm3 {
 
 		LOG("Finding starting point...");
 		for (auto& chain : chains) {
-			result = chain->FindStartingPosition();
+			result = chain->FindStartingPosition(initial_position_tries);
 			if (!result) {
 				return false;
 			}

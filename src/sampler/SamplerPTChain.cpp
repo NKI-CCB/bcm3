@@ -185,14 +185,13 @@ namespace bcm3 {
 		return async_failure == 0;
 	}
 
-	bool SamplerPTChain::FindStartingPosition()
+	bool SamplerPTChain::FindStartingPosition(size_t max_tries)
 	{
 		llh = -std::numeric_limits<Real>::infinity();
 		lprior = -std::numeric_limits<Real>::infinity();
 		lpowerposterior = -std::numeric_limits<Real>::infinity();
 
-		static const size_t MAX_TRIES = 2000;
-		for (size_t i = 0; i < MAX_TRIES; i++) {
+		for (size_t i = 0; i < max_tries; i++) {
 			if (!sampler->prior->Sample(current_var_values, &sampler->rng)) {
 				LOGERROR("Sampling from prior failed");
 				return false;
@@ -208,7 +207,7 @@ namespace bcm3 {
 		}
 
 		if (std::isnan(lpowerposterior) || lpowerposterior == -std::numeric_limits<Real>::infinity()) {
-			LOGERROR("Could not find starting position with power posterior != inf after %u tries", MAX_TRIES);
+			LOGERROR("Could not find starting position with power posterior != inf after %zu tries", max_tries);
 			return false;
 		} else {
 			return true;
