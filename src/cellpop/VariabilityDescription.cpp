@@ -67,6 +67,7 @@ VectorReal VariabilityDescription::GetPseudorandomVector(const VectorReal& sobol
 		{
 			// Log-cholesky parametrization as described by Pinheiro & Bates, Unconstrained parametrizations for variance-covariance matrices, Statistics and Computing 1996
 			// The diagonal terms are on log scale, the off-diagonal on natural scale
+#if 0
 			MatrixReal cholesky_L(D, D);
 			int value_reference_i = 0;
 			for (int i = 0; i < D; i++) {
@@ -74,6 +75,43 @@ VectorReal VariabilityDescription::GetPseudorandomVector(const VectorReal& sobol
 				cholesky_L(i, i) = exp(scale);
 				for (int j = 0; j < i; j++) {
 					cholesky_L(i, j) = covariance_values[value_reference_i++].GetValue(transformed_values, non_sampled_parameters);
+				}
+				for (int j = i + 1; j < D; j++) {
+					cholesky_L(i, j) = 0.0;
+				}
+			}
+#endif
+
+			//MatrixReal cholesky_L(D, D);
+			//cholesky_L(0, 0) = exp(transformed_values[4]);
+			//cholesky_L(0, 1) = 0.0;
+			//cholesky_L(0, 2) = 0.0;
+
+			//cholesky_L(1, 0) = exp(transformed_values[5]) * cos(transformed_values[7] * M_PI);
+			//cholesky_L(1, 1) = exp(transformed_values[5]) * sin(transformed_values[7] * M_PI);
+			//cholesky_L(1, 2) = 0.0;
+
+			//cholesky_L(2, 0) = exp(transformed_values[6]) * cos(transformed_values[8] * M_PI);
+			//cholesky_L(2, 1) = exp(transformed_values[6]) * sin(transformed_values[8] * M_PI) * cos(transformed_values[9] * M_PI);
+			//cholesky_L(2, 2) = exp(transformed_values[6]) * sin(transformed_values[8] * M_PI) * sin(transformed_values[9] * M_PI);
+
+			// Spherical parameterization of Pinheiro & Bates, Unconstrained parametrizations for variance-covariance matrices, Statistics and Computing 1996
+			MatrixReal cholesky_L(D, D);
+			for (int i = 0; i < D; i++) {
+				Real exp_scale = exp(variables[i]->GetScaleReference().GetValue(transformed_values, non_sampled_parameters));
+				for (int j = 0; j <= i; j++) {
+					cholesky_L(i, j) = exp_scale;
+					for (int k = 0; k < i; k++) {
+						if (k <= j) {
+							int cov_value_ix = (i - 1) * i / 2 + k;
+							Real cov_value = covariance_values[cov_value_ix].GetValue(transformed_values, non_sampled_parameters) * M_PI;
+							if (k == j) {
+								cholesky_L(i, j) *= cos(cov_value);
+							} else {
+								cholesky_L(i, j) *= sin(cov_value);
+							}
+						}
+					}
 				}
 				for (int j = i + 1; j < D; j++) {
 					cholesky_L(i, j) = 0.0;
