@@ -13,7 +13,7 @@ public:
 	ODESolver();
 	virtual ~ODESolver();
 
-	virtual bool Initialize(size_t N, void* user);
+	virtual bool Initialize(size_t N, void* user, size_t store_integration_points_buffer);
 	virtual bool Restart();
 	virtual bool SetSolverParameter(const std::string& parameter, int int_value, OdeReal real_value);
 	void SetTolerance(OdeReal relative, OdeReal absolute);			// SetTolerance should be called after Initialize

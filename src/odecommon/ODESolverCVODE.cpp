@@ -49,6 +49,9 @@ ODESolverCVODE::ODESolverCVODE()
 	, y(NULL)
 	, tmpvector(NULL)
 	, J(NULL)
+	, t(0.0)
+	, cvode_timepoint_iter(0)
+	, interpolation_time(std::numeric_limits<Real>::quiet_NaN())
 {
 }
 
@@ -74,9 +77,9 @@ ODESolverCVODE::~ODESolverCVODE()
 	}
 }
 
-bool ODESolverCVODE::Initialize(size_t N, void* user)
+bool ODESolverCVODE::Initialize(size_t N, void* user, size_t store_integration_points_buffer)
 {
-	if (!ODESolver::Initialize(N, user)) {
+	if (!ODESolver::Initialize(N, user, store_integration_points_buffer)) {
 		return false;
 	}
 
@@ -120,6 +123,12 @@ bool ODESolverCVODE::Initialize(size_t N, void* user)
 		// Standard CVODE solver has a built-in jacobian approximation, so no need to specify.
 	}	
 #endif
+
+	cvode_timepoints.resize(store_integration_points_buffer);
+	for (int i = 0; i < 6; i++) {
+		cvode_timepoints_zn[i].resize(N, store_integration_points_buffer);
+	}
+	interpolation_y.resize(N);
 
 	return true;
 }
@@ -351,6 +360,10 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 			t = tret;
 
 			if (store_integration_points) {
+				if (step_count >= cvode_timepoints.size()) {
+					LOGERROR("CVODE integration timepoint storage buffer too small");
+					return false;
+				}
 				CVodeTimepoint& cvt = cvode_timepoints[step_count];
 
 				// Copy relevant variables from cvode_mem

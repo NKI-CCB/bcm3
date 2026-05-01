@@ -67,7 +67,7 @@ bool Cell::AllocateSolver(std::string solver_type)
 
 	solver->SetDerivativeFunction(boost::bind(&Cell::solver_rhs_fn, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
 	solver->SetIntegrationStepCallback(boost::bind(&Cell::integration_step_cb, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-	solver->Initialize(model->GetNumODEIntegratedSpecies(), (void*)this);
+	solver->Initialize(model->GetNumODEIntegratedSpecies(), (void*)this, experiment->solver_max_steps);
 	solver->SetTolerance(experiment->solver_rel_tol, experiment->solver_abs_tol);
 	solver->SetSolverParameter("min_dt", 0, experiment->solver_min_timestep);
 	solver->SetSolverParameter("max_dt", 0, experiment->solver_max_timestep);

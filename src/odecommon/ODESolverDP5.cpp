@@ -30,9 +30,9 @@ ODESolverDP5::~ODESolverDP5()
 	}
 }
 
-bool ODESolverDP5::Initialize(size_t N, void* user)
+bool ODESolverDP5::Initialize(size_t N, void* user, size_t store_integration_points_buffer)
 {
-	if (!ODESolver::Initialize(N, user)) {
+	if (!ODESolver::Initialize(N, user, store_integration_points_buffer)) {
 		return false;
 	}
 

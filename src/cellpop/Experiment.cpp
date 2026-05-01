@@ -312,10 +312,8 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 		}
 
 		if (store_simulation) {
-			if (any_requested_synchronization) {
-				for (size_t i = 0; i < population->GetActiveCount(); i++) {
-					population->GetCell(i)->RestartInterpolationIteration();
-				}
+			for (size_t i = 0; i < population->GetActiveCount(); i++) {
+				population->GetCell(i)->RestartInterpolationIteration();
 			}
 
 #if 0

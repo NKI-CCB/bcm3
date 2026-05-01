@@ -198,27 +198,27 @@ bool LikelihoodPharmacokineticTrajectory::Initialize(std::shared_ptr<const bcm3:
 		if (pk_type == PKMT_OneCompartment) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartment, this, _1, _2, _3, _4));
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_OneCompartment, this, _1, _2, _3, _4, _5));
-			solvers[threadix]->Initialize(2, NULL);
+			solvers[threadix]->Initialize(2, NULL, 0);
 		} else if (pk_type == PKMT_TwoCompartment) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4));
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_TwoCompartment, this, _1, _2, _3, _4, _5));
-			solvers[threadix]->Initialize(3, NULL);
+			solvers[threadix]->Initialize(3, NULL, 0);
 		} else if (pk_type == PKMT_OneCompartmentBiphasicUptake) {
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_OneCompartmentBiphasicUptake, this, _1, _2, _3, _4, _5));
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartmentBiphasicUptake, this, _1, _2, _3, _4));
-			solvers[threadix]->Initialize(2, NULL);
+			solvers[threadix]->Initialize(2, NULL, 0);
 		} else if (pk_type == PKMT_TwoCompartmentBiphasicUptake) {
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_TwoCompartmentBiphasicUptake, this, _1, _2, _3, _4, _5));
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentBiphasicUptake, this, _1, _2, _3, _4));
-			solvers[threadix]->Initialize(3, NULL);
+			solvers[threadix]->Initialize(3, NULL, 0);
 		} else if (pk_type == PKMT_OneCompartmentTransit) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4));
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_OneCompartmentTransit, this, _1, _2, _3, _4, _5));
-			solvers[threadix]->Initialize(2, NULL);
+			solvers[threadix]->Initialize(2, NULL, 0);
 		} else if (pk_type == PKMT_TwoCompartmentTransit) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4));
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPharmacokineticTrajectory::CalculateJacobian_TwoCompartmentTransit, this, _1, _2, _3, _4, _5));
-			solvers[threadix]->Initialize(3, NULL);
+			solvers[threadix]->Initialize(3, NULL, 0);
 		} else {
 			LOGERROR("Invalid PK model type");
 			return false;

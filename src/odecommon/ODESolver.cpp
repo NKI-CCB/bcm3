@@ -16,7 +16,7 @@ ODESolver::~ODESolver()
 {
 }
 
-bool ODESolver::Initialize(size_t N, void* user)
+bool ODESolver::Initialize(size_t N, void* user, size_t store_integration_points_buffer)
 {
 	if (N > std::numeric_limits<size_t>::max()) {
 		LOGERROR("System too large");

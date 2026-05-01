@@ -210,27 +210,27 @@ bool LikelihoodPopPKTrajectory::Initialize(std::shared_ptr<const bcm3::VariableS
 		if (pk_type == PKMT_OneCompartment) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartment, this, _1, _2, _3, _4));
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateJacobian_OneCompartment, this, _1, _2, _3, _4, _5));
-			solvers[threadix]->Initialize(2, NULL);
+			solvers[threadix]->Initialize(2, NULL, 0);
 		} else if (pk_type == PKMT_TwoCompartment) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartment, this, _1, _2, _3, _4));
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateJacobian_TwoCompartment, this, _1, _2, _3, _4, _5));
-			solvers[threadix]->Initialize(3, NULL);
+			solvers[threadix]->Initialize(3, NULL, 0);
 		} else if (pk_type == PKMT_OneCompartmentBiphasicUptake) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartmentBiphasicUptake, this, _1, _2, _3, _4));
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateJacobian_OneCompartmentBiphasicUptake, this, _1, _2, _3, _4, _5));
-			solvers[threadix]->Initialize(2, NULL);
+			solvers[threadix]->Initialize(2, NULL, 0);
 		} else if (pk_type == PKMT_TwoCompartmentBiphasicUptake) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentBiphasicUptake, this, _1, _2, _3, _4));
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateJacobian_TwoCompartmentBiphasicUptake, this, _1, _2, _3, _4, _5));
-			solvers[threadix]->Initialize(3, NULL);
+			solvers[threadix]->Initialize(3, NULL, 0);
 		} else if (pk_type == PKMT_OneCompartmentTransit) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_OneCompartmentTransit, this, _1, _2, _3, _4));
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateJacobian_OneCompartmentTransit, this, _1, _2, _3, _4, _5));
-			solvers[threadix]->Initialize(2, NULL);
+			solvers[threadix]->Initialize(2, NULL, 0);
 		} else if (pk_type == PKMT_TwoCompartmentTransit) {
 			solvers[threadix]->SetDerivativeFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateDerivative_TwoCompartmentTransit, this, _1, _2, _3, _4));
 			solvers[threadix]->SetJacobianFunction(boost::bind(&LikelihoodPopPKTrajectory::CalculateJacobian_TwoCompartmentTransit, this, _1, _2, _3, _4, _5));
-			solvers[threadix]->Initialize(3, NULL);
+			solvers[threadix]->Initialize(3, NULL, 0);
 		} else {
 			LOGERROR("Invalid PK model type");
 			return false;

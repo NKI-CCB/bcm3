@@ -187,7 +187,7 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 	trajectory_matching.resize(cell_trajectories.size());
 	hungarian_matching_edges.resize(observed_cells_with_no_parents.size() * experiment->GetMaxNumberOfCells());
 
-	result &= RequestSimulationInfo(experiment, ESynchronizeCellTrajectory::None);
+	result &= RequestSimulationInfo(experiment, synchronize);
 
 	if (synchronize != ESynchronizeCellTrajectory::None) {
 		// If we're going to synchronize, make sure we simulate the cells as long as the full duration of the time course

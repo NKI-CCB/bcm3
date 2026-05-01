@@ -12,7 +12,7 @@ public:
 	ODESolverCVODE();
 	virtual ~ODESolverCVODE();
 
-	virtual bool Initialize(size_t N, void* user);
+	virtual bool Initialize(size_t N, void* user, size_t store_integration_points_buffer);
 	virtual bool Restart();
 	virtual bool SetSolverParameter(const std::string& parameter, int int_value, OdeReal real_value);
 	
