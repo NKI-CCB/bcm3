@@ -39,6 +39,7 @@ protected:
 	N_Vector tmpvector;
 	SUNMatrix J;
 	OdeReal t;
+	size_t current_step;
 
 	struct CVodeTimepoint
 	{

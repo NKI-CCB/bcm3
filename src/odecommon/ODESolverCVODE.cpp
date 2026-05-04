@@ -50,6 +50,7 @@ ODESolverCVODE::ODESolverCVODE()
 	, tmpvector(NULL)
 	, J(NULL)
 	, t(0.0)
+	, current_step(0)
 	, cvode_timepoint_iter(0)
 	, interpolation_time(std::numeric_limits<Real>::quiet_NaN())
 {
@@ -187,7 +188,7 @@ const OdeVectorReal& ODESolverCVODE::GetInterpolatedY(OdeReal t)
 	}
 
 	// Requests for interpolations should be in strictly increasing time, so we can continue searching where we left off
-	while (cvode_timepoint_iter < cvode_timepoints.size()) {
+	while (cvode_timepoint_iter < current_step && cvode_timepoint_iter < cvode_timepoints.size()) {
 		const CVodeTimepoint& cvt = cvode_timepoints[cvode_timepoint_iter];
 		if (cvt.cvode_time > t) {
 			break;
@@ -195,7 +196,7 @@ const OdeVectorReal& ODESolverCVODE::GetInterpolatedY(OdeReal t)
 			cvode_timepoint_iter++;
 		}
 	}
-	if (cvode_timepoint_iter == cvode_timepoints.size()) {
+	if (cvode_timepoint_iter == current_step || cvode_timepoint_iter == cvode_timepoints.size()) {
 		// This timepoint is beyond the solver's time
 		interpolation_time = std::numeric_limits<Real>::quiet_NaN();
 		interpolation_y.setConstant(std::numeric_limits<Real>::quiet_NaN());
@@ -330,7 +331,7 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 	}
 
 	// Simulate the system one step at a time
-	size_t step_count = 0;
+	current_step = 0;
 	min_used_step_size = std::numeric_limits<Real>::infinity();
 	t = 0.0;
 	size_t tpi = interpolation_timepoints_start;
@@ -352,7 +353,7 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 					}
 				}
 			}
-			num_steps_used = step_count;
+			num_steps_used = current_step;
 			return false;
 		} else {
 			min_used_step_size = std::min(min_used_step_size, tret - t);
@@ -360,11 +361,11 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 			t = tret;
 
 			if (store_integration_points) {
-				if (step_count >= cvode_timepoints.size()) {
+				if (current_step >= cvode_timepoints.size()) {
 					LOGERROR("CVODE integration timepoint storage buffer too small");
 					return false;
 				}
-				CVodeTimepoint& cvt = cvode_timepoints[step_count];
+				CVodeTimepoint& cvt = cvode_timepoints[current_step];
 
 				// Copy relevant variables from cvode_mem
 				CVodeMem cv_mem = (CVodeMem)cvode_mem;
@@ -379,7 +380,7 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 				ASSERT(cvt.cv_q <= 5);
 				for (int j = cv_mem->cv_q; j >= 0; j--) {
 #if CVODE_USE_EIGEN_SOLVER
-					cvode_timepoints_zn[j].col(step_count) = *NV_CONTENT_S(cv_mem->cv_zn[j]);
+					cvode_timepoints_zn[j].col(current_step) = *NV_CONTENT_S(cv_mem->cv_zn[j]);
 #else
 					for (int i = 0; i < NV_LENGTH_S(cv_mem->cv_zn[j]); i++) {
 						cvode_timepoints_zn[j](i, cvode_steps) = NV_Ith_S(cv_mem->cv_zn[j], i);
@@ -396,6 +397,7 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 						if (verbose) {
 							LOG("Interpolation failed.");
 						}
+						num_steps_used = current_step;
 						return false;
 					}
 
@@ -410,7 +412,7 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 				}
 			}
 
-			step_count++;
+			current_step++;
 
 			if (integration_step_cb) {
 				bool continue_integration = integration_step_cb(t, NV_DATA_S(y), user_data);
@@ -423,11 +425,11 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 				break;
 			}
 
-			if (step_count == max_steps) {
+			if (current_step == max_steps) {
 				if (verbose) {
 					LOG("Maximum number of time steps reached.");
 				}
-				num_steps_used = step_count;
+				num_steps_used = current_step;
 				return false;
 			}
 
@@ -444,7 +446,7 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 		}
 	}
 
-	num_steps_used = step_count;
+	num_steps_used = current_step;
 	return true;
 }
 
