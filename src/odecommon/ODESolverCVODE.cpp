@@ -220,13 +220,6 @@ const OdeVectorReal& ODESolverCVODE::GetInterpolatedY(OdeReal t)
 	Real tn1 = cvt.cv_tn + tfuzz;
 	if ((t - tp) * (t - tn1) > 0.0) {
 		LOGERROR("Time error for interpolation; %g - %zu / %zu - %g", t, cvode_timepoint_iter, current_step, cvt.cv_tn);
-
-		for (int i = 0; i < current_step; i++) {
-			LOG("Time step %d: %g, %g", i, cvode_timepoints[i].cv_tn, cvode_timepoints[i].cv_hu);
-		}
-		LOG("End");
-		exit(-1);
-
 		interpolation_y.setConstant(std::numeric_limits<Real>::quiet_NaN());
 		return interpolation_y;
 	}
