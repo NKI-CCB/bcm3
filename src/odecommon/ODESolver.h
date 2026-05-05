@@ -8,7 +8,7 @@ public:
 	typedef std::function<bool(OdeReal, const OdeReal*, OdeReal*, void*)> TDeriviativeFunction;
 	typedef std::function<bool(OdeReal, const OdeReal*, const OdeReal*, OdeMatrixReal&, void*)> TJacobianFunction;
 	typedef std::function<Real(OdeReal, void*)> TDiscontinuityCallback;
-	typedef std::function<bool(OdeReal, const OdeReal*, void*)> TIntegrationStepCallback;
+	typedef std::function<bool(OdeReal, const OdeReal*, Real&, void*)> TIntegrationStepCallback;
 
 	ODESolver();
 	virtual ~ODESolver();

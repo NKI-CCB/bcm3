@@ -263,7 +263,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 		min_used_step_size = std::min(min_used_step_size, cur_dt);
 
 		if (integration_step_cb) {
-			integration_step_cb(t, yn, user_data);
+			integration_step_cb(t, yn, end_time, user_data);
 		}
 
 		if (t >= end_time) {

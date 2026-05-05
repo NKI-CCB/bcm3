@@ -40,7 +40,7 @@ private:
 	bool solver_rhs_fn(OdeReal t, const OdeReal* y, OdeReal* ydot, void* user_data);
 	bool solver_jac_fn(OdeReal t, const OdeReal* y, const OdeReal* ydot, OdeMatrixReal& jac, void* user_data);
 	Real discontinuity_cb(OdeReal t);
-	bool integration_step_cb(OdeReal t, const OdeReal* y, void* user_data);
+	bool integration_step_cb(OdeReal t, const OdeReal* y, Real& end_time, void* user_data);
 
 	// Settings
 	const SBMLModel* model;

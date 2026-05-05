@@ -66,8 +66,8 @@ bool Cell::AllocateSolver(std::string solver_type)
 	}
 
 	solver->SetDerivativeFunction(boost::bind(&Cell::solver_rhs_fn, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
-	solver->SetIntegrationStepCallback(boost::bind(&Cell::integration_step_cb, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-	solver->Initialize(model->GetNumODEIntegratedSpecies(), (void*)this, experiment->solver_max_steps);
+	solver->SetIntegrationStepCallback(boost::bind(&Cell::integration_step_cb, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
+	solver->Initialize(model->GetNumODEIntegratedSpecies(), (void*)this, experiment->solver_max_steps);	
 	solver->SetTolerance(experiment->solver_rel_tol, experiment->solver_abs_tol);
 	solver->SetSolverParameter("min_dt", 0, experiment->solver_min_timestep);
 	solver->SetSolverParameter("max_dt", 0, experiment->solver_max_timestep);
@@ -452,7 +452,7 @@ Real Cell::discontinuity_cb(OdeReal t)
 	}
 }
 
-bool Cell::integration_step_cb(OdeReal t, const OdeReal* y, void* user_data)
+bool Cell::integration_step_cb(OdeReal t, const OdeReal* y, Real& end_time, void* user_data)
 {
 	bool continue_integration = true;
 
@@ -484,17 +484,16 @@ bool Cell::integration_step_cb(OdeReal t, const OdeReal* y, void* user_data)
 		if (y[chromatid_separation_ix] > 1e-3) {
 			anaphase_onset_time = solver->get_threshold_crossing_time(chromatid_separation_ix, 1e-3, true, previous_integration_step_time);
 			simulation_end_time = std::max(simulation_end_time, anaphase_onset_time + (OdeReal)simulate_past_chromatid_separation_time);
+			end_time = simulation_end_time;
 		}
 	}
-	if (cytokinesis_ix != std::numeric_limits<size_t>::max()) {
+	if (experiment->divide_cells && cytokinesis_ix != std::numeric_limits<size_t>::max()) {
 		if (y[cytokinesis_ix] > 1.0) {
 			Real division_time = solver->get_threshold_crossing_time(cytokinesis_ix, 1.0, true, previous_integration_step_time);
 			simulation_end_time = division_time;
 			simulation_end_y = solver->GetInterpolatedY(division_time);
-			if (experiment->divide_cells) {
-				cell_divided = true;
-				continue_integration = false;
-			}
+			cell_divided = true;
+			continue_integration = false;
 		}
 	}
 	if (apoptosis_ix != std::numeric_limits<size_t>::max()) {
