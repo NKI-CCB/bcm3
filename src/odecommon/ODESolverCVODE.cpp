@@ -210,14 +210,14 @@ const OdeVectorReal& ODESolverCVODE::GetInterpolatedY(OdeReal t)
 	const CVodeTimepoint& cvt = cvode_timepoints[cvode_timepoint_iter];
 
 	/* Allow for some slack */
-	Real tfuzz = 100.0 * cvt.cv_uround * fabs(cvt.cv_tn) + fabs(cvt.cv_hu);
+	Real tfuzz = 100.0 * cvt.cv_uround * (fabs(cvt.cv_tn) + fabs(cvt.cv_hu));
 	if (cvt.cv_hu < 0.0) {
 		tfuzz = -tfuzz;
 	}
 	Real tp = cvt.cv_tn - cvt.cv_hu - tfuzz;
 	Real tn1 = cvt.cv_tn + tfuzz;
 	if ((t - tp) * (t - tn1) > 0.0) {
-		LOGERROR("Time error for interpolation");
+		LOGERROR("Time error for interpolation; %g - %zu - %g", t, cvode_timepoint_iter, cvt.cv_tn);
 		interpolation_y.setConstant(std::numeric_limits<Real>::quiet_NaN());
 		return interpolation_y;
 	}
@@ -261,7 +261,14 @@ void ODESolverCVODE::set_current_y(size_t i, OdeReal y) const
 
 Real ODESolverCVODE::get_threshold_crossing_time(size_t species_ix, Real threshold, bool above, Real prev_time) const
 {
-	size_t cvode_step_ix = cvode_timepoints.size() - 1;
+	if (current_step == 0 || current_step > cvode_timepoints.size()) {
+		// This shouldn't happen.
+		ASSERT(false);
+		LOGERROR("Integration error.");
+		return prev_time;
+	}
+
+	size_t cvode_step_ix = current_step - 1;
 	const CVodeTimepoint& cvt = cvode_timepoints[cvode_step_ix];
 
 	Real dt = (t - prev_time) * 0.5;
