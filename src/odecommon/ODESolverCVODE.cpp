@@ -187,6 +187,8 @@ const OdeVectorReal& ODESolverCVODE::GetInterpolatedY(OdeReal t)
 		return interpolation_y;
 	}
 
+	ASSERT(cvode_timepoint_iter <= current_step);
+
 	// Requests for interpolations should be in strictly increasing time, so we can continue searching where we left off
 	while (cvode_timepoint_iter < current_step && cvode_timepoint_iter < cvode_timepoints.size()) {
 		const CVodeTimepoint& cvt = cvode_timepoints[cvode_timepoint_iter];
@@ -217,7 +219,14 @@ const OdeVectorReal& ODESolverCVODE::GetInterpolatedY(OdeReal t)
 	Real tp = cvt.cv_tn - cvt.cv_hu - tfuzz;
 	Real tn1 = cvt.cv_tn + tfuzz;
 	if ((t - tp) * (t - tn1) > 0.0) {
-		LOGERROR("Time error for interpolation; %g - %zu - %g", t, cvode_timepoint_iter, cvt.cv_tn);
+		LOGERROR("Time error for interpolation; %g - %zu / %zu - %g", t, cvode_timepoint_iter, current_step, cvt.cv_tn);
+
+		for (int i = 0; i < current_step; i++) {
+			LOG("Time step %d: %g, %g", i, cvode_timepoints[i].cv_tn, cvode_timepoints[i].cv_hu);
+		}
+		LOG("End");
+		exit(-1);
+
 		interpolation_y.setConstant(std::numeric_limits<Real>::quiet_NaN());
 		return interpolation_y;
 	}
@@ -336,6 +345,9 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 	if (!std::isnan(next_discontinuity_time)) {
 		CVodeSetStopTime(cvode_mem, (OdeReal)next_discontinuity_time);
 	}
+
+	// Restart interpolation in case we need to call GetInterpolatedY during the integration
+	RestartInterpolationIteration();
 
 	// Simulate the system one step at a time
 	current_step = 0;
