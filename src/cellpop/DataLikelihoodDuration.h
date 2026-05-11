@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DataLikelihoodBase.h"
+#include "hungarian.h"
 
 class DataLikelihoodDuration : public DataLikelihoodBase
 {
@@ -18,8 +19,12 @@ public:
 	inline const VectorReal& GetSimulatedData() const { return matched_durations; }
 
 private:
+	// Data
 	VectorReal observed_durations;
+
+	// Runtime
 	VectorReal simulated_durations;
 	VectorReal matched_durations;
 	std::vector<int> used_durations;
+	std::vector<WeightedBipartiteEdge> hungarian_matching_edges;
 };

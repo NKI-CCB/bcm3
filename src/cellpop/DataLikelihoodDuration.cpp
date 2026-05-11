@@ -61,6 +61,8 @@ bool DataLikelihoodDuration::Load(const boost::property_tree::ptree& xml_node, E
 		return false;
 	}
 
+	hungarian_matching_edges.resize(num_cells * experiment->GetMaxNumberOfCells());
+
 	return result;
 }
 
@@ -89,6 +91,7 @@ bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal
 	int n = std::max(observed_durations.size(), observed_durations.size());
 	MatrixReal likelihoods(n, n);
 	likelihoods.setZero();
+	int edge_count = 0;
 	for (int i = 0; i < observed_durations.size(); i++) {
 		Real y = observed_durations(i);
 		if (y == y) {
@@ -98,6 +101,12 @@ bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal
 				if (x == x) {
 					likelihoods(i, count) = bcm3::LogPdfNormal(y, x, stdev);
 					used_durations[count] = j;
+
+					hungarian_matching_edges[edge_count].left = i;
+					hungarian_matching_edges[edge_count].right = j;
+					hungarian_matching_edges[edge_count].cost = -likelihoods(i, j);
+					edge_count++;
+
 					count++;
 					if (count == observed_durations.size()) {
 						break;
@@ -108,26 +117,36 @@ bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal
 				logp = -std::numeric_limits<Real>::infinity();
 				return true;
 			}
+		} else {
+			for (int j = 0; j < simulated_durations.size(); j++) {
+				likelihoods(i, j) = -1e100;
+				used_durations[j] = j;
+
+				hungarian_matching_edges[edge_count].left = i;
+				hungarian_matching_edges[edge_count].right = j;
+				hungarian_matching_edges[edge_count].cost = -likelihoods(i, j);
+				edge_count++;
+			}
 		}
 	}
 
-#if TODO
-	MatrixReal matching;
-	if (!HungarianMatching(likelihoods, matching, HUNGARIAN_MATCH_MAX)) {
-		LOGERROR("Could not find matching");
+	std::vector<int> matching = hungarianMinimumWeightPerfectMatching(n, hungarian_matching_edges, edge_count);
+	if (matching.size() != observed_durations.size()) {
 		logp = -std::numeric_limits<Real>::infinity();
 		return true;
 	} else {
 		for (int i = 0; i < observed_durations.size(); i++) {
-			for (int j = 0; j < observed_durations.size(); j++) {
-				if (matching(i, j) == 1) {
-					logp += likelihoods(i, j);
-					matched_durations(i) = simulated_durations(used_durations[j]);
-				}
+			int j = matching[i];
+			if (j == -1) {
+				LOGERROR("Could not find matching");
+				logp = -std::numeric_limits<Real>::infinity();
+				return true;
+			} else {
+				logp += likelihoods(i, j);
+				matched_durations(i) = simulated_durations(used_durations[j]);
 			}
 		}
 	}
-#endif
 
 	return true;
 }

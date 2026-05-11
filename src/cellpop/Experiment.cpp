@@ -316,14 +316,12 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 				population->GetCell(i)->RestartInterpolationIteration();
 			}
 
-#if 0
 			Real simulation_begin_time = min_start_time;
 			Real simulation_end_time = max_achieved_time;
 
 			for (size_t i = 0; i < output_trajectories_timepoints.size(); i++) {
 				output_trajectories_timepoints(i) = simulation_begin_time + (simulation_end_time - simulation_begin_time) * i / (Real)(output_trajectory_num_timepoints - 1);
 			}
-#endif
 
 			for (size_t ti = 0; ti < output_trajectories_timepoints.size(); ti++) {
 				Real output_t = output_trajectories_timepoints(ti);
