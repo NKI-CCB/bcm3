@@ -40,6 +40,25 @@ bcm3.pharmacopop.get.num.patients <- function(bcm3) {
   return(num_patients)
 }
 
+bcm3.pharmacopop.get.simulated.data <- function(bcm3, param.values, patient_ix) {
+  retval <- list()
+  max_nt <- 100
+  traj_buffer <- rep(0.0, max_nt)
+  time_buffer <- rep(0.0, max_nt)
+  
+  res <- .C("bcm3_rbridge_pharmacopop_get_simulated_data", bcm3$.cpp, param.values, as.integer(patient_ix), traj_buffer, time_buffer,
+            as.integer(max_nt), as.integer(0), PACKAGE="bcmrbridge")
+  if (res[[7]] != 0) {
+    stop(paste("BCM3 C++ bridge error:", res[[7]]))
+  }
+  
+  ntimepoints <- res[[6]]
+  
+  retval$time <- res[[5]][1:ntimepoints]
+  retval$data <- res[[4]][1:ntimepoints]
+  return(retval)
+}
+
 bcm3.pharmacopop.get.simulated.trajectory <- function(bcm3, param.values, timepoints, patient_ix) {
   retval <- list()
   nt <- as.integer(length(timepoints))

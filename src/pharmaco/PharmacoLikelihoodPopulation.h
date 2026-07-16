@@ -22,7 +22,7 @@ public:
 	inline const VectorReal& GetTimepoints(size_t patient_ix) const { return patients[patient_ix].observation_timepoints; }
 	inline const VectorReal& GetObservedConcentrations(size_t patient_ix) const { return patients[patient_ix].observed_concentrations; }
 	inline size_t GetNumPatients() const { return patients.size(); }
-	bool GetSimulatedTrajectory(size_t threadix, const VectorReal& values, size_t patient_ix, const VectorReal& timepoints, VectorReal& concentrations, MatrixReal& trajectory); // This is not reentrant and assumes that EvaluateLogProbability has just been called, from threadix 0
+	bool GetSimulatedTrajectory(size_t threadix, const VectorReal& values, size_t patient_ix, const VectorReal& timepoints, VectorReal& concentrations, MatrixReal& trajectory);
 
 private:
 	void SetupSimulation(size_t threadix, const VectorReal& values, size_t patient_ix);

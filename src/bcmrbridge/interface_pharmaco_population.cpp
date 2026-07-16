@@ -95,6 +95,50 @@ extern "C" {
 		*retval = 0;
 	}
 
+	void bcm3_rbridge_pharmacopop_get_simulated_data(char** bcm3info_ptr, double* param_values, int* patient_ix, double* out_values, double* out_timepoints, int* out_num_timepoints, int* retval)
+	{
+		bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
+		std::shared_ptr<PharmacoLikelihoodPopulation> ll = GetLikelihood(info, retval);
+		if (!info || !ll) {
+			return;
+		}
+
+		size_t c_patient_ix = (*patient_ix) - 1;
+		if (*patient_ix > ll->GetNumPatients()) {
+			LOGERROR("Invalid patient index %d", *patient_ix);
+			*retval = -7;
+			return;
+		}
+
+		const VectorReal& t = ll->GetTimepoints(c_patient_ix);
+		if (t.size() > *out_num_timepoints) {
+			LOGERROR("Insufficient space in output buffer");
+			*retval = -5;
+			return;
+		}
+		*out_num_timepoints = t.size();
+		for (ptrdiff_t i = 0; i < t.size(); i++) {
+			out_timepoints[i] = t(i);
+		}
+
+		VectorReal param_vector(info->varset->GetNumVariables());
+		for (size_t i = 0; i < info->varset->GetNumVariables(); i++) {
+			param_vector(i) = param_values[i];
+		}
+
+		VectorReal concentrations(*out_num_timepoints);
+		MatrixReal trajectory;
+		if (!ll->GetSimulatedTrajectory(0, param_vector, c_patient_ix, t, concentrations, trajectory)) {
+			*retval = -6;
+			return;
+		}
+
+		for (ptrdiff_t i = 0; i < t.size(); i++) {
+			out_values[i] = concentrations(i);
+		}
+		*retval = 0;
+	}
+
 	void bcm3_rbridge_pharmacopop_get_simulated_trajectory(char** bcm3info_ptr, double* param_values, double* timepoints, int* num_timepoints, int* patient_ix, double* out_trajectories, double* out_concentrations, int* out_num_compartments, int* retval)
 	{
 		bcm3info* info = GetBCM3InfoPtr(bcm3info_ptr, retval);
