@@ -27,7 +27,7 @@ public:
 	void SetJacobianFunction(TJacobianFunction f);
 	inline size_t GetNumVariables() const { return N; }
 
-	bool SolveReturnSolution(const OdeVectorReal& initial_conditions, const OdeVectorReal* timepoints, OdeMatrixReal* output, bool verbose = false);
+	bool SolveReturnSolution(const OdeVectorReal& initial_conditions, const OdeVectorReal* timepoints, OdeMatrixReal* output, Real end_time = std::numeric_limits<Real>::quiet_NaN(), bool verbose = false);
 	bool SolveStoreIntegrationPoints(const OdeVectorReal& initial_conditions, Real end_time, bool verbose = false);
 
 	size_t GetNumSteps() const { return num_steps_used; }

@@ -199,6 +199,7 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 		for (int i = 0; i < output_times.size(); i++) {
 			solver_stored_timepoints(i) = output_times(i) - creation_time;
 		}
+		simulation_end_time = std::max(simulation_end_time, output_times.tail<1>()[0]);
 	}
 	
 	// Find any discontinuities in the treatment trajectories, and inform the solver of the first one
@@ -222,7 +223,7 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 
 	// Integrate the ODE system
 	if (store_integration_points) {
-		result = solver->SolveStoreIntegrationPoints(initial_y, output_times.tail<1>()[0]);
+		result = solver->SolveStoreIntegrationPoints(initial_y, simulation_end_time);
 	} else {
 		result = solver->SolveReturnSolution(initial_y, &solver_stored_timepoints, &solver_output);
 		

@@ -43,6 +43,7 @@ protected:
 	std::string proportional_stdev_str;
 	std::string offset_str;
 	std::string scale_str;
+	size_t value_relative_to_timepoint_ix;
 
 	ErrorModel error_model;
 	std::vector<size_t> offset_ix;

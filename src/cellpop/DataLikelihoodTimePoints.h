@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DataLikelihoodBase.h"
+#include "hungarian.h"
 
 class DataLikelihoodTimePoints : public DataLikelihoodBase
 {
@@ -27,4 +28,6 @@ private:
 	std::map< size_t, std::vector<size_t> > species_map;
 	ESynchronizeCellTrajectory synchronize;
 	bool use_only_nondivided;
+
+	std::vector<WeightedBipartiteEdge> hungarian_matching_edges;
 };

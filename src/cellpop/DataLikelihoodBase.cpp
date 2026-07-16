@@ -8,6 +8,7 @@ DataLikelihoodBase::DataLikelihoodBase()
 	: weight(1.0)
 	, error_model(ErrorModel::Normal)
 	, stdev_relative_to_data_scale(false)
+	, value_relative_to_timepoint_ix(std::numeric_limits<size_t>::max())
 {
 }
 
@@ -42,6 +43,7 @@ bool DataLikelihoodBase::Load(const boost::property_tree::ptree& xml_node, Exper
 	offset_str = xml_node.get<std::string>("<xmlattr>.offset", "");
 	scale_str = xml_node.get<std::string>("<xmlattr>.scale", "");
 	stdev_relative_to_data_scale = xml_node.get<bool>("<xmlattr>.stdev_relative_to_scale", false);
+	value_relative_to_timepoint_ix = xml_node.get<size_t>("<xmlattr>.value_relative_to_timepoint_ix", std::numeric_limits<size_t>::max());
 	
 	std::string error_model_str = xml_node.get<std::string>("<xmlattr>.error_model", "normal");
 	if (error_model_str == "normal" || error_model_str == "additive_normal") {

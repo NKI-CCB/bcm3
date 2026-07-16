@@ -90,7 +90,7 @@ void ODESolver::SetJacobianFunction(TJacobianFunction f)
 	jacobian = f;
 }
 
-bool ODESolver::SolveReturnSolution(const OdeVectorReal& initial_conditions, const OdeVectorReal* timepoints, OdeMatrixReal* output, bool verbose)
+bool ODESolver::SolveReturnSolution(const OdeVectorReal& initial_conditions, const OdeVectorReal* timepoints, OdeMatrixReal* output, Real end_time, bool verbose)
 {
 	if (timepoints == nullptr || timepoints->size() == 0) {
 		LOGERROR("No timepoints requested");
@@ -117,7 +117,10 @@ bool ODESolver::SolveReturnSolution(const OdeVectorReal& initial_conditions, con
 		}
 	}
 
-	OdeReal end_time = (*timepoints)[timepoints->size() - 1];
+	OdeReal ode_real_end_time = (*timepoints)[timepoints->size() - 1];
+	if (end_time != std::numeric_limits<Real>::quiet_NaN()) {
+		ode_real_end_time = std::max(ode_real_end_time, (OdeReal)end_time);
+	}
 
 	interpolation_timepoints_start = ti;
 	interpolation_timepoints = timepoints;

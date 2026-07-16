@@ -133,6 +133,7 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 		return false;
 	}
 	cell_trajectories.resize(experiment->GetMaxNumberOfCells(), MatrixReal::Constant(num_timepoints, species_names.size(), std::numeric_limits<Real>::quiet_NaN()));
+	hungarian_matching_edges.resize(num_cells * experiment->GetMaxNumberOfCells());
 
 	// Request the experiment to provide the required information during the simulation
 	for (size_t j = 0; j < species_names.size(); j++) {
@@ -232,7 +233,7 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 
 		size_t finite_sim_count = 0;
 		for (size_t j = 0; j < cell_trajectories.size(); j++) {
-			if (!std::isnan(cell_trajectories[j](ti, 0))) {
+			if (!std::isnan(cell_trajectories[j](ti, 0)) && (value_relative_to_timepoint_ix == std::numeric_limits<size_t>::max() || !std::isnan(cell_trajectories[j](value_relative_to_timepoint_ix, 0)))) {
 				finite_sim_count++;
 			}
 		}
@@ -248,6 +249,7 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 		Eigen::MatrixXi trajectory_indices(finite_data_count, finite_sim_count);
 		cell_likelihoods.setConstant(-std::numeric_limits<Real>::infinity());
 		size_t i_ix = 0;
+		int edge_count = 0;
 		for (ptrdiff_t i = 0; i < observed_data[ti].rows(); i++) {
 			if (!observed_data[ti].row(i).array().isFinite().any()) {
 				continue;
@@ -261,10 +263,16 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 
 				Real cell_logp = 0.0;
 				for (int l = 0; l < species_names.size(); l++) {
-					Real x = data_offsets[l] + data_scales[l] * cell_trajectories[j](ti, l);
+					Real x = cell_trajectories[j](ti, l);
+					if (value_relative_to_timepoint_ix != std::numeric_limits<size_t>::max()) {
+						x /= cell_trajectories[j](value_relative_to_timepoint_ix, l);
+					}
+					x *= data_scales[l];
+					x += data_offsets[l];
+
 					Real y = observed_data[ti](i, l);
 					if (std::isnan(y)) {
-						// At least one value of this cell should be non-nan (due to check for any finite in the row; above
+						// At least one value of this cell should be non-nan (due to check for any finite in the row; above)
 						// the other nan's we can ignore as missing values
 						continue;
 					}
@@ -282,6 +290,11 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 				observed_data_indices(i_ix, j_ix) = i;
 				trajectory_indices(i_ix, j_ix) = j;
 				j_ix++;
+
+				hungarian_matching_edges[edge_count].left = i;
+				hungarian_matching_edges[edge_count].right = j;
+				hungarian_matching_edges[edge_count].cost = -cell_likelihoods(i, j);
+				edge_count++;
 			}
 			i_ix++;
 		}
@@ -315,6 +328,35 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 		}
 #endif
 #endif
+
+		std::vector<int> matching = hungarianMinimumWeightPerfectMatching(observed_data[ti].rows(), hungarian_matching_edges, edge_count);
+		if (matching.size() != observed_data[ti].rows()) {
+			logp = -std::numeric_limits<Real>::infinity();
+			return true;
+		} else {
+			for (int i = 0; i < observed_data[ti].rows(); i++) {
+				int j = matching[i];
+				if (j == -1) {
+					LOGERROR("Could not find matching");
+					logp = -std::numeric_limits<Real>::infinity();
+					return true;
+				} else {
+					logp += cell_likelihoods(i, j);
+
+					int data_ix = observed_data_indices(i, j);
+					int traj_ix = trajectory_indices(i, j);
+					for (int l = 0; l < species_names.size(); l++) {
+						Real x = cell_trajectories[traj_ix](ti, l);
+						if (value_relative_to_timepoint_ix != std::numeric_limits<size_t>::max()) {
+							x /= cell_trajectories[traj_ix](value_relative_to_timepoint_ix, l);
+						}
+						x *= data_scales[l];
+						x += data_offsets[l];
+						matched_data[ti](data_ix, l) = x;
+					}
+				}
+			}
+		}
 	}
 
 	logp *= weight;
