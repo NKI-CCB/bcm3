@@ -265,10 +265,13 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 				for (int l = 0; l < species_names.size(); l++) {
 					Real x = cell_trajectories[j](ti, l);
 					if (value_relative_to_timepoint_ix != std::numeric_limits<size_t>::max()) {
+						x += data_offsets[l];
 						x /= cell_trajectories[j](value_relative_to_timepoint_ix, l);
+						x *= data_scales[l];
+					} else {
+						x *= data_scales[l];
+						x += data_offsets[l];
 					}
-					x *= data_scales[l];
-					x += data_offsets[l];
 
 					Real y = observed_data[ti](i, l);
 					if (std::isnan(y)) {
