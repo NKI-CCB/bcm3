@@ -70,7 +70,7 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 	observed_data.resize(num_timepoints);
 	matched_data.resize(num_timepoints);
 	if (num_dimensions == 2) {
-		if (use_only_cell_ix_tokens.empty()) {
+		if (use_only_cell_ix_str == "-1") {
 			for (size_t i = 0; i < num_timepoints; i++) {
 				VectorReal od;
 				result &= data_file.GetValuesDim2(experiment->GetName(), data_name, i, 0, num_cells, od);
@@ -99,7 +99,7 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 		result &= data_file.GetDimensionName(experiment->GetName(), data_name, 2, marker_dim_name);
 		result &= data_file.GetDimensionSize(experiment->GetName(), marker_dim_name, &num_markers);
 
-		if (use_only_cell_ix_tokens.empty()) {
+		if (use_only_cell_ix_str == "-1") {
 			for (size_t i = 0; i < num_timepoints; i++) {
 				observed_data[i] = MatrixReal::Zero(num_cells, num_markers);
 				for (size_t j = 0; j < num_markers; j++) {
@@ -257,7 +257,7 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 
 			size_t j_ix = 0;
 			for (size_t j = 0; j < cell_trajectories.size(); j++) {
-				if (std::isnan(cell_trajectories[j](ti, 0))) {
+				if (std::isnan(cell_trajectories[j](ti, 0)) || (value_relative_to_timepoint_ix != std::numeric_limits<size_t>::max() && std::isnan(cell_trajectories[j](value_relative_to_timepoint_ix, 0)))) {
 					continue;
 				}
 
@@ -289,52 +289,24 @@ bool DataLikelihoodTimePoints::Evaluate(const VectorReal& values, const VectorRe
 				cell_likelihoods(i_ix, j_ix) = cell_logp;
 				observed_data_indices(i_ix, j_ix) = i;
 				trajectory_indices(i_ix, j_ix) = j;
-				j_ix++;
 
-				hungarian_matching_edges[edge_count].left = i;
-				hungarian_matching_edges[edge_count].right = j;
-				hungarian_matching_edges[edge_count].cost = -cell_likelihoods(i, j);
+				hungarian_matching_edges[edge_count].left = i_ix;
+				hungarian_matching_edges[edge_count].right = j_ix;
+				hungarian_matching_edges[edge_count].cost = -cell_likelihoods(i_ix, j_ix);
+
+				j_ix++;
 				edge_count++;
 			}
 			i_ix++;
 		}
 
-#if TODO
-		MatrixReal matching;
-		if (!HungarianMatching(cell_likelihoods, matching, HUNGARIAN_MATCH_MAX)) {
-			LOGERROR("Could not find matching");
-			logp = -std::numeric_limits<Real>::infinity();
-			return true;
-		}
-		for (size_t i = 0; i < finite_data_count; i++) {
-			for (size_t j = 0; j < finite_sim_count; j++) {
-				if (matching(i, j) == 1) {
-					logp += cell_likelihoods(i, j);
-#if 0
-					int data_ix = observed_data_indices(i, j);
-					int traj_ix = trajectory_indices(i, j);
-					for (int l = 0; l < species_names.size(); l++) {
-						matched_data[ti](data_ix, l) = data_offset + data_scale * cell_trajectories[traj_ix](ti, l);
-					}
-#endif
-				}
-			}
-		}
-#if 1
-		for (ptrdiff_t i = 0; i < observed_data[ti].rows(); i++) {
-			for (ptrdiff_t l = 0; l < species_names.size(); l++) {
-				matched_data[ti](i, l) = data_offsets[l] + data_scales[l] * cell_trajectories[i](ti, l);
-			}
-		}
-#endif
-#endif
-
-		std::vector<int> matching = hungarianMinimumWeightPerfectMatching(observed_data[ti].rows(), hungarian_matching_edges, edge_count);
-		if (matching.size() != observed_data[ti].rows()) {
+		int n = std::max(finite_data_count, finite_sim_count);
+		std::vector<int> matching = hungarianMinimumWeightPerfectMatching(finite_data_count, finite_sim_count, hungarian_matching_edges, edge_count);
+		if (matching.size() != finite_data_count) {
 			logp = -std::numeric_limits<Real>::infinity();
 			return true;
 		} else {
-			for (int i = 0; i < observed_data[ti].rows(); i++) {
+			for (int i = 0; i < finite_data_count; i++) {
 				int j = matching[i];
 				if (j == -1) {
 					LOGERROR("Could not find matching");

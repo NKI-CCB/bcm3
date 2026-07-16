@@ -37,7 +37,7 @@ struct LeftEdge {
     }
 };
 
-const std::vector<int> hungarianMinimumWeightPerfectMatching(const int n, const std::vector<WeightedBipartiteEdge>& allEdges, int edge_count)
+const std::vector<int> hungarianMinimumWeightPerfectMatching(const int n, const int n_right, const std::vector<WeightedBipartiteEdge>& allEdges, int edge_count)
 {
     ASSERT(edge_count <= allEdges.size());
 
@@ -138,7 +138,7 @@ const std::vector<int> hungarianMinimumWeightPerfectMatching(const int n, const 
     // by the left potentials.
     // This guarantees that each node on the right has at least one "tight" edge.
 
-    std::vector<Real> rightPotential(n, oo);
+    std::vector<Real> rightPotential(n_right, oo);
     for (int edgeIndex = 0; edgeIndex < edge_count; edgeIndex++) {
         const WeightedBipartiteEdge& edge = allEdges[edgeIndex];
         Real reducedCost = edge.cost - leftPotential[edge.left];

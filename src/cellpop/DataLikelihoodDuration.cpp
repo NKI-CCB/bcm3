@@ -130,7 +130,7 @@ bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal
 		}
 	}
 
-	std::vector<int> matching = hungarianMinimumWeightPerfectMatching(n, hungarian_matching_edges, edge_count);
+	std::vector<int> matching = hungarianMinimumWeightPerfectMatching(n, n, hungarian_matching_edges, edge_count);
 	if (matching.size() != observed_durations.size()) {
 		logp = -std::numeric_limits<Real>::infinity();
 		return true;

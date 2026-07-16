@@ -320,7 +320,7 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 		}
 	}
 
-	std::vector<int> matching = hungarianMinimumWeightPerfectMatching(n, hungarian_matching_edges, edge_count);
+	std::vector<int> matching = hungarianMinimumWeightPerfectMatching(n, simulated_cell_parents.size(), hungarian_matching_edges, edge_count);
 	if (matching.size() != observed_cells_with_no_parents.size()) {
 		logp = -std::numeric_limits<Real>::infinity();
 		return true;
