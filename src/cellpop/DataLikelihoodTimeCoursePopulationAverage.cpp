@@ -51,7 +51,7 @@ bool DataLikelihoodTimeCoursePopulationAverage::Load(const boost::property_tree:
 	observed_data = MatrixReal(num_replicates, timepoints.size());
 	for (size_t ri = 0; ri < num_replicates; ri++) {
 		VectorReal od;
-		result &= data_file.GetValues(experiment->GetName(), data_name, ri, timepoints.size(), od);
+		result &= data_file.GetValuesDim1(experiment->GetName(), data_name, 0, ri, timepoints.size(), od);
 		observed_data.row(ri) = od;
 	}
 
@@ -135,10 +135,17 @@ bool DataLikelihoodTimeCoursePopulationAverage::Evaluate(const VectorReal& value
 
 			Real time_offset = std::min(std::abs(timepoints(i) - cell_trajectories_firstnonan), std::abs(timepoints(i) - cell_trajectories_lastnonan));
 
-			logp += observed_data.rows() * EvaluateMissingValue(time_offset);
+			Real missing_value_penalty = EvaluateMissingValue(time_offset);
+			for (int j = 0; j < observed_data.rows(); j++) {
+				if (!std::isnan(observed_data(j, i))) {
+					logp += missing_value_penalty;
+				}
+			}
 		} else {
 			for (int j = 0; j < observed_data.rows(); j++) {
-				logp += EvaluateValue(observed_data(j, i), x, 0);
+				if (!std::isnan(observed_data(j, i))) {
+					logp += EvaluateValue(observed_data(j, i), x, 0);
+				}
 			}
 		}
 	}

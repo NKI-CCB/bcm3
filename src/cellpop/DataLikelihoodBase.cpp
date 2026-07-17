@@ -1,6 +1,7 @@
 #include "DataLikelihoodBase.h"
 #include "DataLikelihoodDuration.h"
 #include "DataLikelihoodTimeCourse.h"
+#include "DataLikelihoodTimeCoursePopulationAverage.h"
 #include "DataLikelihoodTimePoints.h"
 #include "ProbabilityDistributions.h"
 
@@ -22,6 +23,8 @@ std::unique_ptr<DataLikelihoodBase> DataLikelihoodBase::Create(const boost::prop
 	std::unique_ptr<DataLikelihoodBase> dl;
 	if (type == "time_course") {
 		dl = std::make_unique<DataLikelihoodTimeCourse>(parallel_evaluations);
+	} else if (type == "time_course_population_average") {
+		dl = std::make_unique<DataLikelihoodTimeCoursePopulationAverage>(parallel_evaluations);
 	} else if (type == "time_points") {
 		dl = std::make_unique<DataLikelihoodTimePoints>(parallel_evaluations);
 	} else if (type == "duration") {

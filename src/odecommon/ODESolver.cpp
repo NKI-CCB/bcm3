@@ -118,7 +118,7 @@ bool ODESolver::SolveReturnSolution(const OdeVectorReal& initial_conditions, con
 	}
 
 	OdeReal ode_real_end_time = (*timepoints)[timepoints->size() - 1];
-	if (end_time != std::numeric_limits<Real>::quiet_NaN()) {
+	if (!std::isnan(end_time)) {
 		ode_real_end_time = std::max(ode_real_end_time, (OdeReal)end_time);
 	}
 
@@ -126,7 +126,7 @@ bool ODESolver::SolveReturnSolution(const OdeVectorReal& initial_conditions, con
 	interpolation_timepoints = timepoints;
 	interpolated_output = output;
 
-	if (!Solve(initial_conditions, end_time, true, false, verbose)) {
+	if (!Solve(initial_conditions, ode_real_end_time, true, false, verbose)) {
 		return false;
 	}
 
