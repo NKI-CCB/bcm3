@@ -2,6 +2,7 @@
 #include "CellPopulationLikelihood.h"
 #include "DataLikelihoodDuration.h"
 #include "DataLikelihoodTimeCourse.h"
+#include "DataLikelihoodTimeCoursePopulationAverage.h"
 #include "DataLikelihoodTimePoints.h"
 #include "interface.h"
 
@@ -210,6 +211,35 @@ void bcm3_rbridge_cellpop_get_observed_data(char** bcm3info_ptr, char** experime
 		}
 	}
 
+	const DataLikelihoodTimeCoursePopulationAverage* dltcpa = dynamic_cast<const DataLikelihoodTimeCoursePopulationAverage*>(dl);
+	if (dltcpa != nullptr) {
+		const VectorReal& t = dltcpa->GetTimepoints();
+		if (t.size() > *out_num_timepoints) {
+			// Need to increase size in the R buffer
+			*retval = -6;
+			return;
+		}
+		*out_num_timepoints = t.size();
+		for (size_t i = 0; i < t.size(); i++) {
+			out_timepoints[i] = t(i);
+		}
+
+		if (dltcpa->GetObservedData().rows() > *out_num_cells) {
+			// Need to increase size in the R buffer
+			*retval = -5;
+			return;
+		}
+		*out_num_cells = dltcpa->GetObservedData().rows();
+
+		const MatrixReal& o = dltcpa->GetObservedData();
+		*out_num_markers = 1;
+		for (int i = 0; i < *out_num_cells; i++) {
+			for (int k = 0; k < *out_num_timepoints; k++) {
+				out_values[i * (*out_num_timepoints) + k] = o(i, k);
+			}
+		}
+	}
+
 	const DataLikelihoodDuration* dld = dynamic_cast<const DataLikelihoodDuration*>(dl);
 	if (dld != nullptr) {
 		*out_num_timepoints = 1;
@@ -305,6 +335,35 @@ void bcm3_rbridge_cellpop_get_simulated_data(char** bcm3info_ptr, char** experim
 				for (int k = 0; k < *out_num_timepoints; k++) {
 					out_values[i * (*out_num_markers) * (*out_num_timepoints) + j * (*out_num_timepoints) + k] = o(k, j);
 				}
+			}
+		}
+	}
+
+	const DataLikelihoodTimeCoursePopulationAverage* dltcpa = dynamic_cast<const DataLikelihoodTimeCoursePopulationAverage*>(dl);
+	if (dltcpa != nullptr) {
+		const VectorReal& t = dltcpa->GetTimepoints();
+		if (t.size() > *out_num_timepoints) {
+			// Need to increase size in the R buffer
+			*retval = -6;
+			return;
+		}
+		*out_num_timepoints = t.size();
+		for (size_t i = 0; i < t.size(); i++) {
+			out_timepoints[i] = t(i);
+		}
+
+		if (dltcpa->GetObservedData().rows() > *out_num_cells) {
+			// Need to increase size in the R buffer
+			*retval = -5;
+			return;
+		}
+		*out_num_cells = dltcpa->GetObservedData().rows();
+
+		const MatrixReal& o = dltcpa->GetSimulatedData();
+		*out_num_markers = o.cols();
+		for (int i = 0; i < *out_num_cells; i++) {
+			for (int k = 0; k < *out_num_timepoints; k++) {
+				out_values[i * (*out_num_timepoints) + k] = o(k, i);
 			}
 		}
 	}

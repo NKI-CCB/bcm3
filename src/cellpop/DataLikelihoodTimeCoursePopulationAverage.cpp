@@ -101,17 +101,20 @@ bool DataLikelihoodTimeCoursePopulationAverage::Evaluate(const VectorReal& value
 		}
 	}
 
+	ASSERT(species_names.size() == 1);
+
 	if (relative_to_time_average) {
+		population_average.array() += data_offsets[0];
 		VectorReal time_average = population_average.colwise().mean();
 		for (int i = 0; i < time_average.size(); i++) {
-			//population_average.col(i) = (population_average.col(i) /= time_average(i)).array().log();
-			population_average.col(i) = population_average.col(i).array() -= time_average(i);
+			population_average.col(i) = (population_average.col(i) /= time_average(i)).array().log();
+			//population_average.col(i) = population_average.col(i).array() -= time_average(i);
 		}
+		population_average.array() *= data_scales[0];
+	} else {
+		population_average.array() *= data_scales[0];
+		population_average.array() += data_offsets[0];
 	}
-
-	ASSERT(species_names.size() == 1);
-	population_average.array() *= data_scales[0];
-	population_average.array() += data_offsets[0];
 
 	logp = 0.0;
 

@@ -401,6 +401,8 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 				}
 			}
 
+			current_step++;
+
 			if (do_interpolation) {
 				// If we pass a timepoint, interpolate back to that timepoint
 				while (tret >= (*interpolation_timepoints)(tpi)) {
@@ -423,8 +425,6 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 					}
 				}
 			}
-
-			current_step++;
 
 			if (integration_step_cb) {
 				bool continue_integration = integration_step_cb(t, NV_DATA_S(y), end_time, user_data);

@@ -123,7 +123,15 @@ bool Cell::SetInitialConditionsFromOtherCell(const Cell* other)
 	}
 	constant_species_y = other->constant_species_y;
 
-#if 0
+#if 1
+	initial_y(model->GetODEIntegratedSpeciesByName("cytokinesis", true)) = 0.0;
+	initial_y(model->GetODEIntegratedSpeciesByName("nuclear_envelope", true)) = 1.0;
+	initial_y(model->GetODEIntegratedSpeciesByName("G1S_break", true)) = 1.0;
+	initial_y(model->GetODEIntegratedSpeciesByName("G2_break", true)) = 1.0;
+	initial_y(model->GetODEIntegratedSpeciesByName("spindle_components", true)) = 0.0;
+	initial_y(model->GetODEIntegratedSpeciesByName("assembled_spindle", true)) = 0.0;
+	initial_y(model->GetODEIntegratedSpeciesByName("chromatid_separation", true)) = 0.0;
+#else
 	initial_y(model->GetODEIntegratedSpecies("DNA", true)) *= 0.5;
 	initial_y(model->GetODEIntegratedSpecies("replicating_DNA", true)) *= 0.5;
 	initial_y(model->GetODEIntegratedSpecies("replicated_DNA", true)) *= 0.5;
@@ -133,7 +141,6 @@ bool Cell::SetInitialConditionsFromOtherCell(const Cell* other)
 	initial_y(model->GetODEIntegratedSpecies("assembled_spindle", true)) = 0.0;
 	initial_y(model->GetODEIntegratedSpecies("chromatid_separation", true)) = 0.0;
 	initial_y(model->GetODEIntegratedSpecies("nuclear_envelope", true)) = 1.0;
-	initial_y(model->GetODEIntegratedSpecies("cytokinesis", true)) = 0.0;
 	initial_y(model->GetODEIntegratedSpecies("G2_delay", true)) = 0.0;
 #endif
 
@@ -199,7 +206,7 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 		for (int i = 0; i < output_times.size(); i++) {
 			solver_stored_timepoints(i) = output_times(i) - creation_time;
 		}
-		simulation_end_time = std::max(simulation_end_time, output_times.tail<1>()[0]);
+		simulation_end_time = std::max(simulation_end_time, output_times.tail<1>()[0] - creation_time);
 	}
 	
 	// Find any discontinuities in the treatment trajectories, and inform the solver of the first one
@@ -310,7 +317,7 @@ Real Cell::GetInterpolatedSpeciesValue(Real time, size_t species_ix, ESynchroniz
 	} else {
 		cell_time = time - creation_time;
 	}
-	if (cell_time < 0.0) {
+	if (cell_time < 0.0 || cell_time > simulation_end_time) {
 		return std::numeric_limits<Real>::quiet_NaN();
 	}
 
@@ -490,18 +497,36 @@ bool Cell::integration_step_cb(OdeReal t, const OdeReal* y, Real& end_time, void
 	}
 	if (experiment->divide_cells && cytokinesis_ix != std::numeric_limits<size_t>::max()) {
 		if (y[cytokinesis_ix] > 1.0) {
-			Real division_time = solver->get_threshold_crossing_time(cytokinesis_ix, 1.0, true, previous_integration_step_time);
-			simulation_end_time = division_time;
-			simulation_end_y = solver->GetInterpolatedY(division_time);
+			if (store_integration_points) {
+				Real division_time = solver->get_threshold_crossing_time(cytokinesis_ix, 1.0, true, previous_integration_step_time);
+				simulation_end_time = division_time;
+				simulation_end_y = solver->GetInterpolatedY(division_time);
+			} else {
+				// Temporary hack
+				simulation_end_time = t;
+				simulation_end_y = initial_y;
+				for (int i = 0; i < simulation_end_y.size(); i++) {
+					simulation_end_y(i) = y[i];
+				}
+			}
 			cell_divided = true;
 			continue_integration = false;
 		}
 	}
 	if (apoptosis_ix != std::numeric_limits<size_t>::max()) {
 		if (y[apoptosis_ix] > 1.0) {
-			Real death_time = solver->get_threshold_crossing_time(apoptosis_ix, 1.0, true, previous_integration_step_time);
-			simulation_end_time = death_time;
-			simulation_end_y = solver->GetInterpolatedY(death_time);
+			if (store_integration_points) {
+				Real death_time = solver->get_threshold_crossing_time(apoptosis_ix, 1.0, true, previous_integration_step_time);
+				simulation_end_time = death_time;
+				simulation_end_y = solver->GetInterpolatedY(death_time);
+			} else {
+				// Temporary hack
+				simulation_end_time = t;
+				simulation_end_y = initial_y;
+				for (int i = 0; i < simulation_end_y.size(); i++) {
+					simulation_end_y(i) = y[i];
+				}
+			}
 			cell_died = true;
 			continue_integration = false;
 		}
