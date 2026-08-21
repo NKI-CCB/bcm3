@@ -246,6 +246,8 @@ namespace bcm3 {
 				}
 				update_info_output.AddMatrix(adaptation_group, "transform_bounds", bounds);
 			}
+
+			update_info_output.Close();
 		}
 	}
 
