@@ -89,6 +89,17 @@ Real PdfGPD(Real x, Real u, Real xi, Real beta)
 	return p;
 }
 
+Real LogPdfBeta(Real x, Real a, Real b)
+{
+	if (x < 0.0 || x > 1.0) {
+		return -std::numeric_limits<Real>::infinity();
+	}
+
+	Real denom = boost::math::lgamma(a) + boost::math::lgamma(b) - boost::math::lgamma(a + b);
+	Real y = (a - 1.0) * log(x) + (b - 1.0) * boost::math::log1p(-x);
+	return y - denom;
+}
+
 Real LogPdfBetaPrecision(Real x, Real mu, Real phi)
 {
 	if (mu <= 0.0 || mu >= 1.0) {

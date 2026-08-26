@@ -76,12 +76,14 @@ namespace bcm3 {
 			return false;
 		}
 
+#if TODO
 		// Set up dirichlet constraints if necessary
 		for (ptrdiff_t i = 0; i < prior->GetNumDirichletDistributions(); i++) {
 			DirichletConstraint c;
 			prior->GetDirichletMembership(i, c.residual_ix, c.var_ix);
 			dirichlet_constraints.push_back(c);
 		}
+#endif
 
 		// Initialize multi-threading structure
 		task_manager = std::make_unique<TaskManager>(num_threads);

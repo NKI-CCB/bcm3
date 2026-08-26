@@ -11,6 +11,7 @@ namespace bcm3 {
 		~MultivariateMarginal();
 
 		bool CreateDirichlet();
+		bool CreateLKJCholesky(Real eta, size_t D);
 		bool AddVariable(Real param, size_t& ix);
 		bool Initialize();
 
@@ -27,13 +28,16 @@ namespace bcm3 {
 		enum EDistribution
 		{
 			D_Invalid,
-			D_Dirichlet
+			D_Dirichlet,
+			D_LKJCholesky,
 		};
 	
 		EDistribution Type;
 
 		size_t N;
 		VectorReal alpha;	// Dirichlet
+		Real eta;			// LKJCholesky
+		size_t D;			// LKJCholesky
 		Real log_normalization_constant;
 	};
 

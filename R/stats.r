@@ -150,6 +150,9 @@ prior_bounds <- function(model, var_ix, q=c(0.01,0.99))
     } else if (distribution == "dirichlet") {
       # Todo
       p <- qbeta(q, shape1=1, shape2=9)
+    } else if (distribution == "lkjcholesky") {
+      # Todo
+      p <- c(-1,1)
     } else if (distribution == "exponential_mix") {
     }
   }
@@ -194,6 +197,9 @@ prior_probability_var <- function(model, var_ix, x, log=F)
     } else if (distribution == "dirichlet") {
       # Todo
       p <- dbeta(x, a=1, b=9)
+    } else if (distribution == "lkjcholesky") {
+      # Todo
+      p <- dunif(x, -1, 1)
     } else if (distribution == "exponential_mix") {
       rate1 = as.numeric(varattrs["lambda"]);
       rate2 = as.numeric(varattrs["lambda2"]);

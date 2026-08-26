@@ -27,7 +27,8 @@ bool LikelihoodDummy::EvaluateLogProbability(size_t threadix, const VectorReal& 
 		logp += bcm3::LogPdfNormal(x[i], values[0], values[1]);
 	}
 #else
-	logp = bcm3::LogPdfTnu4(values[0], 0, 1);
+	//logp = bcm3::LogPdfTnu4(values[0], 0, 1);
+	logp = 0.0;
 #endif
 	return true;
 }
