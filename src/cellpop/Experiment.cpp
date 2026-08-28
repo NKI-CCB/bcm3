@@ -663,13 +663,13 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 	min_start_time = std::numeric_limits<Real>::infinity();
 	if (initial_number_of_cells > 1) {
 		for (size_t i = 0; i < initial_number_of_cells; i++) {
-			Real cell_start_time = entry_time;
+			Real cell_start_time = -entry_time;
 			population->AddNewCell(variability_iterator.get(), cell_start_time, NULL, -1, transformed_sampled_parameters, true, any_requested_synchronization, initial_number_of_cells);
 			min_start_time = std::min(cell_start_time, min_start_time);
 		}
 	} else {
-		population->AddNewCell(variability_iterator.get(), entry_time, NULL, -1, transformed_sampled_parameters, false, any_requested_synchronization, initial_number_of_cells);
-		min_start_time = entry_time;
+		population->AddNewCell(variability_iterator.get(), -entry_time, NULL, -1, transformed_sampled_parameters, false, any_requested_synchronization, initial_number_of_cells);
+		min_start_time = -entry_time;
 	}
 
 	if (min_start_time < -7.0 * 24.0 * 60.0 * 60.0) {
