@@ -11,6 +11,7 @@ Real PdfT(Real x, Real mu, Real sigma, Real nu);
 Real PdfT(Real x, Real mu, Real sigma, Real nu, Real C);
 Real PdfGPD(Real x, Real u, Real xi, Real beta);
 
+Real LogPdfBeta(Real x, Real a, Real b);
 Real LogPdfBetaPrecision(Real x, Real mu, Real phi);
 Real LogPdfBetaPrime(Real x, Real a, Real b, Real scale);
 Real LogPdfExponential(Real x, Real lambda);

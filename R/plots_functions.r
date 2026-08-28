@@ -408,6 +408,15 @@ plot_variable_distribution_impl <- function(samples, weights, varattrs, xlab="",
       priory <- dbeta(priorx, 1, 9);
       lbound <- 0;
       ubound <- 1;
+    } else if (distribution == "lkjcholesky") {
+      eta = as.numeric(varattrs["eta"]);
+      D = as.numeric(varattrs["D"]);
+      minx <- -1;
+      maxx <- 1;
+      priorx <- seq(minx, maxx, length.out=200);
+      priory <- dunif(priorx, -1, 1); # quick hack - this is not accurate
+      lbound <- -1;
+      ubound <- 1;
     } else if (distribution == "exponential_mix") {
       rate1 = as.numeric(varattrs["lambda"]);
       rate2 = as.numeric(varattrs["lambda2"]);

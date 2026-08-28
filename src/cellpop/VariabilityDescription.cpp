@@ -82,6 +82,7 @@ VectorReal VariabilityDescription::GetPseudorandomVector(const VectorReal& sobol
 			}
 #endif
 
+#if 0
 			//MatrixReal cholesky_L(D, D);
 			//cholesky_L(0, 0) = exp(transformed_values[4]);
 			//cholesky_L(0, 1) = 0.0;
@@ -117,6 +118,30 @@ VectorReal VariabilityDescription::GetPseudorandomVector(const VectorReal& sobol
 					cholesky_L(i, j) = 0.0;
 				}
 			}
+#endif
+			MatrixReal sd = MatrixReal::Zero(D, D);
+			for (int i = 0; i < D; i++) {
+				sd(i, i) = exp(variables[i]->GetScaleReference().GetValue(transformed_values, non_sampled_parameters));
+			}
+
+			MatrixReal corr_chol_L = MatrixReal::Zero(D, D);
+			corr_chol_L(0, 0) = 1.0;
+			int cov_value_ix = 0;
+			for (int i = 1; i < D; i++) {
+				corr_chol_L(i, 0) = covariance_values[cov_value_ix++].GetValue(transformed_values, non_sampled_parameters);
+			}
+			VectorReal acc = 1 - corr_chol_L.col(0).segment(1, D - 1).array().square();
+			for (int i = 1; i < D - 1; i++) {
+				corr_chol_L(i, i) = sqrt(acc[i-1]);
+				for (int j = i + 1; j < D; j++) {
+					Real val = covariance_values[cov_value_ix++].GetValue(transformed_values, non_sampled_parameters);
+					corr_chol_L(j, i) = val * sqrt(acc[j - 1]);
+					acc[j - 1] *= (1.0 - val);
+				}
+			}
+			corr_chol_L(D - 1, D - 1) = sqrt(acc(D - 2));
+
+			MatrixReal cholesky_L = sd * corr_chol_L;
 
 			// Normally distributed pseudorandom values
 			VectorReal v(D);
@@ -205,6 +230,7 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 		{
 			std::string covar_base_name = xml_node.get<std::string>("<xmlattr>.covar_base_name"); 
 			int value_reference_i = 0;
+#if 0
 			for (int i = 0; i < variables.size(); i++) {
 				for (int j = 0; j < i; j++) {
 					std::string covar_name = covar_base_name + std::to_string(j + 1) + "_" + std::to_string(i + 1);
@@ -213,6 +239,18 @@ bool VariabilityDescription::Load(const boost::property_tree::ptree& xml_node)
 					covariance_values.push_back(val_ref);
 				}
 			}
+#else
+			int ix = 0;
+			for (int i = 0; i < variables.size() - 1; i++) {
+				for (int j = i + 1; j < variables.size(); j++) {
+					std::string covar_name = covar_base_name + std::to_string(ix + 1);
+					ValueReference val_ref;
+					val_ref.SetString(covar_name);
+					covariance_values.push_back(val_ref);
+					ix++;
+				}
+			}
+#endif
 		}
 		break;
 	}

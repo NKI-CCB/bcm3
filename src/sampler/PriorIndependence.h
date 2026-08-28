@@ -20,8 +20,11 @@ namespace bcm3 {
 		virtual bool EvaluateMarginalVariance(size_t i, Real& var) const;
 		virtual bool Sample(VectorReal& values, RNG* rng) const;
 
+#if 0
+		// Needs a more generic solution
 		virtual size_t GetNumDirichletDistributions() const;
 		virtual void GetDirichletMembership(ptrdiff_t ix, ptrdiff_t& residual_ix, std::vector<ptrdiff_t>& var_ixs) const;
+#endif
 
 	private:
 		std::vector< std::unique_ptr<UnivariateMarginal> > Variables;

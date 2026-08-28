@@ -36,6 +36,8 @@ namespace bcm3 {
 						}
 
 						size_t id = var.second.get<size_t>("<xmlattr>.id");
+						std::string multivar_type = var.second.get<std::string>("<xmlattr>.distribution");
+
 						if (id == 0) {
 							LOGERROR("Multivariate distribution IDs should start at 1.");
 							return false;
@@ -43,17 +45,27 @@ namespace bcm3 {
 						} else {
 							MultivariateDistributions.resize(id);
 							MultivariateDistributions[id - 1] = std::make_unique<MultivariateMarginal>();
-							// Only dirichlet supported for now.
-							if (var.second.get<std::string>("<xmlattr>.distribution") != "dirichlet") {
-								LOGERROR("Multivariate distribution of unknown type (only dirichlet supported).");
+
+							if (multivar_type == "dirichlet") {
+								MultivariateDistributions[id - 1]->CreateDirichlet();
+							} else if (multivar_type == "lkjcholesky") {
+								Real eta = var.second.get<Real>("<xmlattr>.eta");
+								size_t D = var.second.get<size_t>("<xmlattr>.D");
+								MultivariateDistributions[id - 1]->CreateLKJCholesky(eta, D);
+							} else {
+								LOGERROR("Multivariate distribution of unsupported type: \"%s\"", multivar_type.c_str());
 								return false;
 							}
-							MultivariateDistributions[id - 1]->CreateDirichlet();
+
 							MultivariateVarIx.resize(id);
 							MultivariateVarIx[id - 1] = variable_ix;
 						}
 
-						Real alpha = var.second.get<Real>("<xmlattr>.alpha");
+						Real alpha = std::numeric_limits<Real>::quiet_NaN();
+						if (multivar_type == "dirichlet") {
+							alpha = var.second.get<Real>("<xmlattr>.alpha");
+						}
+
 						size_t mv_var_ix;
 						if (MultivariateDistributions[id - 1]->AddVariable(alpha, mv_var_ix)) {
 							MultivariateMembership.push_back(id - 1);
@@ -206,6 +218,7 @@ namespace bcm3 {
 		}
 	}
 
+#if 0
 	size_t PriorIndependence::GetNumDirichletDistributions() const
 	{
 		// All multivariate distributions are dirichlets for now
@@ -222,5 +235,6 @@ namespace bcm3 {
 		}
 		residual_ix = *var_ixs.rbegin();
 	}
+#endif
 
 }

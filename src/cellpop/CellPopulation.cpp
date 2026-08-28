@@ -66,22 +66,22 @@ size_t CellPopulation::AddNewCell(VariabilityPseudoRandomIterator* variability_i
 		if (parent) {
 			size_t parent_ix = cell_parents[new_cell_ix];
 
-			int generation = 0;
-			size_t grandparent_ix = cell_parents[parent_ix];
-			while (1) {
-				if (grandparent_ix == std::numeric_limits<size_t>::max()) {
-					break;
-				} else {
-					grandparent_ix = cell_parents[grandparent_ix];
-					generation++;
-				}
-			}
+			//int generation = 1;
+			//size_t grandparent_ix = cell_parents[parent_ix];
+			//while (1) {
+			//	if (grandparent_ix == std::numeric_limits<size_t>::max()) {
+			//		break;
+			//	} else {
+			//		grandparent_ix = cell_parents[grandparent_ix];
+			//		generation++;
+			//	}
+			//}
 
-			sobol_sequence_ix = variability_iterator->GetIndex(parent_ix) * 2 + child_ix;
-			while (generation > 0) {
-				sobol_sequence_ix += initial_number_of_cells * (1 << generation);
-				generation--;
-			}
+			sobol_sequence_ix = initial_number_of_cells + variability_iterator->GetIndex(parent_ix) * 2 + child_ix;
+ 			//while (generation > 0) {
+			//	sobol_sequence_ix += initial_number_of_cells * (1 << (generation-1));
+			//	generation--;
+			//}
 			if (sobol_sequence_ix >= variability_iterator->GetMaxIndex()) {
 				return std::numeric_limits<size_t>::max();
 			}

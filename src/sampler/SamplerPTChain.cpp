@@ -152,7 +152,6 @@ namespace bcm3 {
 				std::string adaptation_group = std::string("adapt") + std::to_string(adaptation_iteration) + std::string("/block") + std::to_string(i + 1);
 				variable_blocks[i].proposal->WriteToFile(proposal_output_fn, adaptation_group, variable_blocks[i].variable_indices);
 
-#if 1
 				if (adaptation_iteration >= 1) {
 					NetCDFBundler update_info_output;
 					if (update_info_output.Open(proposal_output_fn)) {
@@ -161,7 +160,6 @@ namespace bcm3 {
 						update_info_output.Close();
 					}
 				}
-#endif
 			}
 		}
 		adaptation_iteration++;
