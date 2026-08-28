@@ -54,6 +54,7 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, simulate_past_chromatid_separation_time(0.0)
 	, solver_min_timestep(4 * std::numeric_limits<float>::epsilon())
 	, solver_max_timestep(std::numeric_limits<Real>::infinity())
+	, solver_init_timestep(1.0)
 	, solver_max_steps(10000)
 	, solver_abs_tol(4 * std::numeric_limits<float>::epsilon())
 	, solver_rel_tol(4 * std::numeric_limits<float>::epsilon())
@@ -411,6 +412,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	solver_type = xml_node.get<std::string>("<xmlattr>.solver_type", "CVODE");
 	solver_min_timestep = xml_node.get<Real>("<xmlattr>.solver_min_timestep", 1e-8);
 	solver_max_timestep = xml_node.get<Real>("<xmlattr>.solver_max_timestep", std::numeric_limits<Real>::infinity());
+	solver_init_timestep = xml_node.get<Real>("<xmlattr>.solver_init_timestep", 1.0);
 	solver_max_steps = xml_node.get<size_t>("<xmlattr>.solver_max_steps", 10000);
 	solver_abs_tol = xml_node.get<Real>("<xmlattr>.solver_absolute_tolerance", 4 * std::numeric_limits<float>::epsilon());
 	solver_rel_tol = xml_node.get<Real>("<xmlattr>.solver_relative_tolerance", 4 * std::numeric_limits<float>::epsilon());

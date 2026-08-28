@@ -6,8 +6,6 @@
 #include "../../dependencies/cvode-5.3.0/src/cvode/cvode_impl.h"
 #include "../../dependencies/cvode-5.3.0/src/cvode/cvode_ls_impl.h"
 
-static const size_t MAX_CVODE_STEPS = 10000;
-
 void static_cvode_err_fn(int error_code, const char* module, const char* function, char* msg, void* user_data)
 {
 }
@@ -153,12 +151,19 @@ bool ODESolverCVODE::SetSolverParameter(const std::string& parameter, int int_va
 		}
 		CVodeSetMinStep(cvode_mem, (OdeReal)real_value);
 		return true;
-	} if (parameter == "max_dt") {
+	} else if (parameter == "max_dt") {
 		if (real_value < 0.0) {
 			LOGERROR("max_dt should be non-negative, but %g was provided", real_value);
 			return false;
 		}
 		CVodeSetMaxStep(cvode_mem, (OdeReal)real_value);
+		return true;
+	} else if (parameter == "init_dt") {
+		if (real_value <= 0.0) {
+			LOGERROR("init_dt should be positive, but %g was provided", real_value);
+			return false;
+		}
+		CVodeSetInitStep(cvode_mem, (OdeReal)real_value);
 		return true;
 	} else if (parameter == "max_steps") {
 		if (int_value <= 0) {

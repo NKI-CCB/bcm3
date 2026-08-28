@@ -148,6 +148,7 @@ protected:
 	std::string solver_type;
 	Real solver_min_timestep;
 	Real solver_max_timestep;
+	Real solver_init_timestep;
 	size_t solver_max_steps;
 	Real solver_abs_tol;
 	Real solver_rel_tol;

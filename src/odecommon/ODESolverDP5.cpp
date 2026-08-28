@@ -8,8 +8,9 @@ static const OdeReal MAX_SCALE_FACTOR = 5.0;
 bool ODESolverDP5::warn_discontinuity = true;
 
 ODESolverDP5::ODESolverDP5()
-	: min_dt(1e-8)
-	, max_dt(std::numeric_limits<Real>::infinity())
+	: min_dt(1e-7)
+	, max_dt(std::numeric_limits<OdeReal>::infinity())
+	, init_dt(1.0)
 	, max_steps(10000)
 	, ytmp(nullptr)
 	, yn(nullptr)
@@ -84,6 +85,13 @@ bool ODESolverDP5::SetSolverParameter(const std::string& parameter, int int_valu
 		}
 		max_dt = real_value;
 		return true;
+	} else if (parameter == "init_dt") {
+		if (real_value <= 0.0) {
+			LOGERROR("init_dt should be positive, but %g was provided", real_value);
+			return false;
+		}
+		init_dt = real_value;
+		return true;
 	} else if (parameter == "max_steps") {
 		if (int_value <= 0) {
 			LOGERROR("max_steps should be strictly positive, but %d was provided", int_value);
@@ -106,7 +114,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 	}
 
 	OdeReal t = 0.0;
-	OdeReal dt = std::min(max_dt, 1.0);
+	OdeReal dt = std::min(max_dt, init_dt);
 
 	for (size_t i = 0; i < N; i++) {
 		yn[i] = initial_conditions[i];

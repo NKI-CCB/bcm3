@@ -28,6 +28,7 @@ private:
 	// Settings
 	OdeReal min_dt;
 	OdeReal max_dt;
+	OdeReal init_dt;
 	int max_steps;
 
 	// Runtime variables

@@ -71,6 +71,7 @@ bool Cell::AllocateSolver(std::string solver_type)
 	solver->SetTolerance(experiment->solver_rel_tol, experiment->solver_abs_tol);
 	solver->SetSolverParameter("min_dt", 0, experiment->solver_min_timestep);
 	solver->SetSolverParameter("max_dt", 0, experiment->solver_max_timestep);
+	solver->SetSolverParameter("init_dt", 0, experiment->solver_init_timestep);
 	solver->SetSolverParameter("max_steps", experiment->solver_max_steps, std::numeric_limits<OdeReal>::quiet_NaN());
 	return true;
 }
