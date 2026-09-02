@@ -126,20 +126,23 @@ VectorReal VariabilityDescription::GetPseudorandomVector(const VectorReal& sobol
 
 			MatrixReal corr_chol_L = MatrixReal::Zero(D, D);
 			corr_chol_L(0, 0) = 1.0;
-			int cov_value_ix = 0;
-			for (int i = 1; i < D; i++) {
-				corr_chol_L(i, 0) = covariance_values[cov_value_ix++].GetValue(transformed_values, non_sampled_parameters);
-			}
-			VectorReal acc = 1 - corr_chol_L.col(0).segment(1, D - 1).array().square();
-			for (int i = 1; i < D - 1; i++) {
-				corr_chol_L(i, i) = sqrt(acc[i-1]);
-				for (int j = i + 1; j < D; j++) {
-					Real val = covariance_values[cov_value_ix++].GetValue(transformed_values, non_sampled_parameters);
-					corr_chol_L(j, i) = val * sqrt(acc[j - 1]);
-					acc[j - 1] *= (1.0 - val);
+
+			if (D > 1) {
+				int cov_value_ix = 0;
+				for (int i = 1; i < D; i++) {
+					corr_chol_L(i, 0) = covariance_values[cov_value_ix++].GetValue(transformed_values, non_sampled_parameters);
 				}
+				VectorReal acc = 1 - corr_chol_L.col(0).segment(1, D - 1).array().square();
+				for (int i = 1; i < D - 1; i++) {
+					corr_chol_L(i, i) = sqrt(acc[i - 1]);
+					for (int j = i + 1; j < D; j++) {
+						Real val = covariance_values[cov_value_ix++].GetValue(transformed_values, non_sampled_parameters);
+						corr_chol_L(j, i) = val * sqrt(acc[j - 1]);
+						acc[j - 1] *= (1.0 - val);
+					}
+				}
+				corr_chol_L(D - 1, D - 1) = sqrt(acc(D - 2));
 			}
-			corr_chol_L(D - 1, D - 1) = sqrt(acc(D - 2));
 
 			MatrixReal cholesky_L = sd * corr_chol_L;
 
