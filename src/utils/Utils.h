@@ -31,6 +31,7 @@
 #include <thread>
 #include <mutex>
 #include <memory>
+#include <optional>
 
 #include <boost/version.hpp>
 #include <boost/foreach.hpp>

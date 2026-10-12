@@ -2,8 +2,8 @@
 #include "Correlation.h"
 #include "DataLikelihoodTimeCourse.h"
 #include "Experiment.h"
+#include "HungarianMatching.h"
 #include "ProbabilityDistributions.h"
-//#include "../../dependencies/HungarianAlgorithm-master/matching.h"
 #include <boost/math/special_functions/gamma.hpp>
 #include <boost/algorithm/string.hpp>
 
@@ -185,7 +185,6 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 	cell_trajectories.resize(experiment->GetMaxNumberOfCells(), MatrixReal::Constant(timepoints.size(), species_names.size(), std::numeric_limits<Real>::quiet_NaN()));
 	matched_trajectories.resize(observed_data.size(), MatrixReal::Constant(observed_data[0].rows(), observed_data[0].cols(), std::numeric_limits<Real>::quiet_NaN()));
 	trajectory_matching.resize(cell_trajectories.size());
-	hungarian_matching_edges.resize(observed_cells_with_no_parents.size() * experiment->GetMaxNumberOfCells());
 
 	result &= RequestSimulationInfo(experiment, synchronize);
 
@@ -285,7 +284,6 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 	}
 
 	Real maxdiff = 0.0;
-	int edge_count = 0;
 	for (size_t i = 0; i < observed_cells_with_no_parents.size(); i++) {
 		size_t finite_count = 0;
 		size_t observed_cell_ix = observed_cells_with_no_parents[i];
@@ -307,11 +305,6 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 			} else {
 				cell_likelihoods(i, j) = -std::numeric_limits<Real>::infinity();
 			}
-
-			hungarian_matching_edges[edge_count].left = i;
-			hungarian_matching_edges[edge_count].right = j;
-			hungarian_matching_edges[edge_count].cost = -cell_likelihoods(i, j);
-			edge_count++;
 		}
 		if (finite_count < observed_cells_with_no_parents.size()) {
 			// Too many infinite likelihoods for this observed cell; won't be able to match all cells so no need to go further and HA doesn't like it
@@ -320,13 +313,10 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 		}
 	}
 
-	std::vector<int> matching = hungarianMinimumWeightPerfectMatching(n, simulated_cell_parents.size(), hungarian_matching_edges, edge_count);
-	if (matching.size() != observed_cells_with_no_parents.size()) {
-		logp = -std::numeric_limits<Real>::infinity();
-		return true;
-	} else {
+	auto matching = bcm3::RectangularHungarian(-cell_likelihoods);
+	if (matching.has_value()) {
 		for (int i = 0; i < observed_cells_with_no_parents.size(); i++) {
-			int j = matching[i];
+			int j = matching.value()[i];
 			if (j == -1) {
 				LOGERROR("Could not find matching");
 				logp = -std::numeric_limits<Real>::infinity();
@@ -357,6 +347,9 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 				}
 			}
 		}
+	} else {
+		logp = -std::numeric_limits<Real>::infinity();
+		return true;
 	}
 
 	logp *= weight;

@@ -9,6 +9,8 @@ target_sources(utils
     CSVParser.h
     CSVParser.cpp
     EigenPartialPivLUSomewhatSparse.h
+    HungarianMatching.h
+    HungarianMatching.cpp
     Logger.h
     Logger.cpp
     MathFunctions.h

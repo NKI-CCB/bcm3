@@ -20,7 +20,7 @@ find_package(netCDF REQUIRED)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 # Warning handling
 if(CMAKE_HOST_WIN32)
@@ -40,8 +40,6 @@ endif(CMAKE_HOST_UNIX)
 add_subdirectory(dependencies/cluster-1.52a/src)
 add_subdirectory(dependencies/cvode-5.3.0)
 add_subdirectory(dependencies/eigen-3.4-rc1)
-add_subdirectory(dependencies/HungarianAlgorithm-master)
-add_subdirectory(dependencies/hungarian2)
 
 option(INCLUDE_SBML "Include support for SBML models" OFF)
 option(INCLUDE_CELLPOP "Include cellpop likelihood" OFF)

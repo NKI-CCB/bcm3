@@ -1,7 +1,7 @@
 #include "DataLikelihoodDuration.h"
 #include "Experiment.h"
+#include "HungarianMatching.h"
 #include "ProbabilityDistributions.h"
-//#include "../../dependencies/HungarianAlgorithm-master/matching.h"
 
 DataLikelihoodDuration::DataLikelihoodDuration(size_t parallel_evaluations)
 {
@@ -61,8 +61,6 @@ bool DataLikelihoodDuration::Load(const boost::property_tree::ptree& xml_node, E
 		return false;
 	}
 
-	hungarian_matching_edges.resize(num_cells * experiment->GetMaxNumberOfCells());
-
 	return result;
 }
 
@@ -91,7 +89,6 @@ bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal
 	int n = std::max(observed_durations.size(), observed_durations.size());
 	MatrixReal likelihoods(n, n);
 	likelihoods.setZero();
-	int edge_count = 0;
 	for (int i = 0; i < observed_durations.size(); i++) {
 		Real y = observed_durations(i);
 		if (y == y) {
@@ -101,11 +98,6 @@ bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal
 				if (x == x) {
 					likelihoods(i, count) = bcm3::LogPdfNormal(y, x, stdev);
 					used_durations[count] = j;
-
-					hungarian_matching_edges[edge_count].left = i;
-					hungarian_matching_edges[edge_count].right = j;
-					hungarian_matching_edges[edge_count].cost = -likelihoods(i, j);
-					edge_count++;
 
 					count++;
 					if (count == observed_durations.size()) {
@@ -121,22 +113,14 @@ bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal
 			for (int j = 0; j < simulated_durations.size(); j++) {
 				likelihoods(i, j) = -1e100;
 				used_durations[j] = j;
-
-				hungarian_matching_edges[edge_count].left = i;
-				hungarian_matching_edges[edge_count].right = j;
-				hungarian_matching_edges[edge_count].cost = -likelihoods(i, j);
-				edge_count++;
 			}
 		}
 	}
 
-	std::vector<int> matching = hungarianMinimumWeightPerfectMatching(n, n, hungarian_matching_edges, edge_count);
-	if (matching.size() != observed_durations.size()) {
-		logp = -std::numeric_limits<Real>::infinity();
-		return true;
-	} else {
+	auto matching = bcm3::RectangularHungarian(-likelihoods);
+	if (matching.has_value()) {
 		for (int i = 0; i < observed_durations.size(); i++) {
-			int j = matching[i];
+			int j = matching.value()[i];
 			if (j == -1) {
 				LOGERROR("Could not find matching");
 				logp = -std::numeric_limits<Real>::infinity();
@@ -146,6 +130,9 @@ bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal
 				matched_durations(i) = simulated_durations(used_durations[j]);
 			}
 		}
+	} else {
+		logp = -std::numeric_limits<Real>::infinity();
+		return true;
 	}
 
 	return true;

@@ -8,8 +8,6 @@ target_sources(testing
 target_link_libraries(testing
   PRIVATE
     utils
-    hungarian_matching
-    hungarian_matching2
     odecommon
 )
 

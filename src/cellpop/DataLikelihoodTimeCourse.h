@@ -1,7 +1,6 @@
 #pragma once
 
 #include "DataLikelihoodTimeCourseBase.h"
-#include "hungarian.h"
 
 class DataLikelihoodTimeCourse : public DataLikelihoodTimeCourseBase
 {
@@ -43,6 +42,4 @@ private:
 	std::vector<MatrixReal> matched_trajectories;
 	std::vector<MatrixReal> cell_trajectories_proportional_min_log_sigma;
 	std::vector<MatrixReal> cell_trajectories_proportional_inv_two_sigma_sq;
-
-	std::vector<WeightedBipartiteEdge> hungarian_matching_edges;
 };

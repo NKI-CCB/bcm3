@@ -1,7 +1,6 @@
 #pragma once
 
 #include "DataLikelihoodBase.h"
-#include "hungarian.h"
 
 class DataLikelihoodTimeCourseBase : public DataLikelihoodBase
 {
