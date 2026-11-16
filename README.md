@@ -1,14 +1,14 @@
 # BCM3 - Bayesian inference with Computational Models
 BCM3 is a C++/R software package for Bayesian inference with computational models using MCMC sampling.
 
-The focus of BCM3 is on inference for models that require extensive computation to evaluate the likelihood, such as simulations or ODE integrations. Likelihood function are therefore implemented in C++. BCM3 is fully multithreaded; supporting parallelization over tempered sampling chains as well as parallelization inside each likelihood evaluation.
+The focus of BCM3 is on inference for models that require extensive computation to evaluate the likelihood, such as simulations or ODE integrations. Likelihood functions are therefore implemented in C++. BCM3 is fully multithreaded; supporting parallelization over tempered sampling chains as well as parallelization inside each likelihood evaluation.
 
-BCM3 uses an advanced sampling algorithm that can efficiently sample from multimodal distributions or distributions containing strong ridges or parameter correlations. The original BCM implemented a variety of sampling algorithms; in this new version, BCM3 includes only parallel-tempered MCMC with adaptive proposals, as we found that sampling algorithm to be the most generally efficient. Several proposal schemes are available.
+BCM3 uses an advanced sampling algorithm that can efficiently sample from multimodal distributions or distributions containing strong ridges or parameter correlations. The original BCM implemented a variety of sampling algorithms including sequential Monte Carlo or nested sampling, but this new version (BCM3) includes only parallel-tempered MCMC with various adaptive proposals, as we found that sampling algorithm to be the most generally efficient.
 
 You can important your own likelihood through C++ evaluation code. BCM3 also includes several likelihoods:
-- cellpop; a model describing populations of heterogeneous biological cells
+- cellpop; a modeling framework describing populations of heterogeneous biological cells
+- PopPK; population pharmacokinetic models
 - fISA (feedback-Inference of signaling activity); a model of steady state signaling activity in biological cells (discontinued)
-- PopPK; a population pharmacokinetic model
 - Several theoretical test/example likelihoods: a banana distribution and a bimodal circular distribution
 - You can add your own likelihood either as a C++ class or through a shared library/DLL
 
