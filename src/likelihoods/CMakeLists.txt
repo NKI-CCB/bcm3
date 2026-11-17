@@ -16,10 +16,6 @@ target_sources(likelihoods
     LikelihoodMitosisTimeEstimation.cpp
     LikelihoodODE.h
     LikelihoodODE.cpp
-    LikelihoodPharmacokineticTrajectory.h
-    LikelihoodPharmacokineticTrajectory.cpp
-    LikelihoodPopPKTrajectory.h
-    LikelihoodPopPKTrajectory.cpp
 	TestLikelihoodBanana.h
 	TestLikelihoodBanana.cpp
 	TestLikelihoodCircular.h

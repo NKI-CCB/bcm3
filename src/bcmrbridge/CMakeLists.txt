@@ -8,8 +8,6 @@ target_sources(bcmrbridge
     interface_ODE.cpp
     interface_pharmaco_population.cpp
     interface_pharmaco_single.cpp
-    interface_PK.cpp
-    interface_popPK.cpp
     definitions.def
 )
 

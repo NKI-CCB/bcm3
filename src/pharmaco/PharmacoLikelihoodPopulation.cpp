@@ -251,7 +251,7 @@ bool PharmacoLikelihoodPopulation::EvaluateLogProbability(size_t threadix, const
 
 bool PharmacoLikelihoodPopulation::GetSimulatedTrajectory(size_t threadix, const VectorReal& values, size_t patient_ix, const VectorReal& timepoints, VectorReal& concentrations, MatrixReal& trajectory)
 {
-	if (patient_ix > patients.size()) {
+	if (patient_ix >= patients.size()) {
 		return false;
 	}
 
@@ -355,39 +355,45 @@ bool PharmacoLikelihoodPopulation::InitializePatientMarginals(std::string name, 
 
 bool PharmacoLikelihoodPopulation::LookupCache(const VectorReal& params, size_t patient_ix, Real& logp)
 {
-	buffer_spinlock.lock();
-	ptrdiff_t which_exactly_equal = -1;
-	for (ptrdiff_t hi = 0; hi < prev_parameters.size(); hi++) {
-		bool exactly_equal = true;
-		for (int i = 0; i < params.size(); i++) {
-			if (params(i) != prev_parameters[hi][patient_ix](i)) {
-				exactly_equal = false;
+	if (!prev_parameters.empty()) {
+		buffer_spinlock.lock();
+		ptrdiff_t which_exactly_equal = -1;
+		for (ptrdiff_t hi = 0; hi < prev_parameters.size(); hi++) {
+			bool exactly_equal = true;
+			for (int i = 0; i < params.size(); i++) {
+				if (params(i) != prev_parameters[hi][patient_ix](i)) {
+					exactly_equal = false;
+					break;
+				}
+			}
+			if (exactly_equal) {
+				which_exactly_equal = hi;
 				break;
 			}
 		}
-		if (exactly_equal) {
-			which_exactly_equal = hi;
-			break;
+		if (which_exactly_equal != -1) {
+			logp = prev_logp[which_exactly_equal][patient_ix];
+			buffer_spinlock.unlock();
+			return true;
+		} else {
+			buffer_spinlock.unlock();
+			return false;
 		}
-	}
-	if (which_exactly_equal != -1) {
-		logp = prev_logp[which_exactly_equal][patient_ix];
-		buffer_spinlock.unlock();
-		return true;
 	} else {
-		buffer_spinlock.unlock();
 		return false;
 	}
 }
 
 void PharmacoLikelihoodPopulation::SetCache(const VectorReal& params, size_t patient_ix, Real logp)
 {
-	buffer_spinlock.lock();
-	prev_parameters[prev_ix[patient_ix]][patient_ix] = params;
-	prev_logp[prev_ix[patient_ix]][patient_ix] = logp;
-	prev_ix[patient_ix]++;
-	if (prev_ix[patient_ix] >= prev_parameters.size()) {
-		prev_ix[patient_ix] = 0;
+	if (!prev_parameters.empty()) {
+		buffer_spinlock.lock();
+		prev_parameters[prev_ix[patient_ix]][patient_ix] = params;
+		prev_logp[prev_ix[patient_ix]][patient_ix] = logp;
+		prev_ix[patient_ix]++;
+		if (prev_ix[patient_ix] >= prev_parameters.size()) {
+			prev_ix[patient_ix] = 0;
+		}
+		buffer_spinlock.unlock();
 	}
-	buffer_spinlock.unlock();
 }

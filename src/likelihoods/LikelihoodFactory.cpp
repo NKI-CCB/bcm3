@@ -7,8 +7,6 @@
 #include "LikelihoodIncucytePopulation.h"
 #include "LikelihoodMitosisTimeEstimation.h"
 #include "LikelihoodODE.h"
-#include "LikelihoodPharmacokineticTrajectory.h"
-#include "LikelihoodPopPKTrajectory.h"
 #include "PharmacoLikelihoodPopulation.h"
 #include "PharmacoLikelihoodSingle.h"
 #include "TestLikelihoodBanana.h"
@@ -57,10 +55,6 @@ std::shared_ptr<bcm3::Likelihood> LikelihoodFactory::CreateLikelihood(std::strin
 			ll = std::make_shared< LikelihoodMitosisTimeEstimation>(sampling_threads, evaluation_threads);
 		} else if (type == "ODE") {
 			ll = std::make_shared<LikelihoodODE>(sampling_threads, evaluation_threads);
-		} else if (type == "pharmacokinetic_trajectory") {
-			ll = std::make_shared<LikelihoodPharmacokineticTrajectory>(sampling_threads, evaluation_threads);
-		} else if (type == "pop_pk_trajectory") {
-			ll = std::make_shared<LikelihoodPopPKTrajectory>(sampling_threads, evaluation_threads);
 		} else if (type == "pharmaco_single") {
 			ll = std::make_shared<PharmacoLikelihoodSingle>(sampling_threads, evaluation_threads);
 		} else if (type == "pharmaco_population") {

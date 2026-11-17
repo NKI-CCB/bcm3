@@ -113,6 +113,11 @@ bool PharmacokineticModel::Solve(const VectorReal& treatment_times, const Vector
 	ASSERT(treatment_doses.size() == treatment_times.size());
 	ASSERT(central_compartment_values.size() == observation_timepoints.size());
 
+	if (treatment_times.size() == 0) {
+		LOGWARNING("Solving pharmacokinetic model with no treatments.");
+		return true;
+	}
+
 	ConstructMatrix();
 
 	solution_timepoints = treatment_times;
@@ -128,7 +133,7 @@ bool PharmacokineticModel::Solve(const VectorReal& treatment_times, const Vector
 
 	ptrdiff_t tti = 0;
 	ptrdiff_t oti = 0;
-	Real current_t = 0;
+	Real current_t = treatment_times[0];
 	while (tti < treatment_times.size() && current_t < simulate_until) {
 		// Calculate target time for this timestep
 		Real target_t;
@@ -210,7 +215,7 @@ void PharmacokineticModel::ConstructMatrix()
 	
 	if (use_transit_compartments) {
 		A(first_transit_compartment_ix, 0) += absorption;
-		if (num_transit_compartments > 2) {
+		if (num_transit_compartments >= 2) {
 			for (size_t i = 0; i < num_transit_compartments - 1; i++) {
 				A(first_transit_compartment_ix + i,     first_transit_compartment_ix + i) -= transit_rate;
 				A(first_transit_compartment_ix + i + 1, first_transit_compartment_ix + i) += transit_rate;

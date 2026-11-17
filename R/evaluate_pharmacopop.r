@@ -75,6 +75,6 @@ bcm3.pharmacopop.get.simulated.trajectory <- function(bcm3, param.values, timepo
   ncompartments <- res[[8]]
   
   retval$central_compartment_concentrations <- res[[7]][1:nt]
-  retval$trajectories <- array(res[[5]], c(ncompartments, nt))
+  retval$trajectories <- array(res[[6]], c(ncompartments, nt))
   return(retval)
 }

@@ -45,6 +45,11 @@ bool Patient::Load(const bcm3::NetCDFDataFile& data, const std::string& trial, c
 		}
 	}
 
+	if (!result) {
+		LOGERROR("Data loading failed.");
+		return false;
+	}
+
 	std::vector<Real> times;
 	Real last_time = 696;
 	Real t = 0;
