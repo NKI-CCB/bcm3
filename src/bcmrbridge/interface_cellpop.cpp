@@ -457,6 +457,11 @@ void bcm3_rbridge_cellpop_get_matched_simulation(char** bcm3info_ptr, char** exp
 		*out_num_cells = dltc->GetNumObservedData();
 		for (int i = 0; i < *out_num_cells; i++) {
 			size_t matched_ix = dltc->GetTrajectoryMatching()[i];
+			if (matched_ix == std::numeric_limits<size_t>::max()) {
+				size_t cell_size = timepoints.size() * e->GetNumSpecies();
+				std::fill_n(out_values + i * cell_size, cell_size, std::numeric_limits<Real>::quiet_NaN());
+				continue;
+			}
 			for (size_t time_i = 0; time_i < timepoints.size(); time_i++) {
 				const VectorReal& x = e->GetSimulatedTrajectory(matched_ix, time_i);
 				for (size_t j = 0; j < e->GetNumSpecies(); j++) {

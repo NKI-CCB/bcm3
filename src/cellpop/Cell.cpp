@@ -41,13 +41,13 @@ Cell::Cell(const SBMLModel* model, const Experiment* experiment)
 	cell_specific_transformed_variables.setConstant(experiment->GetVarset()->GetNumVariables(), std::numeric_limits<Real>::quiet_NaN());
 	cell_specific_non_sampled_transformed_variables.setConstant(experiment->non_sampled_parameters.size(), std::numeric_limits<Real>::quiet_NaN());
 
-	DNA_replication_ix = model->GetSimulatedSpeciesByName("replicating_DNA", false);
-	DNA_replicated_ix = model->GetSimulatedSpeciesByName("replicated_DNA", false);
-	PCNA_gfp_ix = model->GetSimulatedSpeciesByName("PCNA_gfp", false);
-	nuclear_envelope_ix = model->GetSimulatedSpeciesByName("nuclear_envelope", false);
-	chromatid_separation_ix = model->GetSimulatedSpeciesByName("chromatid_separation", false);
-	cytokinesis_ix = model->GetSimulatedSpeciesByName("cytokinesis", false);
-	apoptosis_ix = model->GetSimulatedSpeciesByName("apoptosis", false);
+	DNA_replication_ix = model->GetODEIntegratedSpeciesByName("replicating_DNA", false);
+	DNA_replicated_ix = model->GetODEIntegratedSpeciesByName("replicated_DNA", false);
+	PCNA_gfp_ix = model->GetODEIntegratedSpeciesByName("PCNA_gfp", false);
+	nuclear_envelope_ix = model->GetODEIntegratedSpeciesByName("nuclear_envelope", false);
+	chromatid_separation_ix = model->GetODEIntegratedSpeciesByName("chromatid_separation", false);
+	cytokinesis_ix = model->GetODEIntegratedSpeciesByName("cytokinesis", false);
+	apoptosis_ix = model->GetODEIntegratedSpeciesByName("apoptosis", false);
 }
 
 Cell::~Cell()
@@ -338,24 +338,30 @@ Real Cell::GetInterpolatedSpeciesValue(Real time, size_t species_ix, ESynchroniz
 	} else {
 		SetTreatmentConcentration(cell_time);
 
-		if (store_integration_points) {
-			// Integration time points were stored, use them to interpolate
-			return solver->GetInterpolatedY(cell_time, species_ix);
-		} else {
-			// Exact timepoints should be available in the solver output
-			for (int i = 0; i < solver_stored_timepoints.size(); i++) {
-				if (solver_stored_timepoints(i) == cell_time) {
-					size_t constant_species_ix = species_ix - model->GetNumODEIntegratedSpecies();
-					size_t simulated_species_ix = model->GetSimulatedSpeciesFromConstantSpecies(constant_species_ix);
-					const SBMLAssignmentRule* assignment_rule = model->GetAssignmentRuleForSimulatedSpecies(simulated_species_ix);
-					if (assignment_rule) {
-						OdeReal value;
-						assignment_rule->Calculate(solver_output.col(i).data(), constant_species_y.data(), cell_specific_transformed_variables.data(), cell_specific_non_sampled_transformed_variables.data(), &value);
-						return (Real)value;
+		size_t constant_species_ix = species_ix - model->GetNumODEIntegratedSpecies();
+		size_t simulated_species_ix = model->GetSimulatedSpeciesFromConstantSpecies(constant_species_ix);
+		const SBMLAssignmentRule* assignment_rule = model->GetAssignmentRuleForSimulatedSpecies(simulated_species_ix);
+		if (assignment_rule) {
+			const OdeReal* state = nullptr;
+			if (store_integration_points) {
+				state = solver->GetInterpolatedY(cell_time).data();
+			} else {
+				for (int i = 0; i < solver_stored_timepoints.size(); i++) {
+					if (solver_stored_timepoints(i) == cell_time) {
+						state = solver_output.col(i).data();
+						break;
 					}
 				}
 			}
-			return std::numeric_limits<Real>::quiet_NaN();
+			if (state) {
+				OdeReal value;
+				assignment_rule->Calculate(state, constant_species_y.data(), cell_specific_transformed_variables.data(), cell_specific_non_sampled_transformed_variables.data(), &value);
+				return (Real)value;
+			} else {
+				return std::numeric_limits<Real>::quiet_NaN();
+			}
+		} else {
+			return constant_species_y(constant_species_ix);
 		}
 	}
 }

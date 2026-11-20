@@ -147,7 +147,7 @@ bool DataLikelihoodTimeCoursePopulationAverage::Evaluate(const VectorReal& value
 		} else {
 			for (int j = 0; j < observed_data.rows(); j++) {
 				if (!std::isnan(observed_data(j, i))) {
-					logp += EvaluateValue(observed_data(j, i), x, 0);
+					logp += EvaluateValue(x, observed_data(j, i), 0);
 				}
 			}
 		}

@@ -174,7 +174,7 @@ bool Experiment::PostInitialize()
 		synchronization_time_offset_varix = varset->GetVariableIndex(synchronization_time_offset_varname, false);
 		if (synchronization_time_offset_varix == std::numeric_limits<size_t>::max()) {
 			try {
-				fixed_entry_time = boost::lexical_cast<Real>(synchronization_time_offset_varname);
+				fixed_synchronization_time_offset = boost::lexical_cast<Real>(synchronization_time_offset_varname);
 			} catch (const boost::bad_lexical_cast& e) {
 				LOGERROR("Synchronization time offset was specified as \"%s\", but could not find variable and also could not cast it to a constant real value: %s", synchronization_time_offset_varname.c_str(), e.what());
 				return false;

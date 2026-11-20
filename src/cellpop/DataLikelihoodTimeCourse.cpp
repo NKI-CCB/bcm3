@@ -184,7 +184,7 @@ bool DataLikelihoodTimeCourse::Load(const boost::property_tree::ptree& xml_node,
 
 	cell_trajectories.resize(experiment->GetMaxNumberOfCells(), MatrixReal::Constant(timepoints.size(), species_names.size(), std::numeric_limits<Real>::quiet_NaN()));
 	matched_trajectories.resize(observed_data.size(), MatrixReal::Constant(observed_data[0].rows(), observed_data[0].cols(), std::numeric_limits<Real>::quiet_NaN()));
-	trajectory_matching.resize(cell_trajectories.size());
+	trajectory_matching.resize(observed_data.size(), std::numeric_limits<size_t>::max());
 
 	result &= RequestSimulationInfo(experiment, synchronize);
 
@@ -222,6 +222,7 @@ void DataLikelihoodTimeCourse::Reset()
 	for (size_t i = 0; i < observed_data.size(); i++) {
 		matched_trajectories[i].setConstant(std::numeric_limits<Real>::quiet_NaN());
 	}
+	std::fill(trajectory_matching.begin(), trajectory_matching.end(), std::numeric_limits<size_t>::max());
 	simulated_cell_parents.clear();
 	simulated_cell_children.clear();
 }
@@ -259,13 +260,13 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 	MatrixReal cell_likelihoods(n, n);
 	cell_likelihoods.setZero();
 
-	std::vector< std::vector< std::vector<int> > > matched_hierarchies;
+	std::vector< std::vector< std::vector<size_t> > > matched_hierarchies;
 	if (!observed_children.empty()) {
 		matched_hierarchies.resize(observed_cells_with_no_parents.size());
 		for (size_t i = 0; i < observed_cells_with_no_parents.size(); i++) {
 			matched_hierarchies[i].resize(simulated_cell_parents.size());
 			for (size_t j = 0; j < simulated_cell_parents.size(); j++) {
-				matched_hierarchies[i][j].resize(cell_trajectories.size());
+				matched_hierarchies[i][j].resize(observed_data.size(), std::numeric_limits<size_t>::max());
 			}
 		}
 	}
@@ -324,25 +325,14 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 			} else {
 				logp += cell_likelihoods(i, j);
 
-				size_t oi = observed_cells_with_no_parents[i];
-
-				if (optimize_offset_scale) {
-					for (int l = 0; l < species_names.size(); l++) {
-						Real offset = 0.0, scale = 1.0;
-						OptimizeOffsetScale(observed_data[oi], cell_trajectories[j], l, offset, scale);
-						matched_trajectories[oi].col(l).array() = offset + scale * cell_trajectories[j].col(l).array();
-					}
+				if (observed_children.empty()) {
+					trajectory_matching[observed_cells_with_no_parents[i]] = j;
 				} else {
-					matched_trajectories[oi] = cell_trajectories[j];
-				}
-
-				trajectory_matching[oi] = j;
-
-				if (!observed_children.empty()) {
-					for (auto ci = observed_children[oi].begin(); ci != observed_children[oi].end(); ci++) {
-						size_t child = matched_hierarchies[i][j][*ci];
-						matched_trajectories[*ci] = cell_trajectories[child];
-						trajectory_matching[*ci] = child;
+					const auto& hierarchy = matched_hierarchies[i][j];
+					for (size_t oi = 0; oi < hierarchy.size(); oi++) {
+						if (hierarchy[oi] != std::numeric_limits<size_t>::max()) {
+							trajectory_matching[oi] = hierarchy[oi];
+						}
 					}
 				}
 			}
@@ -350,6 +340,22 @@ bool DataLikelihoodTimeCourse::Evaluate(const VectorReal& values, const VectorRe
 	} else {
 		logp = -std::numeric_limits<Real>::infinity();
 		return true;
+	}
+
+	for (size_t oi = 0; oi < trajectory_matching.size(); oi++) {
+		size_t j = trajectory_matching[oi];
+		if (j == std::numeric_limits<size_t>::max()) {
+			continue;
+		}
+		if (optimize_offset_scale) {
+			for (int l = 0; l < species_names.size(); l++) {
+				Real offset = 0.0, scale = 1.0;
+				OptimizeOffsetScale(observed_data[oi], cell_trajectories[j], l, offset, scale);
+				matched_trajectories[oi].col(l).array() = offset + scale * cell_trajectories[j].col(l).array();
+			}
+		} else {
+			matched_trajectories[oi] = cell_trajectories[j];
+		}
 	}
 
 	logp *= weight;
@@ -421,16 +427,19 @@ void DataLikelihoodTimeCourse::NotifyParents(size_t parent, size_t child)
 	}
 }
 
-Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, size_t simulated_cell_ix, const std::vector<Real>& stdevs, const std::vector<Real>& proportional_stdevs, Real missing_simulation_time_stdev, std::vector<int>* matched_hierarchy)
+Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, size_t simulated_cell_ix, const std::vector<Real>& stdevs, const std::vector<Real>& proportional_stdevs, Real missing_simulation_time_stdev, std::vector<size_t>* matched_hierarchy)
 {
 	Real cell_logp = 0.0;
+	if (matched_hierarchy) {
+		(*matched_hierarchy)[observed_cell_ix] = simulated_cell_ix;
+	}
 
 	if (simulated_cell_ix == std::numeric_limits<size_t>::max()) {
 		// Apparently the simulated cell did not divide, but we do have observed data, so
 		// accumulate missing simulation penalties for every data point, including further recursion
 		for (int l = 0; l < species_names.size(); l++) {
 			for (int k = 0; k < timepoints.size(); k++) {
-				Real y = observed_data[observed_cell_ix](k);
+				Real y = observed_data[observed_cell_ix](k, l);
 				if (!std::isnan(y)) {
 					cell_logp += CalculateMissingValueLikelihood(simulated_cell_ix, k, l, missing_simulation_time_stdev);
 				}
@@ -492,62 +501,30 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 		// Simulation does not have multipolar division, so only need to consider two simulated children, if any
 		if (!observed_children.empty() && !observed_children[observed_cell_ix].empty()) {
 			if (simulated_cell_ix < simulated_cell_children.size() && simulated_cell_children[simulated_cell_ix].first != std::numeric_limits<size_t>::max()) {
-				std::pair<size_t, size_t> simulated_children = simulated_cell_children[simulated_cell_ix];
-				MatrixReal children_matching(2, observed_children[observed_cell_ix].size());
-				//std::vector< std::vector<double> > children_matching(2, std::vector<double>(observed_children[observed_cell_ix].size()));
-				size_t cii = 0;
-				size_t finite_count1 = 0, finite_count2 = 0;
-				for (std::set<size_t>::const_iterator ci = observed_children[observed_cell_ix].begin(); ci != observed_children[observed_cell_ix].end(); ++ci, ++cii) {
-					children_matching(0, cii) = CalculateCellLikelihood(*ci, simulated_children.first, stdevs, proportional_stdevs, missing_simulation_time_stdev, matched_hierarchy);
-					children_matching(1, cii) = CalculateCellLikelihood(*ci, simulated_children.second, stdevs, proportional_stdevs, missing_simulation_time_stdev, matched_hierarchy);
-
-					if (children_matching(0, cii) > -std::numeric_limits<Real>::infinity()) {
-						finite_count1++;
-					}
-					if (children_matching(1, cii) > -std::numeric_limits<Real>::infinity()) {
-						finite_count2++;
-					}
-				}
-
-				if (finite_count1 == 0 || finite_count2 == 0) {
+				const auto& children = observed_children[observed_cell_ix];
+				if (children.size() > 2) {
 					return -std::numeric_limits<Real>::infinity();
 				}
 
-				if (observed_children[observed_cell_ix].size() == 1) {
-					if (children_matching(0, 0) > children_matching(1, 0)) {
-						cell_logp += children_matching(0, 0);
-						matched_hierarchy->at(*observed_children[observed_cell_ix].begin()) = simulated_children.first;
-					} else {
-						cell_logp += children_matching(1, 0);
-						matched_hierarchy->at(*observed_children[observed_cell_ix].begin()) = simulated_children.second;
-					}
+				// Keep the two assignments separate so recursive matches follow the winning scores.
+				const auto& simulated_children = simulated_cell_children[simulated_cell_ix];
+				auto child = children.begin();
+				std::vector<size_t> swapped_hierarchy = *matched_hierarchy;
+				Real direct = CalculateCellLikelihood(*child, simulated_children.first, stdevs, proportional_stdevs, missing_simulation_time_stdev, matched_hierarchy);
+				Real swapped = CalculateCellLikelihood(*child, simulated_children.second, stdevs, proportional_stdevs, missing_simulation_time_stdev, &swapped_hierarchy);
+				if (++child != children.end()) {
+					direct += CalculateCellLikelihood(*child, simulated_children.second, stdevs, proportional_stdevs, missing_simulation_time_stdev, matched_hierarchy);
+					swapped += CalculateCellLikelihood(*child, simulated_children.first, stdevs, proportional_stdevs, missing_simulation_time_stdev, &swapped_hierarchy);
+				}
+				if (swapped > direct) {
+					*matched_hierarchy = std::move(swapped_hierarchy);
+					cell_logp += swapped;
 				} else {
-#if TODO
-					MatrixReal matching;
-					if (!HungarianMatching(children_matching, matching, HUNGARIAN_MATCH_MAX)) {
-						//LOGERROR("Could not find matching");
-						//std::cout << children_matching << std::endl;
-						//std::cout << matching << std::endl;
-						return -std::numeric_limits<Real>::infinity();
-					}
-					std::set<size_t>::const_iterator ci = observed_children[observed_cell_ix].begin();
-					for (int i = 0; i < matching.rows(); i++, ci++) {
-						for (int j = 0; j < matching.cols(); j++) {
-							if (matching(i, j) == 1) {
-								cell_logp += children_matching(i, j);
-								if (j == 0) {
-									matched_hierarchy[*ci] = simulated_children.first;
-								} else {
-									matched_hierarchy[*ci] = simulated_children.second;
-								}
-							}
-						}
-					}
-#endif
+					cell_logp += direct;
 				}
 			} else {
 				for (std::set<size_t>::const_iterator ci = observed_children[observed_cell_ix].begin(); ci != observed_children[observed_cell_ix].end(); ++ci) {
-					cell_logp = CalculateCellLikelihood(*ci, std::numeric_limits<size_t>::max(), stdevs, proportional_stdevs, missing_simulation_time_stdev, matched_hierarchy);
+					cell_logp += CalculateCellLikelihood(*ci, std::numeric_limits<size_t>::max(), stdevs, proportional_stdevs, missing_simulation_time_stdev, matched_hierarchy);
 				}
 			}
 		}
