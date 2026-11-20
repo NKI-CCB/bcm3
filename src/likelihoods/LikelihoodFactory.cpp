@@ -100,7 +100,6 @@ void LikelihoodFactory::AddOptionsDescription(boost::program_options::options_de
 	CellPopulationLikelihood::AddOptionsDescription(pod);
 #endif
 	LikelihoodCellCycleMarker::AddOptionsDescription(pod);
-	LikelihoodPharmacokineticTrajectory::AddOptionsDescription(pod);
 	PharmacoLikelihoodSingle::AddOptionsDescription(pod);
 }
 
