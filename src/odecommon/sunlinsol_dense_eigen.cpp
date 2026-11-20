@@ -19,6 +19,9 @@ inline PartialPivLUExtended<OdeMatrixReal>& EIGSOL(SUNLinearSolver S) {
 inline Eigen::Matrix3<OdeReal>& INVERSE(SUNLinearSolver S) {
 	return reinterpret_cast<SUNLinearSolverContent_Dense_Eigen>(S->content)->inverse;
 }
+inline int& LASTFLAG(SUNLinearSolver S) {
+	return reinterpret_cast<SUNLinearSolverContent_Dense_Eigen>(S->content)->last_flag;
+}
 
 /* ----------------------------------------------------------------------------
  * Function to create a new dense linear solver
@@ -104,8 +107,9 @@ int SUNLinSolSetup_Dense_Eigen(SUNLinearSolver S, SUNMatrix A)
 	}
 	
 	EIGSOL(S).compute_optimized(EIGMAT(A));
-
-	return(SUNLS_SUCCESS);
+	const auto pivots = EIGSOL(S).matrixLU().diagonal();
+	LASTFLAG(S) = pivots.allFinite() && (pivots.array() != 0).all() ? SUNLS_SUCCESS : SUNLS_LUFACT_FAIL;
+	return LASTFLAG(S);
 }
 
 int SUNLinSolSetup_Dense_Eigen2x2(SUNLinearSolver S, SUNMatrix A)
@@ -119,13 +123,18 @@ int SUNLinSolSetup_Dense_Eigen2x2(SUNLinearSolver S, SUNMatrix A)
 		return(SUNLS_ILL_INPUT);
 	}
 
-	OdeReal invdet = (OdeReal)1.0 / (SM_ELEMENT_D(A, 0, 0) * SM_ELEMENT_D(A, 1, 1) - SM_ELEMENT_D(A, 0, 1) * SM_ELEMENT_D(A, 1, 0));
+	OdeReal det = SM_ELEMENT_D(A, 0, 0) * SM_ELEMENT_D(A, 1, 1) - SM_ELEMENT_D(A, 0, 1) * SM_ELEMENT_D(A, 1, 0);
+	if (det == 0 || !std::isfinite(det)) {
+		return LASTFLAG(S) = SUNLS_LUFACT_FAIL;
+	}
+	OdeReal invdet = (OdeReal)1.0 / det;
 	INVERSE(S)(0, 0) = SM_ELEMENT_D(A, 1, 1) * invdet;
 	INVERSE(S)(0, 1) = -SM_ELEMENT_D(A, 0, 1) * invdet;
 	INVERSE(S)(1, 0) = -SM_ELEMENT_D(A, 1, 0) * invdet;
 	INVERSE(S)(1, 1) = SM_ELEMENT_D(A, 0, 0) * invdet;
 
-	return(SUNLS_SUCCESS);
+	LASTFLAG(S) = INVERSE(S).topLeftCorner<2, 2>().allFinite() ? SUNLS_SUCCESS : SUNLS_LUFACT_FAIL;
+	return LASTFLAG(S);
 }
 
 int SUNLinSolSetup_Dense_Eigen3x3(SUNLinearSolver S, SUNMatrix A)
@@ -139,9 +148,12 @@ int SUNLinSolSetup_Dense_Eigen3x3(SUNLinearSolver S, SUNMatrix A)
 		return(SUNLS_ILL_INPUT);
 	}
 
-	Eigen::internal::compute_inverse<OdeMatrixReal, Eigen::Matrix3<OdeReal>, 3>::run(EIGMAT(A), INVERSE(S));
-
-	return(SUNLS_SUCCESS);
+	const Eigen::Matrix3<OdeReal> matrix = EIGMAT(A);
+	OdeReal det;
+	bool invertible;
+	matrix.computeInverseAndDetWithCheck(INVERSE(S), det, invertible, 0);
+	LASTFLAG(S) = invertible && std::isfinite(det) && INVERSE(S).allFinite() ? SUNLS_SUCCESS : SUNLS_LUFACT_FAIL;
+	return LASTFLAG(S);
 }
 
 int SUNLinSolSolve_Dense_Eigen(SUNLinearSolver S, SUNMatrix A, N_Vector x,
@@ -149,6 +161,8 @@ int SUNLinSolSolve_Dense_Eigen(SUNLinearSolver S, SUNMatrix A, N_Vector x,
 {
 	if ( (A == NULL) || (S == NULL) || (x == NULL) || (b == NULL) )
 		return(SUNLS_MEM_NULL);
+	if (LASTFLAG(S) != SUNLS_SUCCESS)
+		return LASTFLAG(S);
 
 	EIGV(x).noalias() = EIGSOL(S).solve(EIGV(b));
 
@@ -160,6 +174,8 @@ int SUNLinSolSolve_Dense_Eigen2x2(SUNLinearSolver S, SUNMatrix A, N_Vector x,
 {
 	if ((A == NULL) || (S == NULL) || (x == NULL) || (b == NULL))
 		return(SUNLS_MEM_NULL);
+	if (LASTFLAG(S) != SUNLS_SUCCESS)
+		return LASTFLAG(S);
 
 	NV_Ith_S(x, 0) = INVERSE(S)(0, 0) * NV_Ith_S(b, 0) + INVERSE(S)(0, 1) * NV_Ith_S(b, 1);
 	NV_Ith_S(x, 1) = INVERSE(S)(1, 0) * NV_Ith_S(b, 0) + INVERSE(S)(1, 1) * NV_Ith_S(b, 1);
@@ -172,16 +188,18 @@ int SUNLinSolSolve_Dense_Eigen3x3(SUNLinearSolver S, SUNMatrix A, N_Vector x,
 {
 	if ((A == NULL) || (S == NULL) || (x == NULL) || (b == NULL))
 		return(SUNLS_MEM_NULL);
+	if (LASTFLAG(S) != SUNLS_SUCCESS)
+		return LASTFLAG(S);
 
 	EIGV(x).noalias() = INVERSE(S) * EIGV(b);
-	return(SUNLS_SUCCESS);
+	return SUNLS_SUCCESS;
 }
 
 sunindextype SUNLinSolLastFlag_Dense_Eigen(SUNLinearSolver S)
 {
 	/* return the stored 'last_flag' value */
 	if (S == NULL) return(-1);
-	return(SUNLS_SUCCESS);
+	return LASTFLAG(S);
 }
 
 int SUNLinSolSpace_Dense_Eigen(SUNLinearSolver S,

@@ -29,7 +29,6 @@ CVODESolverDelay::CVODESolverDelay()
 	, interpolate_y(NULL)
 	, J(NULL)
 	, user_data(NULL)
-	, history_duration(std::numeric_limits<Real>::infinity())
 	, max_steps(2000)
 	, debug_log(false)
 {
@@ -37,6 +36,9 @@ CVODESolverDelay::CVODESolverDelay()
 
 CVODESolverDelay::~CVODESolverDelay()
 {
+	if (cvode_mem) {
+		CVodeFree(&cvode_mem);
+	}
 	if (y) {
 		N_VDestroy(y);
 	}
@@ -49,21 +51,31 @@ CVODESolverDelay::~CVODESolverDelay()
 	if (LS) {
 		SUNLinSolFree(LS);
 	}
-	if (cvode_mem) {
-		CVodeFree(&cvode_mem);
+	if (J) {
+		SUNMatDestroy(J);
 	}
 }
 
 bool CVODESolverDelay::Initialize(size_t N, void* user)
 {
-	if (N > std::numeric_limits<long>::max()) {
-		LOGERROR("System too large");
+	if (N == 0 || N > std::numeric_limits<long>::max() || y || interpolate_y) {
+		LOGERROR("Invalid system size or delay solver already initialized.");
 		return false;
 	}
+#if CVODE_USE_EIGEN_SOLVER
+	if (!jacobian) {
+		LOGERROR("The Eigen CVODE delay solver requires a Jacobian callback.");
+		return false;
+	}
+#endif
 	this->N = N;
 
 	y = MakeCVodeVector(N);
 	interpolate_y = MakeCVodeVector(N);
+	if (!y || !interpolate_y) {
+		LOGERROR("Could not allocate CVODE delay vectors.");
+		return false;
+	}
 
 	cvode_mem = CVodeCreate(CV_BDF);
 	//cvode_mem = CVodeCreate(CV_ADAMS);
@@ -74,26 +86,78 @@ bool CVODESolverDelay::Initialize(size_t N, void* user)
 
 	user_data = user;
 
-	CVodeInit(cvode_mem, &static_cvode_rhs_fn, 0.0, (N_Vector)y);
-	CVodeSetUserData(cvode_mem, this);
-	CVodeSStolerances(cvode_mem, (OdeReal)1e-6, (OdeReal)1e-6);
-	CVodeSetMaxNumSteps(cvode_mem, 500);
-	CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
+	int result = CVodeInit(cvode_mem, &static_cvode_rhs_fn, 0.0, y);
+	if (result != CV_SUCCESS) {
+		LOGERROR("CVodeInit failed (%d).", result);
+		return false;
+	}
+
+	result = CVodeSetUserData(cvode_mem, this);
+	if (result != CV_SUCCESS) {
+		LOGERROR("CVodeSetUserData failed (%d).", result);
+		return false;
+	}
+
+	result = CVodeSStolerances(cvode_mem, (OdeReal)1e-6, (OdeReal)1e-6);
+	if (result != CV_SUCCESS) {
+		LOGERROR("CVodeSStolerances failed (%d).", result);
+		return false;
+	}
+
+	result = CVodeSetMaxNumSteps(cvode_mem, 500);
+	if (result != CV_SUCCESS) {
+		LOGERROR("CVodeSetMaxNumSteps failed (%d).", result);
+		return false;
+	}
+
+	result = CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
+	if (result != CV_SUCCESS) {
+		LOGERROR("CVodeSetErrHandlerFn failed (%d).", result);
+		return false;
+	}
 
 	J = MakeCVodeMatrix(N, N);
-	LS = MakeCVodeLinearSolver(y, J);
-	CVodeSetLinearSolver(cvode_mem, LS, J);
+	if (!J) {
+		LOGERROR("Could not allocate the CVODE Jacobian matrix.");
+		return false;
+	}
 
-	//FILE* infofp = fopen("cvode_monitor.txt", "w+");
+	LS = MakeCVodeLinearSolver(y, J);
+	if (!LS) {
+		LOGERROR("Could not create the CVODE linear solver.");
+		return false;
+	}
 
 	NLS = SUNNonlinSol_Newton(y);
-	//SUNNonlinSolSetPrintLevel_Newton(NLS, 1);
-	//SUNNonlinSolSetInfoFile_Newton(NLS, infofp);
-	CVodeSetNonlinearSolver(cvode_mem, NLS);
+	if (!NLS) {
+		LOGERROR("SUNNonlinSol_Newton failed.");
+		return false;
+	}
+
+	result = CVodeSetLinearSolver(cvode_mem, LS, J);
+	if (result != CVLS_SUCCESS) {
+		LOGERROR("CVodeSetLinearSolver failed (%d).", result);
+		return false;
+	}
+
+	result = CVodeSetNonlinearSolver(cvode_mem, NLS);
+	if (result != CV_SUCCESS) {
+		LOGERROR("CVodeSetNonlinearSolver failed (%d).", result);
+		return false;
+	}
 
 	if (jacobian) {
-		CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
-		CVodeSetMaxStepsBetweenJac(cvode_mem, 10);
+		result = CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
+		if (result != CVLS_SUCCESS) {
+			LOGERROR("CVodeSetJacFn failed (%d).", result);
+			return false;
+		}
+
+		result = CVodeSetMaxStepsBetweenJac(cvode_mem, 10);
+		if (result != CVLS_SUCCESS) {
+			LOGERROR("CVodeSetMaxStepsBetweenJac failed (%d).", result);
+			return false;
+		}
 	}
 
 	return true;
@@ -101,33 +165,30 @@ bool CVODESolverDelay::Initialize(size_t N, void* user)
 
 bool CVODESolverDelay::SetTolerance(OdeReal relative, OdeReal absolute)
 {
-	CVodeSStolerances(cvode_mem, relative, absolute);
-	return true;
+	return cvode_mem && CVodeSStolerances(cvode_mem, relative, absolute) == CV_SUCCESS;
 }
 
 bool CVODESolverDelay::SetTolerance(OdeReal relative, OdeVectorReal absolute)
 {
-	if (absolute.size() != N) {
+	if (!cvode_mem || absolute.size() != N) {
 		return false;
 	}
 
 	N_Vector abstol = MakeCVodeVector(N);
+	if (!abstol) {
+		return false;
+	}
 	for (size_t i = 0; i < N; i++) {
 		NV_Ith_S(abstol,i) = absolute(i);
 	}
-	CVodeSVtolerances(cvode_mem, relative, abstol);
+	int result = CVodeSVtolerances(cvode_mem, relative, abstol);
 	N_VDestroy(abstol);
-	return true;
+	return result == CV_SUCCESS;
 }
 
 void CVODESolverDelay::SetUserData(void* user)
 {
 	user_data = user;
-}
-
-void CVODESolverDelay::SetKeepHistory(OdeReal duration)
-{
-	history_duration = duration;
 }
 
 void CVODESolverDelay::SetDerivativeFunction(TDeriviativeFunction f)
@@ -163,12 +224,14 @@ bool CVODESolverDelay::Simulate(const OdeReal* initial_conditions, const OdeVect
 		NV_Ith_S(y,i) = (OdeReal)initial_conditions[i];
 	}
 
-	CVodeReInit(cvode_mem, 0.0, (N_Vector)y);
-	output.setZero(N, timepoints.size());
+	if (CVodeReInit(cvode_mem, 0.0, y) != CV_SUCCESS) {
+		return false;
+	}
+	output.setConstant(N, timepoints.size(), std::numeric_limits<OdeReal>::quiet_NaN());
 
-	// If the first time point is at t=0, copy the initial conditions to the output
+	// Copy the initial conditions to any requested time points at t=0.
 	size_t tpi = 0;
-	if (timepoints[tpi] == 0.0) {
+	while (tpi < timepoints.size() && timepoints[tpi] == 0.0) {
 		for (size_t i = 0; i < N; i++) {
 			output(i, tpi) = NV_Ith_S(y, i);
 		}
@@ -184,8 +247,11 @@ bool CVODESolverDelay::Simulate(const OdeReal* initial_conditions, const OdeVect
 	}
 
 	current_dci = 0;
-	if (discontinuities_t.size() > 0) {
-		CVodeSetStopTime(cvode_mem, (OdeReal)discontinuities_t[current_dci]);
+	if (tpi == timepoints.size()) {
+		return true;
+	}
+	if (discontinuities_t.size() > 0 && CVodeSetStopTime(cvode_mem, discontinuities_t[current_dci]) != CV_SUCCESS) {
+		return false;
 	}
 
 	// Simulate the system one step at a time
@@ -223,10 +289,12 @@ bool CVODESolverDelay::Simulate(const OdeReal* initial_conditions, const OdeVect
 			}
 
 			// Restart cvode
-			CVodeReInit(cvode_mem, tret, (N_Vector)y);
+			if (CVodeReInit(cvode_mem, tret, y) != CV_SUCCESS) {
+				return false;
+			}
 			current_dci++;
-			if (current_dci < (size_t)discontinuities_t.size()) {
-				CVodeSetStopTime(cvode_mem, (OdeReal)discontinuities_t[current_dci]);
+			if (current_dci < discontinuities_t.size() && CVodeSetStopTime(cvode_mem, discontinuities_t[current_dci]) != CV_SUCCESS) {
+				return false;
 			}
 		} else if (result != CV_SUCCESS) {
 #if 0
@@ -235,11 +303,6 @@ bool CVODESolverDelay::Simulate(const OdeReal* initial_conditions, const OdeVect
 				LOGERROR( "%u - %g", i, NV_EIGEN_Ith(y, i));
 			}
 #endif
-			for (size_t j = tpi; j < (size_t)timepoints.size(); j++) {
-				for (size_t i = 0; i < N; i++) {
-					output(i, tpi) = std::numeric_limits<Real>::quiet_NaN();
-				}
-			}
 			return false;
 		} else {
 			// If we pass a timepoint, interpolate back to that timepoint

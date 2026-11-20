@@ -380,7 +380,7 @@ realtype N_VDotProd_Eigen(N_Vector x, N_Vector y)
 
 realtype N_VMaxNorm_Eigen(N_Vector x)
 {
-	return EIGV(x).maxCoeff();
+	return NV_LENGTH_S(x) == 0 ? ZERO : EIGV(x).cwiseAbs().maxCoeff();
 }
 
 realtype N_VWrmsNorm_Eigen(N_Vector x, N_Vector w)
@@ -725,7 +725,7 @@ int N_VWrmsNormVectorArray_Eigen(int nvec, N_Vector* X, N_Vector* W,
 
 	/* compute the WRMS norm for each vector in the vector array */
 	for (int i = 0; i < nvec; i++) {
-		nrm[i] = (EIGV(X[i]) * EIGV(W[i])).norm();
+		nrm[i] = N_VWrmsNorm_Eigen(X[i], W[i]);
 	}
 
 	return(0);

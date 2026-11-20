@@ -2,11 +2,14 @@
 #include "ODESolver.h"
 
 ODESolver::ODESolver()
-	: user_data(nullptr)
-	, N(0)
+	: N(0)
+	, user_data(nullptr)
 	, next_discontinuity_time(std::numeric_limits<OdeReal>::quiet_NaN())
 	, discontinuity_user(nullptr)
 	, relative_tolerance(std::numeric_limits<OdeReal>::quiet_NaN())
+	, interpolation_timepoints_start(0)
+	, interpolation_timepoints(nullptr)
+	, interpolated_output(nullptr)
 	, num_steps_used(0)
 	, min_used_step_size(std::numeric_limits<OdeReal>::quiet_NaN())
 {
@@ -108,22 +111,22 @@ bool ODESolver::SolveReturnSolution(const OdeVectorReal& initial_conditions, con
 	num_steps_used = 0;
 	min_used_step_size = std::numeric_limits<OdeReal>::quiet_NaN();
 
-	output->resize(N, timepoints->size());
+	output->setConstant(N, timepoints->size(), std::numeric_limits<OdeReal>::quiet_NaN());
 
 	size_t ti = 0;
-	while ((*timepoints)(ti) < std::numeric_limits<OdeReal>::epsilon()) {
+	while (ti < timepoints->size() && (*timepoints)(ti) < std::numeric_limits<OdeReal>::epsilon()) {
 		for (size_t i = 0; i < N; i++) {
 			(*output)(i, ti) = initial_conditions[i];
 		}
 		ti++;
-		if (ti == timepoints->size()) {
-			return true;
-		}
 	}
 
 	OdeReal ode_real_end_time = (*timepoints)[timepoints->size() - 1];
 	if (!std::isnan(end_time)) {
 		ode_real_end_time = std::max(ode_real_end_time, (OdeReal)end_time);
+	}
+	if (ti == timepoints->size() && ode_real_end_time < std::numeric_limits<OdeReal>::epsilon()) {
+		return true;
 	}
 
 	interpolation_timepoints_start = ti;

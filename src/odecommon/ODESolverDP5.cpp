@@ -114,10 +114,6 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 		LOGERROR("DP5 does not support storing integration points.");
 		return false;
 	}
-	
-	if (do_interpolation) {
-		interpolated_output->setConstant(N, interpolation_timepoints->size(), std::numeric_limits<OdeReal>::quiet_NaN());
-	}
 
 	OdeReal t = 0.0;
 	OdeReal dt = std::min(max_dt, init_dt);
@@ -143,7 +139,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 		if (std::isnan(next_discontinuity_time)) {
 			cur_dt = dt;
 		} else {
-			if (next_discontinuity_time < t + dt) {
+			if (next_discontinuity_time <= t + dt) {
 				cur_dt = next_discontinuity_time - t;
 				approaching_discontinuity = true;
 			} else {
@@ -168,7 +164,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 
 			// From Hairer I; section II.4, p167
 			if (maxdiff > 1.1) {
-				if (cur_dt == min_dt) {
+				if (cur_dt <= min_dt) {
 					LOG("Time step adaptation decreases time step below minimum time step.");
 					break;
 				} else {
@@ -216,7 +212,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 		// Interpolate any timepoints we may have passed
 		OdeReal target_t = t + cur_dt;
 		if (do_interpolation) {
-			while (target_t >= (*interpolation_timepoints)(ti)) {
+			while (ti < interpolation_timepoints->size() && target_t >= (*interpolation_timepoints)(ti)) {
 				OdeReal theta = ((*interpolation_timepoints)(ti) - t) / cur_dt;
 				if (theta >= 1.0) { // theta should not be bigger than 1.0; if it is than it should be only a rounding error
 					for (size_t i = 0; i < N; i++) {
@@ -240,13 +236,6 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 					}
 				}
 				ti++;
-				if (ti == interpolation_timepoints->size()) {
-					break;
-				}
-			}
-			if (ti == interpolation_timepoints->size()) {
-				// All done; no need to finish the step
-				break;
 			}
 		}
 
@@ -271,7 +260,7 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 				num_steps_used = steps + 1;
 				return false;
 			}
-			next_dt = 1.0;
+			next_dt = std::min(max_dt, init_dt);
 
 			steps = 0;
 		} else {

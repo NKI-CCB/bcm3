@@ -14,12 +14,13 @@ public:
 
 	CVODESolverDelay();
 	~CVODESolverDelay();
+	CVODESolverDelay(const CVODESolverDelay&) = delete;
+	CVODESolverDelay& operator=(const CVODESolverDelay&) = delete;
 
 	bool Initialize(size_t N, void* user);
 	bool SetTolerance(OdeReal relative, OdeReal absolute);
 	bool SetTolerance(OdeReal relative, OdeVectorReal absolute);
 	void SetUserData(void* user);
-	void SetKeepHistory(OdeReal duration);
 
 	void SetDerivativeFunction(TDeriviativeFunction f);
 	void SetJacobianFunction(TJacobianFunction f);
@@ -42,7 +43,6 @@ private:
 	N_Vector interpolate_y;
 	SUNMatrix J;
 	void* user_data;
-	OdeReal history_duration;
 	size_t max_steps;
 	bool debug_log;
 

@@ -56,6 +56,9 @@ ODESolverCVODE::ODESolverCVODE()
 
 ODESolverCVODE::~ODESolverCVODE()
 {
+	if (cvode_mem) {
+		CVodeFree(&cvode_mem);
+	}
 	if (y) {
 		N_VDestroy((N_Vector)y);
 	}
@@ -71,24 +74,24 @@ ODESolverCVODE::~ODESolverCVODE()
 	if (LS) {
 		SUNLinSolFree(LS);
 	}
-	if (cvode_mem) {
-		CVodeFree(&cvode_mem);
-	}
 }
 
 bool ODESolverCVODE::Initialize(size_t N, void* user, size_t store_integration_points_buffer)
 {
-	if (!ODESolver::Initialize(N, user, store_integration_points_buffer)) {
+	if (N == 0 || N > std::numeric_limits<long>::max() || y || tmpvector) {
+		LOGERROR("Invalid system size or CVODE solver already initialized.");
 		return false;
 	}
-
-	if (N > std::numeric_limits<long>::max()) {
-		LOGERROR("System too large to simulate with CVode");
+	if (!ODESolver::Initialize(N, user, store_integration_points_buffer)) {
 		return false;
 	}
 
 	y = MakeCVodeVector((long)N);
 	tmpvector = MakeCVodeVector((long)N);
+	if (!y || !tmpvector) {
+		LOGERROR("Could not allocate CVODE vectors.");
+		return false;
+	}
 
 	cvode_mem = CVodeCreate(CV_BDF);
 	if (!cvode_mem) {
@@ -99,16 +102,53 @@ bool ODESolverCVODE::Initialize(size_t N, void* user, size_t store_integration_p
 	user_data = user;
 
 	J = MakeCVodeMatrix(N, N);
-	LS = MakeCVodeLinearSolver(y, J);
-	NLS = SUNNonlinSol_Newton(y);
+	if (!J) {
+		LOGERROR("Could not allocate the CVODE Jacobian matrix.");
+		return false;
+	}
 
-	CVodeInit(cvode_mem, &static_cvode_rhs_fn, 0.0, y);
-	CVodeSetUserData(cvode_mem, this);
-	CVodeSetLinearSolver(cvode_mem, LS, J);
-	CVodeSetNonlinearSolver(cvode_mem, NLS);
+	LS = MakeCVodeLinearSolver(y, J);
+	if (!LS) {
+		LOGERROR("Could not create the CVODE linear solver.");
+		return false;
+	}
+
+	NLS = SUNNonlinSol_Newton(y);
+	if (!NLS) {
+		LOGERROR("SUNNonlinSol_Newton failed.");
+		return false;
+	}
+
+	int result = CVodeInit(cvode_mem, &static_cvode_rhs_fn, 0.0, y);
+	if (result != CV_SUCCESS) {
+		LOGERROR("CVodeInit failed (%d).", result);
+		return false;
+	}
+
+	result = CVodeSetUserData(cvode_mem, this);
+	if (result != CV_SUCCESS) {
+		LOGERROR("CVodeSetUserData failed (%d).", result);
+		return false;
+	}
+
+	result = CVodeSetLinearSolver(cvode_mem, LS, J);
+	if (result != CVLS_SUCCESS) {
+		LOGERROR("CVodeSetLinearSolver failed (%d).", result);
+		return false;
+	}
+
+	result = CVodeSetNonlinearSolver(cvode_mem, NLS);
+	if (result != CV_SUCCESS) {
+		LOGERROR("CVodeSetNonlinearSolver failed (%d).", result);
+		return false;
+	}
 
 #if CVODE_USE_EIGEN_SOLVER
-	CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
+	result = CVodeSetJacFn(cvode_mem, &static_cvode_jac_fn);
+	if (result != CVLS_SUCCESS) {
+		LOGERROR("CVodeSetJacFn failed (%d).", result);
+		return false;
+	}
 	if (!jacobian) {
 		// Difference quotient approximation requires some work space
 		y_copy = OdeVectorReal(N);
@@ -149,22 +189,19 @@ bool ODESolverCVODE::SetSolverParameter(const std::string& parameter, int int_va
 			LOGERROR("min_dt should be strictly positive, but %g was provided", real_value);
 			return false;
 		}
-		CVodeSetMinStep(cvode_mem, (OdeReal)real_value);
-		return true;
+		return CVodeSetMinStep(cvode_mem, real_value) == CV_SUCCESS;
 	} else if (parameter == "max_dt") {
 		if (real_value < 0.0) {
 			LOGERROR("max_dt should be non-negative, but %g was provided", real_value);
 			return false;
 		}
-		CVodeSetMaxStep(cvode_mem, (OdeReal)real_value);
-		return true;
+		return CVodeSetMaxStep(cvode_mem, real_value) == CV_SUCCESS;
 	} else if (parameter == "init_dt") {
 		if (real_value <= 0.0) {
 			LOGERROR("init_dt should be positive, but %g was provided", real_value);
 			return false;
 		}
-		CVodeSetInitStep(cvode_mem, (OdeReal)real_value);
-		return true;
+		return CVodeSetInitStep(cvode_mem, real_value) == CV_SUCCESS;
 	} else if (parameter == "max_steps") {
 		if (int_value <= 0) {
 			LOGERROR("max_steps should be strictly positive, but %d was provided", int_value);
@@ -195,15 +232,16 @@ const OdeVectorReal& ODESolverCVODE::GetInterpolatedY(OdeReal t)
 	ASSERT(cvode_timepoint_iter <= current_step);
 
 	// Requests for interpolations should be in strictly increasing time, so we can continue searching where we left off
-	while (cvode_timepoint_iter < current_step && cvode_timepoint_iter < cvode_timepoints.size()) {
+	const size_t stored_steps = std::min(current_step, cvode_timepoints.size());
+	while (cvode_timepoint_iter < stored_steps) {
 		const CVodeTimepoint& cvt = cvode_timepoints[cvode_timepoint_iter];
-		if (cvt.cvode_time > t) {
+		if (cvt.cvode_time > t || (cvode_timepoint_iter + 1 == stored_steps && cvt.cvode_time == t)) {
 			break;
 		} else {
 			cvode_timepoint_iter++;
 		}
 	}
-	if (cvode_timepoint_iter == current_step || cvode_timepoint_iter == cvode_timepoints.size()) {
+	if (cvode_timepoint_iter == stored_steps) {
 		// This timepoint is beyond the solver's time
 		interpolation_time = std::numeric_limits<Real>::quiet_NaN();
 		interpolation_y.setConstant(std::numeric_limits<Real>::quiet_NaN());
@@ -268,42 +306,22 @@ void ODESolverCVODE::set_current_y(size_t i, OdeReal y) const
 
 Real ODESolverCVODE::get_threshold_crossing_time(size_t species_ix, Real threshold, bool above, Real prev_time) const
 {
-	if (current_step == 0 || current_step > cvode_timepoints.size()) {
+	if (current_step == 0 || species_ix >= N) {
 		// This shouldn't happen.
 		ASSERT(false);
 		LOGERROR("Integration error.");
 		return prev_time;
 	}
 
-	size_t cvode_step_ix = current_step - 1;
-	const CVodeTimepoint& cvt = cvode_timepoints[cvode_step_ix];
-
 	Real dt = (t - prev_time) * 0.5;
 	Real time = prev_time + dt;
 
-	bool crossed = true;
 	for (int iter = 0; iter < 10; iter++) {
-		/* Allow for some slack */
-		Real tfuzz = 100.0 * cvt.cv_uround * fabs(cvt.cv_tn) + fabs(cvt.cv_hu);
-		if (cvt.cv_hu < 0.0) {
-			tfuzz = -tfuzz;
+		if (CVodeGetDky(cvode_mem, (OdeReal)time, 0, tmpvector) != CV_SUCCESS) {
+			LOGERROR("CVODE could not interpolate the current integration step.");
+			return prev_time;
 		}
-		Real tp = cvt.cv_tn - cvt.cv_hu - tfuzz;
-		Real tn1 = cvt.cv_tn + tfuzz;
-
-		/* Sum the differentiated interpolating polynomial */
-		CVodeMem cv_mem = (CVodeMem)cvode_mem;
-		Real s = (time - cvt.cv_tn) / cvt.cv_h;
-		Real x = 0.0;
-		for (int j = cvt.cv_q; j >= 0; j--) {
-			Real cval = 1.0;
-			for (int i = j; i >= j + 1; i--)
-				cval *= i;
-			for (int i = 0; i < j; i++)
-				cval *= s;
-
-			x += cval * cvode_timepoints_zn[j](species_ix, cvode_step_ix);
-		}
+		OdeReal x = NV_Ith_S(tmpvector, species_ix);
 
 		dt *= 0.5;
 		if (above) {
@@ -337,11 +355,21 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 		CVodeSetErrHandlerFn(cvode_mem, &static_cvode_err_fn, this);
 	}
 
-	CVodeSVtolerances(cvode_mem, relative_tolerance, tmpvector);
-	CVodeReInit(cvode_mem, 0.0, (N_Vector)y);
+	const int tolerance_result = CVodeSVtolerances(cvode_mem, relative_tolerance, tmpvector);
+	if (tolerance_result != CV_SUCCESS) {
+		return false;
+	}
+
+	const int reinit_result = CVodeReInit(cvode_mem, 0.0, y);
+	if (reinit_result != CV_SUCCESS) {
+		return false;
+	}
 
 	if (!std::isnan(next_discontinuity_time)) {
-		CVodeSetStopTime(cvode_mem, (OdeReal)next_discontinuity_time);
+		const int stop_result = CVodeSetStopTime(cvode_mem, next_discontinuity_time);
+		if (stop_result != CV_SUCCESS) {
+			return false;
+		}
 	}
 
 	// Restart interpolation in case we need to call GetInterpolatedY during the integration
@@ -361,13 +389,6 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 				LOGERROR("CVode failed at step %u, last y values:", tpi);
 				for (size_t i = 0; i < N; i++) {
 					LOGERROR("%u - %g", i, NV_Ith_S(y, i));
-				}
-			}
-			if (do_interpolation) {
-				for (size_t j = tpi; j < interpolation_timepoints->size(); j++) {
-					for (size_t i = 0; i < N; i++) {
-						(*interpolated_output)(i, tpi) = std::numeric_limits<Real>::quiet_NaN();
-					}
 				}
 			}
 			num_steps_used = current_step;
@@ -449,12 +470,17 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 
 			if (!std::isnan(next_discontinuity_time) && (result == CV_TSTOP_RETURN || next_discontinuity_time == t)) {
 				next_discontinuity_time = discontinuity_cb(t, discontinuity_user);
-				if (!std::isnan(next_discontinuity_time) && next_discontinuity_time < std::numeric_limits<Real>::infinity()) {
-					CVodeReInit(cvode_mem, t, (N_Vector)y);
-					CVodeSetStopTime(cvode_mem, next_discontinuity_time);
-				} else {
-					// Continue simulation but no new discontinuity
-					CVodeReInit(cvode_mem, t, (N_Vector)y);
+				result = CVodeReInit(cvode_mem, t, y);
+				if (result != CV_SUCCESS) {
+					num_steps_used = current_step;
+					return false;
+				}
+				if (std::isfinite(next_discontinuity_time)) {
+					result = CVodeSetStopTime(cvode_mem, next_discontinuity_time);
+					if (result != CV_SUCCESS) {
+						num_steps_used = current_step;
+						return false;
+					}
 				}
 			}
 		}

@@ -19,8 +19,8 @@ LikelihoodIncucytePopulation::LikelihoodIncucytePopulation(size_t numthreads, si
 	: evaluation_threads(1)
 	, use_pao_control(true)
 	, num_combo_drugs(0)
+	, solvers(numthreads)
 {
-	solvers.resize(numthreads);
 	parallel_data.resize(numthreads);
 }
 
@@ -127,9 +127,12 @@ bool LikelihoodIncucytePopulation::Initialize(std::shared_ptr<const bcm3::Variab
 		CVODESolverDelay::TJacobianFunction jacobian = boost::bind(&LikelihoodIncucytePopulation::CalculateJacobian, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6, boost::placeholders::_7, boost::placeholders::_8);
 		solvers[threadix].SetDerivativeFunction(derivative);
 		solvers[threadix].SetJacobianFunction(jacobian);
-		solvers[threadix].Initialize(3, NULL);
-		solvers[threadix].SetTolerance(1e-6, 1e-2);
-
+		if (!solvers[threadix].Initialize(3, nullptr)) {
+			return false;
+		}
+		if (!solvers[threadix].SetTolerance(1e-6, 1e-2)) {
+			return false;
+		}
 		parallel_data[threadix].initial_conditions.setZero(3);
 		parallel_data[threadix].discontinuities_time.setZero(2);
 		parallel_data[threadix].output.setZero(3, max_timepoints);

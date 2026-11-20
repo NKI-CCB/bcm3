@@ -12,6 +12,8 @@ public:
 
 	ODESolver();
 	virtual ~ODESolver();
+	ODESolver(const ODESolver&) = delete;
+	ODESolver& operator=(const ODESolver&) = delete;
 
 	virtual bool Initialize(size_t N, void* user, size_t store_integration_points_buffer);
 	virtual bool Restart();
