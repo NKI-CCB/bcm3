@@ -33,7 +33,7 @@ void CellPopulation::Reset()
 	}
 }
 
-size_t CellPopulation::AddNewCell(VariabilityPseudoRandomIterator* variability_iterator, double time, Cell* parent, int child_ix, const VectorReal& transformed_variables, bool entry_time_variable, bool request_synchronization, size_t initial_number_of_cells)
+size_t CellPopulation::AddNewCell(VariabilityPseudoRandomIterator* variability_iterator, double time, Cell* parent, int child_ix, const VectorReal& transformed_variables, bool request_synchronization, size_t initial_number_of_cells)
 {
 	if (active_cells == cells.size()) {
 		return std::numeric_limits<size_t>::max();
@@ -55,8 +55,6 @@ size_t CellPopulation::AddNewCell(VariabilityPseudoRandomIterator* variability_i
 	if (parent) {
 		result &= cell->SetInitialConditionsFromOtherCell(parent);
 	} else {
-		// TODO
-		//result &= cell->SetInitialConditionsFromModel(experiment->set_species_map, experiment->set_init_map, experiment->ratio_active_map, experiment->ratio_inactive_map, experiment->ratio_total_active, experiment->ratio_total_inactive, experiment->transformed_sampled_parameters, time);
 		result &= cell->SetInitialConditionsFromModel();
 	}
 
@@ -94,7 +92,8 @@ size_t CellPopulation::AddNewCell(VariabilityPseudoRandomIterator* variability_i
 	}
 
 	// Initialize the cell for simulation
-	result &= cell->Initialize(time, transformed_variables, sobol_values, entry_time_variable, request_synchronization);
+	bool is_initial_cell = (parent == nullptr ? true : false);
+	result &= cell->Initialize(time, transformed_variables, sobol_values, is_initial_cell, request_synchronization);
 
 	if (!result) {
 		return std::numeric_limits<size_t>::max();

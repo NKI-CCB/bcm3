@@ -107,18 +107,6 @@ protected:
 	std::vector< std::unique_ptr<TreatmentTrajectory> > treatment_trajectories;
 	std::vector< size_t > treatment_trajectories_species_ix;
 
-	struct SetSpecies {
-		Real begin_time;
-		Real end_time;
-		Real value;
-		Real old_value;
-	};
-	std::map<size_t, SetSpecies> set_species_map;
-	std::map<size_t, size_t> set_init_map;
-	std::map<size_t, std::vector<int>> ratio_active_map;
-	std::map<size_t, std::vector<int>> ratio_inactive_map;
-	std::map<size_t, std::vector<size_t>> ratio_total_active;
-	std::map<size_t, std::vector<size_t>> ratio_total_inactive;
 	std::map<size_t, size_t> experiment_specific_parameter_map;
 
 	// Runtime variables
@@ -138,7 +126,7 @@ protected:
 	};
 	std::vector<SimulationTimepoints> simulation_timepoints;
 	VectorReal simulation_timepoints_vector;
-	EPhaseDuration requested_duration;
+	std::vector<std::pair<DataLikelihoodBase*, EPhaseDuration>> requested_durations;
 	bool any_requested_synchronization;
 	bool store_simulation;
 

@@ -55,9 +55,9 @@ bool DataLikelihoodTimeCoursePopulationAverage::Load(const boost::property_tree:
 		observed_data.row(ri) = od;
 	}
 
-	population_average.setZero(timepoints.size(), species_names.size());
+	population_average.setConstant(timepoints.size(), species_names.size(), std::numeric_limits<Real>::quiet_NaN());
 	for (size_t i = 0; i < parallel_population_averages.size(); i++) {
-		parallel_population_averages[i].setZero(timepoints.size(), species_names.size());
+		parallel_population_averages[i].setConstant(timepoints.size(), species_names.size(), std::numeric_limits<Real>::quiet_NaN());
 	}
 
 	result &= RequestSimulationInfo(experiment, ESynchronizeCellTrajectory::None);
@@ -76,9 +76,9 @@ bool DataLikelihoodTimeCoursePopulationAverage::PostInitialize(const bcm3::Varia
 
 void DataLikelihoodTimeCoursePopulationAverage::Reset()
 {
-	population_average.setZero();
+	population_average.setConstant(std::numeric_limits<Real>::quiet_NaN());
 	for (size_t i = 0; i < parallel_population_averages.size(); i++) {
-		parallel_population_averages[i].setZero();
+		parallel_population_averages[i].setConstant(std::numeric_limits<Real>::quiet_NaN());
 	}
 }
 

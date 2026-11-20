@@ -76,7 +76,6 @@ bool Cell::AllocateSolver(std::string solver_type)
 	return true;
 }
 
-//bool Cell::SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const std::map<size_t, std::vector<int>>& ratio_active_map,const std::map<size_t, std::vector<int>>& ratio_inactive_map, const std::map<size_t, std::vector<size_t>>& ratio_total_active, const std::map<size_t, std::vector<size_t>>& ratio_total_inactive,const VectorReal& transformed_values, Real time)
 bool Cell::SetInitialConditionsFromModel()
 {
 	for (size_t i = 0; i < model->GetNumODEIntegratedSpecies(); i++) {
@@ -85,35 +84,6 @@ bool Cell::SetInitialConditionsFromModel()
 	for (size_t i = 0; i < model->GetNumConstantSpecies(); i++) {
 		constant_species_y(i) = model->GetConstantSpecies(i)->GetInitialValue();
 	}
-
-#if 0
-	for (std::map<size_t, Experiment::SetSpecies>::const_iterator ssmi = set_species_map.begin(); ssmi != set_species_map.end(); ++ssmi) {
-		if (time >= ssmi->second.begin_time && time < ssmi->second.end_time) {
-			initial_y(ssmi->first) = ssmi->second.value;
-		}
-	}
-
-	for(auto const& sic : set_init_map){
-		initial_y(sic.first) = transformed_values[sic.second];
-	}
-
-	for(auto const& ram : ratio_active_map){
-		initial_y(ram.first) = transformed_values[ram.second[0]] * transformed_values[ram.second[1]];
-	}
-
-	for(auto const& rim : ratio_inactive_map){
-		initial_y(rim.first) = (1 - transformed_values[rim.second[0]]) * transformed_values[rim.second[1]];
-	}
-
-	for(auto const& rtm : ratio_total_active){
-		initial_y(rtm.first) = transformed_values[rtm.second[0]] * (model -> GetODEIntegratedSpecies(rtm.second[1]) -> GetInitialValue() + model ->GetODEIntegratedSpecies(rtm.second[2]) -> GetInitialValue());
-	}
-
-	for(auto const& rtm : ratio_total_inactive){
-		initial_y(rtm.first) = (1 - transformed_values[rtm.second[0]]) * (model ->GetODEIntegratedSpecies(rtm.second[1]) -> GetInitialValue() + model ->GetODEIntegratedSpecies(rtm.second[2]) -> GetInitialValue());
-	}
-#endif
-
 	return true;
 }
 
@@ -164,6 +134,7 @@ bool Cell::Initialize(Real creation_time, const VectorReal& transformed_variable
 	int sobol_sequence_ix = 0;
 	for (auto it = experiment->cell_variabilities.begin(); it != experiment->cell_variabilities.end(); ++it) {
 		VectorReal pseudorandom_vector = (*it)->GetPseudorandomVector(*sobol_sequence_values, sobol_sequence_ix, transformed_variables, experiment->non_sampled_parameters);
+		(*it)->ApplyVariabilityEntryTime(creation_time, pseudorandom_vector, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
 
 		for (size_t i = 0; i < cell_specific_transformed_variables.size(); i++) {
 			(*it)->ApplyVariabilityParameter(experiment->varset->GetVariableName(i), cell_specific_transformed_variables(i), pseudorandom_vector, transformed_variables, experiment->non_sampled_parameters, is_initial_cell);
@@ -233,8 +204,7 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 	if (store_integration_points) {
 		result = solver->SolveStoreIntegrationPoints(initial_y, simulation_end_time);
 	} else {
-		result = solver->SolveReturnSolution(initial_y, &solver_stored_timepoints, &solver_output);
-		
+		result = solver->SolveReturnSolution(initial_y, &solver_stored_timepoints, &solver_output, simulation_end_time);
 	}
 
 	divide = cell_divided;
@@ -245,13 +215,8 @@ bool Cell::Simulate(Real end_time, Real simulate_past_chromatid_separation_time,
 		// Simulation ended prematurely due to division or death
 		achieved_cell_time = simulation_end_time;
 	} else {
-		if (store_integration_points) {
-			simulation_end_y = solver->get_current_y();
-			achieved_cell_time = previous_integration_step_time;
-		} else {
-			simulation_end_y = solver_output.col(solver_stored_timepoints.size() - 1);
-			achieved_cell_time = solver_stored_timepoints.tail<1>()[0];
-		}
+		simulation_end_y = previous_integration_step_time > 0.0 ? solver->get_current_y() : initial_y;
+		achieved_cell_time = previous_integration_step_time;
 	}
 
 	if (result) {

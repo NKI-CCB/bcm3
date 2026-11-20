@@ -13,7 +13,6 @@ public:
 	~Cell();
 
 	bool AllocateSolver(std::string solver_type);
-	//bool SetInitialConditionsFromModel(const std::map<size_t, Experiment::SetSpecies>& set_species_map, const std::map<size_t, size_t>& set_init_map, const std::map<size_t, std::vector<int>>& ratio_active_map, const std::map<size_t, std::vector<int>>& ratio_inactive_map, const std::map<size_t, std::vector<size_t>>& ratio_total_active,const std::map<size_t, std::vector<size_t>>& ratio_total_inactive,const VectorReal& transformed_values, Real time);
 	bool SetInitialConditionsFromModel();
 	bool SetInitialConditionsFromOtherCell(const Cell* other);
 	bool Initialize(Real creation_time, const VectorReal& transformed_variables, const VectorReal* sobol_sequence_values, bool is_initial_cell, bool calculate_synchronization_points);

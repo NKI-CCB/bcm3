@@ -90,8 +90,8 @@ bool DataLikelihoodTimePoints::Load(const boost::property_tree::ptree& xml_node,
 						result &= data_file.GetValue(experiment->GetName(), data_name, i, ix, &observed_data[i](j, 0));
 					}
 				}
-				num_cells = use_only_cell_ix_tokens.size();
 			}
+			num_cells = use_only_cell_ix_tokens.size();
 		}
 	} else if (num_dimensions == 3) {
 		size_t num_markers;

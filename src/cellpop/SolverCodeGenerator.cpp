@@ -31,7 +31,8 @@ SolverCodeGenerator::~SolverCodeGenerator()
 
 bool SolverCodeGenerator::GenerateAndCompileSolverCode(Experiment* experiment, SBMLModel& cell_model, const std::string& codegen_name)
 {
-	std::string hash = (boost::format("%x") % std::hash<std::string>{}(codegen_name)).str();
+	const std::string code = cell_model.GenerateCode();
+	std::string hash = (boost::format("%x") % std::hash<std::string>{}(codegen_name + "\n" + code)).str();
 	std::string output_folder = std::string("codegen_") + hash + "/";
 
 	std::string codename_file = output_folder + "codegen_name";
@@ -85,8 +86,6 @@ bool SolverCodeGenerator::GenerateAndCompileSolverCode(Experiment* experiment, S
 		bcm_path = bcm_root_env;
 		bcm3::fix_path(bcm_path);
 	}
-
-	std::string code = cell_model.GenerateCode();
 
 	if (!boost::filesystem::is_directory(output_folder)) {
 		ASSERT(*output_folder.rbegin() == '/');

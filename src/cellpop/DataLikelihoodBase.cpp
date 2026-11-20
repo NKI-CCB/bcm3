@@ -172,7 +172,7 @@ Real DataLikelihoodBase::GetCurrentProportionalSTDev(const VectorReal& transform
 	Real proportional_stdev;
 	if (proportional_stdev_ix[ix] != std::numeric_limits<size_t>::max()) {
 		proportional_stdev = transformed_values[proportional_stdev_ix[ix]];
-	} else if (non_sampled_stdev_ix[ix] != std::numeric_limits<size_t>::max()) {
+	} else if (non_sampled_proportional_stdev_ix[ix] != std::numeric_limits<size_t>::max()) {
 		proportional_stdev = non_sampled_parameters[non_sampled_proportional_stdev_ix[ix]];
 	} else {
 		proportional_stdev = fixed_proportional_stdev_value[ix];

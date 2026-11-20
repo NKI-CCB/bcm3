@@ -23,13 +23,14 @@ Real TreatmentTrajectoryPulses::GetConcentration(Real time, Real cell_creation_t
 	Real global_time = time + cell_creation_time;
 
 	for (int i = 0; i < timepoints.size(); i++) {
-		Real t_in_pulse = global_time - timepoints(i) - 2.0;
+		// The pulse profile is based on Llamosi et al. 2016, S1 Text, Fig. 2.
+		Real t_in_pulse = global_time - timepoints(i);
 		if (t_in_pulse >= 14.0) {
 			continue;
-		} else if (t_in_pulse <= 0.0) {
+		} else if (t_in_pulse <= 2.0) {
 			return 0.0;
-		} else if (t_in_pulse < 2.0) {
-			return t_in_pulse * 0.5;
+		} else if (t_in_pulse < 3.0) {
+			return t_in_pulse - 2.0;
 		} else if (t_in_pulse < 10.0) {
 			return 1.0;
 		} else {
@@ -52,9 +53,10 @@ Real TreatmentTrajectoryPulses::FirstDiscontinuity(Real cell_creation_time)
 Real TreatmentTrajectoryPulses::NextDiscontinuity(Real time, Real cell_creation_time)
 {
 	for (int i = 0; i < timepoints.size(); i++) {
+		// Discontinuities to match the code in GetConcentration()
 		if (time == timepoints[i] - cell_creation_time + 2.0) {
-			return timepoints[i] - cell_creation_time + 4.0;
-		} else if (time == timepoints[i] - cell_creation_time + 4.0) {
+			return timepoints[i] - cell_creation_time + 3.0;
+		} else if (time == timepoints[i] - cell_creation_time + 3.0) {
 			return timepoints[i] - cell_creation_time + 10.0;
 		} else if (time == timepoints[i] - cell_creation_time + 10.0) {
 			return timepoints[i] - cell_creation_time + 14.0;

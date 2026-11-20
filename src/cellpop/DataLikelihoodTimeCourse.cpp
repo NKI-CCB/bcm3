@@ -379,7 +379,7 @@ bool DataLikelihoodTimeCourse::NotifySimulatedValue(size_t timepoint_ix, Real x,
 				val = x;
 			} else {
 				if (use_log_ratio) {
-					if (species_ix == log_ratio_numerator_ix[i]) {
+					if (species_ix == log_ratio_numerator_ix[our_species_ix]) {
 						if (val < 1e-16) {
 							val = 1e-16;
 						}
@@ -474,15 +474,13 @@ Real DataLikelihoodTimeCourse::CalculateCellLikelihood(size_t observed_cell_ix, 
 					if (error_model == ErrorModel::Normal) {
 						Real d = y - x;
 						cell_logp += minus_log_sigma - 0.91893853320467274178032973640562 - d * d * inv_two_sigma_sq;
-					} else if (error_model == ErrorModel::ProportionalNormal) {
-						//cell_logp += bcm3::LogPdfNormal(y, x, proportional_stdevs[l] * std::max(x, 0.0));
-						Real d = y - x;
-						cell_logp += cell_trajectories_proportional_min_log_sigma[simulated_cell_ix](k, l) - 0.91893853320467274178032973640562 - d * d * cell_trajectories_proportional_inv_two_sigma_sq[simulated_cell_ix](k, l);
-					} else if (error_model == ErrorModel::AdditiveProportionalNormal) {
-						//cell_logp += bcm3::LogPdfNormal(y, x, stdevs[l] + proportional_stdevs[l] * std::max(x, 0.0));
-						Real d = y - x;
-						cell_logp += cell_trajectories_proportional_min_log_sigma[simulated_cell_ix](k, l) - 0.91893853320467274178032973640562 - d * d * cell_trajectories_proportional_inv_two_sigma_sq[simulated_cell_ix](k, l);
-
+					} else if (error_model == ErrorModel::ProportionalNormal || error_model == ErrorModel::AdditiveProportionalNormal) {
+						if (optimize_offset_scale) {
+							cell_logp += EvaluateValue(x, y, l);
+						} else {
+							Real d = y - x;
+							cell_logp += cell_trajectories_proportional_min_log_sigma[simulated_cell_ix](k, l) - 0.91893853320467274178032973640562 - d * d * cell_trajectories_proportional_inv_two_sigma_sq[simulated_cell_ix](k, l);
+						}
 					} else if (error_model == ErrorModel::StudentT4) {
 						cell_logp += bcm3::LogPdfTnu4(y, x, stdevs[l]);
 					} else {

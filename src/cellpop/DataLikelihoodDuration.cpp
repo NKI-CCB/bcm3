@@ -52,10 +52,7 @@ bool DataLikelihoodDuration::Load(const boost::property_tree::ptree& xml_node, E
 	matched_durations.setConstant(observed_durations.size(), std::numeric_limits<Real>::quiet_NaN());
 
 	simulated_durations.setConstant(experiment->GetMaxNumberOfCells(), std::numeric_limits<Real>::quiet_NaN());
-	for (size_t i = 0; i < num_cells; i++) {
-		experiment->AddRequestedDuration(this, period);
-	}
-	used_durations.resize(observed_durations.size(), 0);
+	experiment->AddRequestedDuration(this, period);
 	if (experiment->GetMaxNumberOfCells() < num_cells) {
 		LOGERROR("Simulating less cells than needed for the likelihood in experiment \"%s\"", experiment->GetName().c_str());
 		return false;
@@ -77,63 +74,55 @@ void DataLikelihoodDuration::Reset()
 {
 	simulated_durations.setConstant(std::numeric_limits<Real>::quiet_NaN());
 	matched_durations.setConstant(std::numeric_limits<Real>::quiet_NaN());
-	for (int i = 0; i < observed_durations.size(); i++) {
-		used_durations[i] = i;
-	}
 }
 
 bool DataLikelihoodDuration::Evaluate(const VectorReal& values, const VectorReal& transformed_values, const VectorReal& non_sampled_parameters, Real& logp)
 {
 	Real stdev = GetCurrentSTDev(transformed_values, non_sampled_parameters);
+	logp = 0.0;
 
-	int n = std::max(observed_durations.size(), observed_durations.size());
-	MatrixReal likelihoods(n, n);
-	likelihoods.setZero();
-	for (int i = 0; i < observed_durations.size(); i++) {
-		Real y = observed_durations(i);
-		if (y == y) {
-			int count = 0;
-			for (int j = 0; j < simulated_durations.size(); j++) {
-				Real x = simulated_durations(j);
-				if (x == x) {
-					likelihoods(i, count) = bcm3::LogPdfNormal(y, x, stdev);
-					used_durations[count] = j;
+	std::vector<Eigen::Index> observed_indices, simulated_indices;
+	for (Eigen::Index i = 0; i < observed_durations.size(); i++) {
+		if (std::isfinite(observed_durations(i))) {
+			observed_indices.push_back(i);
+		}
+	}
+	for (Eigen::Index j = 0; j < simulated_durations.size(); j++) {
+		if (std::isfinite(simulated_durations(j))) {
+			simulated_indices.push_back(j);
+		}
+	}
+	if (observed_indices.empty()) {
+		return true;
+	}
+	if (observed_indices.size() > simulated_indices.size()) {
+		logp = -std::numeric_limits<Real>::infinity();
+		return true;
+	}
 
-					count++;
-					if (count == observed_durations.size()) {
-						break;
-					}
-				}
-			}
-			if (count != observed_durations.size()) {
-				logp = -std::numeric_limits<Real>::infinity();
-				return true;
-			}
-		} else {
-			for (int j = 0; j < simulated_durations.size(); j++) {
-				likelihoods(i, j) = -1e100;
-				used_durations[j] = j;
-			}
+	MatrixReal likelihoods(observed_indices.size(), simulated_indices.size());
+	for (size_t i = 0; i < observed_indices.size(); i++) {
+		for (size_t j = 0; j < simulated_indices.size(); j++) {
+			likelihoods(i, j) = bcm3::LogPdfNormal(observed_durations(observed_indices[i]), simulated_durations(simulated_indices[j]), stdev);
 		}
 	}
 
 	auto matching = bcm3::RectangularHungarian(-likelihoods);
-	if (matching.has_value()) {
-		for (int i = 0; i < observed_durations.size(); i++) {
-			int j = matching.value()[i];
-			if (j == -1) {
-				LOGERROR("Could not find matching");
-				logp = -std::numeric_limits<Real>::infinity();
-				return true;
-			} else {
-				logp += likelihoods(i, j);
-				matched_durations(i) = simulated_durations(used_durations[j]);
-			}
-		}
-	} else {
+	if (!matching) {
 		logp = -std::numeric_limits<Real>::infinity();
 		return true;
 	}
+
+	for (size_t i = 0; i < observed_indices.size(); i++) {
+		int j = (*matching)[i];
+		if (j == -1) {
+			logp = -std::numeric_limits<Real>::infinity();
+			return true;
+		}
+		logp += likelihoods(i, j);
+		matched_durations(observed_indices[i]) = simulated_durations(simulated_indices[j]);
+	}
+	logp *= weight;
 
 	return true;
 }

@@ -116,7 +116,7 @@ bool DataLikelihoodTimeCourseBase::PostInitialize(const bcm3::VariableSet& varse
 		if (saturation_scale_ix == std::numeric_limits<size_t>::max()) {
 			// Try to cast it to a Real
 			try {
-				saturation_scale = boost::lexical_cast<Real>(saturation_scale_str);
+				saturation_scale_fixed_value = boost::lexical_cast<Real>(saturation_scale_str);
 			} catch (const boost::bad_lexical_cast& e) {
 				LOGERROR("Could not find variable for saturation scale \"%s\", and could also not cast it to a constant real value: %s", saturation_scale_str.c_str(), e.what());
 				return false;

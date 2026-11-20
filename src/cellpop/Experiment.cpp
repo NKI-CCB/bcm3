@@ -60,7 +60,6 @@ Experiment::Experiment(std::shared_ptr<const bcm3::VariableSet> varset, size_t e
 	, solver_rel_tol(4 * std::numeric_limits<float>::epsilon())
 	, derivative(nullptr)
 	, jacobian(nullptr)
-	, requested_duration(EPhaseDuration::None)
 	, any_requested_synchronization(false)
 	, store_simulation(store_simulation)
 	, cell_submit_count(0)
@@ -126,7 +125,7 @@ bool Experiment::AddSimulationTimepoints(DataLikelihoodBase* dl, Real time, size
 
 bool Experiment::AddRequestedDuration(DataLikelihoodBase* dl, EPhaseDuration duration)
 {
-	requested_duration = duration;
+	requested_durations.emplace_back(dl, duration);
 	return true;
 }
 
@@ -256,12 +255,9 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 
 	if (result) {
 		// Report durations
-		if (requested_duration != EPhaseDuration::None) {
+		for (const auto& request : requested_durations) {
 			for (size_t i = 0; i < population->GetActiveCount(); i++) {
-				Real duration = population->GetCell(i)->GetDuration(requested_duration);
-				for (size_t j = 0; j < data_likelihoods.size(); j++) {
-					data_likelihoods[j]->NotifyDuration(i, duration);
-				}
+				request.first->NotifyDuration(i, population->GetCell(i)->GetDuration(request.second));
 			}
 		}
 
@@ -313,15 +309,13 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 		}
 
 		if (store_simulation) {
-			for (size_t i = 0; i < population->GetActiveCount(); i++) {
-				population->GetCell(i)->RestartInterpolationIteration();
-			}
-
-			Real simulation_begin_time = min_start_time;
-			Real simulation_end_time = max_achieved_time;
-
-			for (size_t i = 0; i < output_trajectories_timepoints.size(); i++) {
-				output_trajectories_timepoints(i) = simulation_begin_time + (simulation_end_time - simulation_begin_time) * i / (Real)(output_trajectory_num_timepoints - 1);
+			if (any_requested_synchronization) {
+				for (size_t i = 0; i < population->GetActiveCount(); i++) {
+					population->GetCell(i)->RestartInterpolationIteration();
+				}
+				for (size_t i = 0; i < output_trajectories_timepoints.size(); i++) {
+					output_trajectories_timepoints(i) = min_start_time + (max_achieved_time - min_start_time) * i / (Real)(output_trajectory_num_timepoints - 1);
+				}
 			}
 
 			for (size_t ti = 0; ti < output_trajectories_timepoints.size(); ti++) {
@@ -338,7 +332,7 @@ bool Experiment::EvaluateLogProbability(size_t threadix, const VectorReal& value
 					}
 					for (size_t j = 0; j < treatment_trajectories.size(); j++) {
 						size_t simix = cell_model.GetSimulatedSpeciesByName(cell_model.GetConstantSpeciesName(treatment_trajectories_species_ix[j]));
-						simulated_trajectories[i][ti](simix) = treatment_trajectories[j]->GetConcentration(output_t, cell->GetCreationTime());
+						simulated_trajectories[i][ti](simix) = treatment_trajectories[j]->GetConcentration(output_t - cell->GetCreationTime(), cell->GetCreationTime());
 					}
 				}
 			}
@@ -425,63 +419,9 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 		return false;
 	}
 
-	//if any ratios are present they are mapped here
-	// if any initial values are present as parameters they are mapped here to the ODE model
-	size_t num_variables = varset->GetNumVariables();
-	std::vector<std::string> variable_names = varset->GetAllVariableNames();
-
-	for(int i = 0; i < num_variables; i++){
-		std::string name_var = variable_names[i];
-		if(name_var.substr(0,8).compare("species_") == 0){
-			set_init_map[GetODEIntegratedSpeciesByName(name_var.substr(8), true)] = i;
-		}
-
-		if(name_var.substr(0,6).compare("ratio_") == 0){
-			// Check that the total variable is also present
-			bool also_total_var = false;
-
-			for(int j = 0; j < num_variables; j++){
-				std::string name_var_internal = variable_names[j];
-				if(name_var_internal.substr(0,6).compare("total_") == 0 && name_var.substr(6).compare(name_var_internal.substr(6)) == 0){
-					also_total_var = true;
-					std::vector<int> v = {i, j};
-					size_t active_species = GetODEIntegratedSpeciesByName("active_" + name_var.substr(6), true);
-					size_t inactive_species = GetODEIntegratedSpeciesByName("inactive_" + name_var.substr(6), true);
-
-					if(active_species == std::numeric_limits<size_t>::max()){
-						LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species; but the corresponding active species \"active_%s\" is not found in the model.", name_var.c_str(), name_var.substr(6).c_str());
-						return false;
-					}
-
-					if(inactive_species == std::numeric_limits<size_t>::max()){
-						LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species; but the corresponding inactive species \"inactive_%s\" is not found in the model.", name_var.c_str(), name_var.substr(6).c_str());
-						return false;
-					}
-
-					ratio_active_map[active_species] = v;
-					ratio_inactive_map[inactive_species] = v;
-				}
-			}
-
-			if (!also_total_var) {
-				size_t active_species = GetODEIntegratedSpeciesByName("active_" + name_var.substr(6), true);
-				size_t inactive_species = GetODEIntegratedSpeciesByName("inactive_" + name_var.substr(6), true);
-
-				if(active_species == std::numeric_limits<size_t>::max()){
-					LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species; but the corresponding active species \"active_%s\" is not found in the model.", name_var.c_str(), name_var.substr(6).c_str());
-					return false;
-				}
-
-				if(inactive_species == std::numeric_limits<size_t>::max()){
-					LOG("The ratio variable \"%s\" has been specified; \"ratio_\" variables are used to describe ratios of initial conditions for two species; but the corresponding inactive species \"inactive_%s\" is not found in the model.", name_var.c_str(), name_var.substr(6).c_str());
-					return false;
-				}
-
-				std::vector<size_t> v = {(size_t)i, active_species, inactive_species};
-
-				ratio_total_active[active_species] = v;
-				ratio_total_inactive[inactive_species] = v;
-			}
+	for (const auto& name : varset->GetAllVariableNames()) {
+		if (name.compare(0, 8, "species_") == 0 || name.compare(0, 6, "ratio_") == 0) {
+			LOGWARNING("Parameter '%s' no longer overrides initial conditions in experiment '%s'.", name.c_str(), Name.c_str());
 		}
 	}
 
@@ -495,17 +435,7 @@ bool Experiment::Load(const boost::property_tree::ptree& xml_node, const boost::
 	try {
 		BOOST_FOREACH(const boost::property_tree::ptree::value_type& var, xml_node.get_child("")) {
 			if (var.first == "set_species") {
-				std::string species_name = var.second.get<std::string>("<xmlattr>.species_name");
-				size_t species_ix = cell_model.GetSimulatedSpeciesByName(species_name);
-				if (species_ix == std::numeric_limits<size_t>::max()) {
-					return false;
-				}
-				SetSpecies ss;
-				ss.value = var.second.get<Real>("<xmlattr>.value");
-				ss.begin_time = var.second.get<Real>("<xmlattr>.begin_time", -std::numeric_limits<Real>::infinity());
-				ss.end_time = var.second.get<Real>("<xmlattr>.end_time", std::numeric_limits<Real>::infinity());
-				ss.old_value = 0;//TODO; read from SBML file
-				set_species_map[species_ix] = ss;
+				LOGWARNING("Ignoring retired set_species option in experiment '%s'.", Name.c_str());
 			}
 			if (var.first == "set_parameter") {
 				std::string parameter_name = var.second.get<std::string>("<xmlattr>.parameter_name");
@@ -661,15 +591,12 @@ bool Experiment::Simulate(const VectorReal& transformed_values)
 	}
 
 	min_start_time = std::numeric_limits<Real>::infinity();
-	if (initial_number_of_cells > 1) {
-		for (size_t i = 0; i < initial_number_of_cells; i++) {
-			Real cell_start_time = -entry_time;
-			population->AddNewCell(variability_iterator.get(), cell_start_time, NULL, -1, transformed_sampled_parameters, true, any_requested_synchronization, initial_number_of_cells);
-			min_start_time = std::min(cell_start_time, min_start_time);
+	for (size_t i = 0; i < initial_number_of_cells; i++) {
+		size_t cell_ix = population->AddNewCell(variability_iterator.get(), -entry_time, nullptr, -1, transformed_sampled_parameters, any_requested_synchronization, initial_number_of_cells);
+		if (cell_ix == std::numeric_limits<size_t>::max()) {
+			return false;
 		}
-	} else {
-		population->AddNewCell(variability_iterator.get(), -entry_time, NULL, -1, transformed_sampled_parameters, false, any_requested_synchronization, initial_number_of_cells);
-		min_start_time = -entry_time;
+		min_start_time = std::min(population->GetCell(cell_ix)->GetCreationTime(), min_start_time);
 	}
 
 	if (min_start_time < -7.0 * 24.0 * 60.0 * 60.0) {
@@ -741,8 +668,8 @@ bool Experiment::SimulateCell(size_t i, Real target_time, Real& achieved_time, s
 
 			// Create two new cells
 			Cell* parent = population->GetCell(i);
-			cell1 = population->AddNewCell(variability_iterator.get(), achieved_time, parent, 0, transformed_sampled_parameters, false, any_requested_synchronization, initial_number_of_cells);
-			cell2 = population->AddNewCell(variability_iterator.get(), achieved_time, parent, 1, transformed_sampled_parameters, false, any_requested_synchronization, initial_number_of_cells);
+			cell1 = population->AddNewCell(variability_iterator.get(), achieved_time, parent, 0, transformed_sampled_parameters, any_requested_synchronization, initial_number_of_cells);
+			cell2 = population->AddNewCell(variability_iterator.get(), achieved_time, parent, 1, transformed_sampled_parameters, any_requested_synchronization, initial_number_of_cells);
 			if (cell1 == std::numeric_limits<size_t>::max() || cell2 == std::numeric_limits<size_t>::max()) {
 				return false;
 			}

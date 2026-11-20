@@ -24,5 +24,4 @@ private:
 	// Runtime
 	VectorReal simulated_durations;
 	VectorReal matched_durations;
-	std::vector<int> used_durations;
 };
