@@ -25,7 +25,7 @@ public:
 	void SetJacobianFunction(TJacobianFunction f);
 	void SetDebugLogging(bool log);
 
-	bool Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, const OdeVectorReal& discontinuities_t, OdeMatrixReal& output);
+	bool Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, const OdeVectorReal& discontinuities_t, OdeReal min_delay, OdeMatrixReal& output);
 	static bool InterpolateHistory(const OdeReal t, const std::vector< OdeReal >& history_t, const OdeMatrixReal& history_y, OdeVectorReal& out);
 	bool InterpolateHistory(const OdeReal t, OdeVectorReal& out);
 	size_t GetNumStepsTaken() const { return(history_time.size()); };

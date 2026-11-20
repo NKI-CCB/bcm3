@@ -410,7 +410,7 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 
 			if (do_interpolation) {
 				// If we pass a timepoint, interpolate back to that timepoint
-				while (tret >= (*interpolation_timepoints)(tpi)) {
+				while (tpi < interpolation_timepoints->size() && tret >= (*interpolation_timepoints)(tpi)) {
 					result = CVodeGetDky(cvode_mem, (*interpolation_timepoints)(tpi), 0, (N_Vector)tmpvector);
 					if (result != CV_SUCCESS) {
 						if (verbose) {
@@ -425,9 +425,6 @@ bool ODESolverCVODE::Solve(const OdeVectorReal& initial_conditions, OdeReal end_
 					}
 
 					tpi++;
-					if (tpi >= interpolation_timepoints->size()) {
-						break;
-					}
 				}
 			}
 

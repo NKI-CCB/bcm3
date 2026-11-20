@@ -145,10 +145,17 @@ void CVODESolverDelay::SetDebugLogging(bool log)
 	debug_log = log;
 }
 
-bool CVODESolverDelay::Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, const OdeVectorReal& discontinuities_t, OdeMatrixReal& output)
+bool CVODESolverDelay::Simulate(const OdeReal* initial_conditions, const OdeVectorReal& timepoints, const OdeVectorReal& discontinuities_t, OdeReal min_delay, OdeMatrixReal& output)
 {
 	if (timepoints.size() <= 0) {
 		LOGERROR("No time points requested");
+		return false;
+	}
+
+	// Leave room for rounding when subtracting the delay from a trial time.
+	const OdeReal max_step = min_delay * (1 - 4 * std::numeric_limits<OdeReal>::epsilon());
+	if (!std::isfinite(max_step) || max_step <= 0.0 || CVodeSetMaxStep(cvode_mem, max_step) != CV_SUCCESS) {
+		LOGERROR("Could not set the delay solver step limit from minimum delay %g.", min_delay);
 		return false;
 	}
 
@@ -185,7 +192,9 @@ bool CVODESolverDelay::Simulate(const OdeReal* initial_conditions, const OdeVect
 	while (1) {
 		OdeReal tret;
 
-		int result = CVode(cvode_mem, (OdeReal)timepoints[tpi], (N_Vector)y, &tret, CV_ONE_STEP);
+		// CVODE estimates the initial step from tout before applying the maximum step size.
+		const OdeReal tout = std::min(timepoints[tpi], history_time.back() + max_step);
+		int result = CVode(cvode_mem, tout, (N_Vector)y, &tret, CV_ONE_STEP);
 		if (debug_log) {
 			LOG("%6g - %g - %.12g %.12g %.12g", timepoints[tpi], tret, NV_Ith_S(y, 0), NV_Ith_S(y, 1), NV_Ith_S(y, 2));
 		}
@@ -278,6 +287,11 @@ bool CVODESolverDelay::InterpolateHistory(const OdeReal t, const std::vector< Od
 	if (t <= history_t.front()) {
 		out = history_y.col(0);
 	} else if (t >= history_t.back()) {
+		// Allow rounding at the end of the history.
+		const OdeReal slack = 4 * std::numeric_limits<OdeReal>::epsilon() * std::abs(t);
+		if (t - history_t.back() > slack) {
+			return false;
+		}
 		out = history_y.col(history_t.size() - 1);
 	} else {
 		size_t imin = 0;

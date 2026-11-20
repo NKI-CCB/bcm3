@@ -92,6 +92,10 @@ void ODESolver::SetJacobianFunction(TJacobianFunction f)
 
 bool ODESolver::SolveReturnSolution(const OdeVectorReal& initial_conditions, const OdeVectorReal* timepoints, OdeMatrixReal* output, Real end_time, bool verbose)
 {
+	if (!derivative) {
+		LOGERROR("Derivative has not been specified.");
+		return false;
+	}
 	if (timepoints == nullptr || timepoints->size() == 0) {
 		LOGERROR("No timepoints requested");
 		return false;
@@ -135,6 +139,10 @@ bool ODESolver::SolveReturnSolution(const OdeVectorReal& initial_conditions, con
 
 bool ODESolver::SolveStoreIntegrationPoints(const OdeVectorReal& initial_conditions, Real end_time, bool verbose)
 {
+	if (!derivative) {
+		LOGERROR("Derivative has not been specified.");
+		return false;
+	}
 	if (end_time <= std::numeric_limits<OdeReal>::epsilon()) {
 		LOGERROR("end_time should be larger than zero");
 		return false;

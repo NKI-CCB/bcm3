@@ -362,7 +362,7 @@ bool LikelihoodIncucytePopulation::SimulateWell(size_t threadix, Experiment& e, 
 	OdeMatrixReal& output = pd.output;
 	
 	solvers[threadix].SetUserData((void*)threadix);
-	bool result = solvers[threadix].Simulate(initial_conditions.data(), e.observed_timepoints, discontinuities_time, output);
+	bool result = solvers[threadix].Simulate(initial_conditions.data(), e.observed_timepoints, discontinuities_time, (OdeReal)pd.apoptosis_duration, output);
 	//LOG("Success: %d; steps: %zu", (int)result, solvers[threadix].GetNumStepsTaken());
 	if (result) {
 		const Real cell_preadherence_size = values[varset->GetVariableIndex("cell_preadherence_size")];

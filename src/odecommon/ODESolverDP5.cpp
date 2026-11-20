@@ -108,6 +108,12 @@ bool ODESolverDP5::SetSolverParameter(const std::string& parameter, int int_valu
 bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_time, bool do_interpolation, bool store_integration_points, bool verbose)
 {
 	ASSERT(ytmp != nullptr);
+	ASSERT(derivative);
+
+	if (store_integration_points) {
+		LOGERROR("DP5 does not support storing integration points.");
+		return false;
+	}
 	
 	if (do_interpolation) {
 		interpolated_output->setConstant(N, interpolation_timepoints->size(), std::numeric_limits<OdeReal>::quiet_NaN());
@@ -120,7 +126,9 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 		yn[i] = initial_conditions[i];
 	}
 
-	derivative(t, yn, k[0], user_data);
+	if (!derivative(t, yn, k[0], user_data)) {
+		return false;
+	}
 
 	unsigned int steps = 0;
 	min_used_step_size = std::numeric_limits<Real>::infinity();
@@ -148,8 +156,9 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 			OdeReal maxdiff = ApplyRK(t, cur_dt);
 			if (std::isnan(maxdiff) || maxdiff == -std::numeric_limits<OdeReal>::infinity()) {
 				if (verbose) {
-					LOGERROR("NaN in error calculation");
+					LOGERROR("DP5 derivative evaluation or error calculation failed.");
 				}
+				num_steps_used = steps;
 				return false;
 			}
 
@@ -258,7 +267,10 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 				}
 				next_discontinuity_time = std::numeric_limits<OdeReal>::quiet_NaN();
 			}
-			derivative(t, yn, k[0], user_data);
+			if (!derivative(t, yn, k[0], user_data)) {
+				num_steps_used = steps + 1;
+				return false;
+			}
 			next_dt = 1.0;
 
 			steps = 0;
@@ -270,8 +282,8 @@ bool ODESolverDP5::Solve(const OdeVectorReal& initial_conditions, OdeReal end_ti
 
 		min_used_step_size = std::min(min_used_step_size, cur_dt);
 
-		if (integration_step_cb) {
-			integration_step_cb(t, yn, end_time, user_data);
+		if (integration_step_cb && !integration_step_cb(t, yn, end_time, user_data)) {
+			break;
 		}
 
 		if (t >= end_time) {
@@ -336,11 +348,15 @@ Real ODESolverDP5::get_threshold_crossing_time(size_t species_ix, Real threshold
 
 OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 {
+	const OdeReal invalid_step = std::numeric_limits<OdeReal>::quiet_NaN();
+
 	// K2
 	for (size_t i = 0; i < N; i++) {
 		ytmp[i] = yn[i] + cur_dt * (OdeReal)0.2 * k[0][i];
 	}
-	derivative(t + (OdeReal)0.2 * cur_dt, ytmp, k[1], user_data);
+	if (!derivative(t + (OdeReal)0.2 * cur_dt, ytmp, k[1], user_data)) {
+		return invalid_step;
+	}
 	
 	// K3
 	for (size_t i = 0; i < N; i++) {
@@ -348,7 +364,9 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 			+ (OdeReal)0.075 * k[0][i]
 			+ (OdeReal)0.225 * k[1][i]);
 	}
-	derivative(t + (OdeReal)0.3 * cur_dt, ytmp, k[2], user_data);
+	if (!derivative(t + (OdeReal)0.3 * cur_dt, ytmp, k[2], user_data)) {
+		return invalid_step;
+	}
 	
 	// K4
 	for (size_t i = 0; i < N; i++) {
@@ -357,7 +375,9 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 			- (OdeReal)3.7333333333333333333333333333333  * k[1][i]
 			+ (OdeReal)3.5555555555555555555555555555556  * k[2][i]);
 	}
-	derivative(t + (OdeReal)0.8 * cur_dt, ytmp, k[3], user_data);
+	if (!derivative(t + (OdeReal)0.8 * cur_dt, ytmp, k[3], user_data)) {
+		return invalid_step;
+	}
 
 	// K5
 	for (size_t i = 0; i < N; i++) {
@@ -367,7 +387,9 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 			+ (OdeReal)9.8228928516994360615759792714525  * k[2][i]
 			- (OdeReal)0.29080932784636488340192043895748 * k[3][i]);
 	}
-	derivative(t + (OdeReal)0.88888888888888888888888888888889 * cur_dt, ytmp, k[4], user_data);
+	if (!derivative(t + (OdeReal)0.88888888888888888888888888888889 * cur_dt, ytmp, k[4], user_data)) {
+		return invalid_step;
+	}
 
 	// K6
 	for (size_t i = 0; i < N; i++) {
@@ -378,7 +400,9 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 			+ (OdeReal)0.27840909090909090909090909090909 * k[3][i]
 			- (OdeReal)0.27353130360205831903945111492281 * k[4][i]);
 	}
-	derivative(t + cur_dt, ytmp, k[5], user_data);
+	if (!derivative(t + cur_dt, ytmp, k[5], user_data)) {
+		return invalid_step;
+	}
 
 	// 5th order accurate
 	for (size_t i = 0; i < N; i++) {
@@ -391,7 +415,9 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 	}
 
 	// K7
-	derivative(t + cur_dt, ytmp, k[6], user_data);
+	if (!derivative(t + cur_dt, ytmp, k[6], user_data)) {
+		return invalid_step;
+	}
 	
 	// Error
 	OdeReal maxdiff = -std::numeric_limits<OdeReal>::infinity();
@@ -407,6 +433,9 @@ OdeReal ODESolverDP5::ApplyRK(OdeReal t, OdeReal cur_dt)
 		
 		OdeReal D = absolute_tolerance(i) + relative_tolerance * fabs(ytmp[i] + k[6][i] * cur_dt);
 		OdeReal diff = error / D;
+		if (std::isnan(diff)) {
+			return invalid_step;
+		}
 		maxdiff = (std::max)(maxdiff, diff);
 	}
 
